@@ -70,101 +70,10 @@
   }
 
   /* LAYOUT */
-  /* TAB BAR */
-  .tab-bar {
-    display: flex;
-    align-items: stretch;
-    height: 36px;
-    background: var(--bg2);
-    border-bottom: 1px solid var(--border);
-    padding: 0 20px;
-    flex-shrink: 0;
-  }
-  .tab-btn {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 10px;
-    font-weight: 500;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--text3);
-    background: none;
-    border: none;
-    border-bottom: 2px solid transparent;
-    padding: 0 16px;
-    margin-bottom: -1px;
-    cursor: pointer;
-    transition: color 0.15s, border-color 0.15s;
-  }
-  .tab-btn:hover { color: var(--text2); }
-  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
-
-  .tab-page {
-    height: calc(100vh - 85px);
-    overflow: hidden;
-  }
-
   .app {
     display: grid;
     grid-template-columns: 280px 1fr;
-    height: 100%;
-  }
-
-  /* MARKET OVERVIEW PAGE */
-  .market-page {
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-  .market-header-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 14px 24px;
-    border-bottom: 1px solid var(--border);
-    background: var(--bg2);
-    flex-shrink: 0;
-  }
-  .market-title {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.1em;
-    color: var(--text);
-    margin-bottom: 2px;
-  }
-  .market-subtitle {
-    font-size: 11px;
-    color: var(--text3);
-  }
-  .market-screen-btn {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    background: var(--accent);
-    color: #fff;
-    border: none;
-    border-radius: 3px;
-    padding: 9px 18px;
-    cursor: pointer;
-    transition: opacity 0.15s;
-  }
-  .market-screen-btn:hover { opacity: 0.85; }
-  .market-note {
-    font-size: 11px;
-    color: var(--text3);
-    margin-top: 5px;
-    text-align: right;
-  }
-  .market-content {
-    flex: 1;
-    overflow-y: auto;
-    display: flex;
-    align-items: flex-start;
-    justify-content: center;
-    padding: 32px 24px;
-    background: var(--bg);
+    height: calc(100vh - 49px);
   }
 
   /* SIDEBAR */
@@ -975,14 +884,6 @@
   </div>
 </div>
 
-<!-- TAB BAR -->
-<div class="tab-bar">
-  <button class="tab-btn active" id="tab-btn-screener" onclick="switchTab('screener')">Screener</button>
-  <button class="tab-btn" id="tab-btn-market" onclick="switchTab('market')">Market Overview</button>
-</div>
-
-<!-- SCREENER TAB -->
-<div id="tab-screener" class="tab-page">
 <div class="app">
 
   <!-- SIDEBAR -->
@@ -1100,29 +1001,6 @@
   </div>
 
 </div>
-</div><!-- /tab-screener -->
-
-<!-- MARKET OVERVIEW TAB -->
-<div id="tab-market" class="tab-page" style="display:none">
-  <div class="market-page">
-
-    <div class="market-header-bar">
-      <div>
-        <div class="market-title">MARKET OVERVIEW</div>
-        <div class="market-subtitle">Live quotes — Indices, Futures, Bonds, Forex</div>
-      </div>
-      <div style="text-align:right">
-        <button class="market-screen-btn" onclick="loadBuiltinWatchlist()">▶ SCREEN THIS WATCHLIST</button>
-        <div class="market-note">Loads 20 global instruments into the screener</div>
-      </div>
-    </div>
-
-    <div class="market-content">
-      <div id="market-widget-container" class="tradingview-widget-container"></div>
-    </div>
-
-  </div>
-</div><!-- /tab-market -->
 
 <!-- MODAL -->
 <div class="modal-overlay" id="modal" onclick="if(event.target===this)closeModal()">
@@ -1420,299 +1298,34 @@ function scoreStock(stockData, setupId) {
   return { score:finalScore, criteriaScores, tfNorm, tags };
 }
 
-// Compute score 0–1 for a single criterion using real OHLCV bar data.
-// Each compute* helper returns 1.0 (full pass), 0.5 (partial), or 0.0 (fail).
-function computeCriterion(criterion, stock) {
-  switch (criterion.id) {
-    case 'yr_return':     return stock.yr_return ?? 0.0;
-    case 'm_trend':       return computeMonthlyTrend(stock.monthly);
-    case 'm_momentum':    return computeMonthlyMomentum(stock.monthly);
-    case 'm_flag':        return computeMonthlyFlag(stock.monthly);
-    case 'm_ema200':      return computeMonthlyEMA200(stock.monthly);
-    case 'm_close_top':   return computePriorCloseTop(stock.monthly);
-    case 'w_flag':        return computeWeeklyFlag(stock.weekly);
-    case 'w_coil':        return computeWeeklyCoil(stock.weekly);
-    case 'w_ema':         return computeWeeklyEMA(stock.weekly);
-    case 'w_vol_decline': return computeWeeklyVolDecline(stock.weekly);
-    case 'w_close_top':   return computePriorCloseTop(stock.weekly);
-    case 'd_coil':        return computeDailyCoil(stock.daily);
-    case 'd_reset':       return computeDailyReset(stock.daily);
-    case 'd_pwh':         return computePriorWeekHigh(stock.daily);
-    case 'd_wtd_top':     return computeWTDTop(stock.daily);
-    default:              return 0.5;
-  }
-}
-
-// ---- Indicator helpers ----
-
-// Bollinger Bands — returns { upper, middle, lower, width } where width = (upper-lower)/middle
-function calcBB(closes, period, mult) {
-  period = period || 20; mult = mult || 2;
-  if (!closes || closes.length < period) return null;
-  const slice = closes.slice(-period);
-  const sma = slice.reduce(function(a, b) { return a + b; }, 0) / period;
-  const variance = slice.reduce(function(a, b) { return a + (b - sma) * (b - sma); }, 0) / period;
-  const std = Math.sqrt(variance);
-  return { upper: sma + mult * std, middle: sma, lower: sma - mult * std,
-    width: sma > 0 ? (mult * 2 * std) / sma : 0 };
-}
-
-// Average True Range over `period` bars
-function calcATR(bars, period) {
-  period = period || 14;
-  if (!bars || bars.length < period + 1) return 0;
-  const trs = [];
-  for (let i = 1; i < bars.length; i++) {
-    const b = bars[i], prevC = bars[i - 1].c;
-    if (b.h == null || b.l == null) continue;
-    trs.push(Math.max(b.h - b.l, Math.abs(b.h - prevC), Math.abs(b.l - prevC)));
-  }
-  if (trs.length < period) return 0;
-  return trs.slice(-period).reduce(function(a, b) { return a + b; }, 0) / period;
-}
-
-// ---- Monthly criteria ----
-
-// m_trend: current close > EMA50 on monthly chart
-function computeMonthlyTrend(bars) {
-  if (!bars || bars.length < 50) return 0.5;
-  const closes = bars.map(function(b) { return b.c; });
-  const ema50 = calcEMA(closes, 50);
-  return ema50 > 0 && closes[closes.length - 1] > ema50 ? 1.0 : 0.0;
-}
-
-// m_momentum: price in upper half of BB(20), and BB is wider than it was 3 months ago
-function computeMonthlyMomentum(bars) {
-  if (!bars || bars.length < 22) return 0.5;
-  const closes = bars.map(function(b) { return b.c; });
-  const bb = calcBB(closes, 20);
-  if (!bb) return 0.5;
-  const lastClose = closes[closes.length - 1];
-  const isUpperHalf = lastClose > (bb.upper + bb.lower) / 2;
-  const prevBB = calcBB(closes.slice(0, closes.length - 3), 20);
-  const isExpanding = prevBB ? bb.width > prevBB.width : false;
-  if (isUpperHalf && isExpanding) return 1.0;
-  if (isUpperHalf || isExpanding) return 0.5;
-  return 0.0;
-}
-
-// m_flag: 6+ consecutive months with tight BB (<15% width) and price near resistance
-function computeMonthlyFlag(bars) {
-  if (!bars || bars.length < 21) return 0.5;
-  const closes = bars.map(function(b) { return b.c; });
-  const lastClose = closes[closes.length - 1];
-  let consecutiveTight = 0;
-  for (let i = bars.length - 1; i >= 20; i--) {
-    const bb = calcBB(closes.slice(0, i + 1), 20);
-    if (!bb || bb.width >= 0.15) break;
-    if (++consecutiveTight >= 6) break;
-  }
-  const high12 = Math.max(...bars.slice(-12).map(function(b) { return b.h != null ? b.h : b.c; }));
-  const nearResistance = high12 > 0 && lastClose >= high12 * 0.85;
-  if (consecutiveTight >= 6 && nearResistance) return 1.0;
-  if (consecutiveTight >= 3 || nearResistance) return 0.5;
-  return 0.0;
-}
-
-// m_ema200: price above (or within 3% of) the EMA200 on monthly chart
-function computeMonthlyEMA200(bars) {
-  if (!bars || bars.length < 20) return 0.5;
-  const closes = bars.map(function(b) { return b.c; });
-  const lastClose = closes[closes.length - 1];
-  const ema = calcEMA(closes, Math.min(200, closes.length));
-  if (!ema) return 0.5;
-  const pctAbove = (lastClose - ema) / ema;
-  if (pctAbove >= 0) return 1.0;
-  if (pctAbove >= -0.03) return 0.5;
-  return 0.0;
-}
-
-// Shared: prior COMPLETED bar closed in top 25% of its H–L range.
-// Used for m_close_top (monthly) and w_close_top (weekly).
+// Compute a score 0–1 for a single criterion against OHLCV data
+// In production: replace with real Yahoo Finance OHLCV calculations
 //
-// The tricky part: Yahoo Finance always includes the current IN-PROGRESS period
-// as the last bar (e.g. this week so far, or this month so far). But on Friday
-// evening / weekends / the first day of a new month, Yahoo may not yet have
-// created a new bar, so bars[-1] IS the just-completed period. We detect which
-// case we're in by comparing the last bar's period start to "now".
-function computePriorCloseTop(bars) {
-  if (!bars || bars.length < 2) return 0.5;
+// m_close_top / w_close_top:
+//   score = (close-low)/(high-low) >= 0.75 ? 1.0 : >= 0.50 ? 0.5 : 0.0
+//   Data: monthly quotes[-2], weekly quotes[-2]
+//
+// d_pwh (price above prior week's high):
+//   score = close > priorWeekHigh ? 1.0 : 0.0
+//   Data: weekly quotes[-2].high
+//
+// d_wtd_top (close in top 25% of week-to-date range):
+//   wtdHigh = max(high[Mon..today]), wtdLow = min(low[Mon..today])
+//   score = (close-wtdLow)/(wtdHigh-wtdLow) >= 0.75 ? 1.0 : >= 0.50 ? 0.5 : 0.0
+//   Data: daily quotes from most recent Monday to today
+//
+// yr_return (positive 1-year return):
+//   score = close > close[52 weeks ago] ? 1.0 : 0.0
+//   Data: /v8/finance/chart/{T}?range=2y&interval=1wk → quotes[-53].close vs quotes[-1].close
+function computeCriterion(criterion, stock) {
+  // yr_return is binary — use the pre-fetched value directly
+  if (criterion.id === 'yr_return') return stock.yr_return ?? pseudoRand(hashStr(stock.ticker+'yr')) > 0.45 ? 1.0 : 0.0;
 
-  const now          = new Date();
-  const lastBar      = bars[bars.length - 1];
-  const prevBar      = bars[bars.length - 2];
-  const lastBarDate  = new Date(lastBar.t);
-
-  // Guess the interval from the gap between the last two bars (in days).
-  const gapDays = (lastBar.t - prevBar.t) / 86400000;
-
-  let bar;
-  if (gapDays < 10) {
-    // ---- WEEKLY ----
-    // Find the Monday of the last bar's week and the Monday of the current week.
-    const lastDow  = lastBarDate.getUTCDay();
-    const lastMon  = new Date(lastBarDate);
-    lastMon.setUTCDate(lastBarDate.getUTCDate() - (lastDow === 0 ? 6 : lastDow - 1));
-    lastMon.setUTCHours(0, 0, 0, 0);
-
-    const nowDow   = now.getUTCDay();
-    const nowMon   = new Date(now);
-    nowMon.setUTCDate(now.getUTCDate() - (nowDow === 0 ? 6 : nowDow - 1));
-    nowMon.setUTCHours(0, 0, 0, 0);
-
-    // If the last bar started THIS week it is still in-progress → prior = prevBar.
-    // Otherwise the last bar IS the most recently completed week → use it directly.
-    bar = lastMon.getTime() === nowMon.getTime() ? prevBar : lastBar;
-  } else {
-    // ---- MONTHLY ----
-    // Compare year+month of the last bar to today's year+month.
-    const lastYM = lastBarDate.getUTCFullYear() * 100 + lastBarDate.getUTCMonth();
-    const nowYM  = now.getUTCFullYear() * 100 + now.getUTCMonth();
-
-    // If the last bar is this month it is still in-progress → prior = prevBar.
-    bar = lastYM === nowYM ? prevBar : lastBar;
-  }
-
-  if (!bar || bar.h == null || bar.l == null) return 0.5;
-  const range = bar.h - bar.l;
-  if (range <= 0) return 0.5;
-  const pos = (bar.c - bar.l) / range;
-  if (pos >= 0.75) return 1.0;
-  if (pos >= 0.50) return 0.5;
-  return 0.0;
-}
-
-// ---- Weekly criteria ----
-
-// w_flag: BB(20) width < 8% of midline AND price in upper half of the bands
-function computeWeeklyFlag(bars) {
-  if (!bars || bars.length < 21) return 0.5;
-  const closes = bars.map(function(b) { return b.c; });
-  const bb = calcBB(closes, 20);
-  if (!bb) return 0.5;
-  const lastClose = closes[closes.length - 1];
-  const isTight = bb.width < 0.08;
-  const nearUpper = lastClose > bb.middle + (bb.upper - bb.middle) * 0.5;
-  if (isTight && nearUpper) return 1.0;
-  if (isTight || nearUpper) return 0.5;
-  return 0.0;
-}
-
-// w_coil: 4+ consecutive weeks with BB(20) width < 6% of midline
-function computeWeeklyCoil(bars) {
-  if (!bars || bars.length < 21) return 0.5;
-  const closes = bars.map(function(b) { return b.c; });
-  let count = 0;
-  for (let i = bars.length - 1; i >= 20; i--) {
-    const bb = calcBB(closes.slice(0, i + 1), 20);
-    if (!bb || bb.width >= 0.06) break;
-    if (++count >= 4) break;
-  }
-  if (count >= 4) return 1.0;
-  if (count >= 2) return 0.5;
-  return 0.0;
-}
-
-// w_ema: EMA10 > EMA20 > EMA50 — all weekly moving averages stacked bullish
-function computeWeeklyEMA(bars) {
-  if (!bars || bars.length < 50) return 0.5;
-  const closes = bars.map(function(b) { return b.c; });
-  const ema10 = calcEMA(closes, 10);
-  const ema20 = calcEMA(closes, 20);
-  const ema50 = calcEMA(closes, 50);
-  if (ema10 > ema20 && ema20 > ema50) return 1.0;
-  if (ema10 > ema20 || ema20 > ema50) return 0.5;
-  return 0.0;
-}
-
-// w_vol_decline: weekly volume has fallen for 4+ consecutive weeks
-function computeWeeklyVolDecline(bars) {
-  if (!bars || bars.length < 5) return 0.5;
-  const vols = bars.map(function(b) { return b.v; }).filter(function(v) { return v > 0; });
-  let count = 0;
-  for (let i = vols.length - 1; i >= 1; i--) {
-    if (vols[i] < vols[i - 1]) { count++; } else { break; }
-    if (count >= 4) break;
-  }
-  if (count >= 4) return 1.0;
-  if (count >= 2) return 0.5;
-  return 0.0;
-}
-
-// ---- Daily criteria ----
-
-// d_coil: ATR% < 3%, BB contracting, and price within 3% of EMA10
-function computeDailyCoil(bars) {
-  if (!bars || bars.length < 20) return 0.5;
-  const closes = bars.map(function(b) { return b.c; });
-  const lastClose = closes[closes.length - 1];
-  const atr = calcATR(bars, 14);
-  const lowATR = lastClose > 0 && atr / lastClose < 0.03;
-  const ema10 = calcEMA(closes, 10);
-  const nearEMA10 = ema10 > 0 && Math.abs(lastClose - ema10) / ema10 < 0.03;
-  const bbNow  = calcBB(closes, 20);
-  const bbPrev = calcBB(closes.slice(0, closes.length - 5), 20);
-  const bbContracting = !!(bbNow && bbPrev && bbNow.width < bbPrev.width);
-  const hits = [lowATR, nearEMA10, bbContracting].filter(Boolean).length;
-  if (hits === 3) return 1.0;
-  if (hits >= 2) return 0.5;
-  return 0.0;
-}
-
-// d_reset: price is more than 20% below its 60-day high (mean-reversion pullback)
-function computeDailyReset(bars) {
-  if (!bars || bars.length < 10) return 0.5;
-  const closes = bars.map(function(b) { return b.c; });
-  const lastClose = closes[closes.length - 1];
-  const high60 = Math.max(...closes.slice(-60));
-  if (high60 <= 0) return 0.5;
-  const pctFromHigh = (high60 - lastClose) / high60;
-  if (pctFromHigh >= 0.20) return 1.0;
-  if (pctFromHigh >= 0.10) return 0.5;
-  return 0.0;
-}
-
-// d_pwh: today's close is above the highest high of the prior completed week
-function computePriorWeekHigh(bars) {
-  if (!bars || bars.length < 10) return 0.5;
-  const last = bars[bars.length - 1];
-  const lastDate = new Date(last.t);
-  const dow = lastDate.getUTCDay();
-  const daysBack = dow === 0 ? 6 : dow - 1;
-  const currentMonday = new Date(lastDate);
-  currentMonday.setUTCDate(lastDate.getUTCDate() - daysBack);
-  currentMonday.setUTCHours(0, 0, 0, 0);
-  const priorMonday = new Date(currentMonday);
-  priorMonday.setUTCDate(currentMonday.getUTCDate() - 7);
-  const priorWeekBars = bars.filter(function(b) {
-    const t = new Date(b.t);
-    return t >= priorMonday && t < currentMonday;
-  });
-  if (!priorWeekBars.length) return 0.5;
-  const priorHigh = Math.max(...priorWeekBars.map(function(b) { return b.h != null ? b.h : b.c; }));
-  return last.c > priorHigh ? 1.0 : 0.0;
-}
-
-// d_wtd_top: today's close is in the top 25% of the week-to-date high–low range
-function computeWTDTop(bars) {
-  if (!bars || bars.length < 2) return 0.5;
-  const last = bars[bars.length - 1];
-  const lastDate = new Date(last.t);
-  const dow = lastDate.getUTCDay();
-  const daysBack = dow === 0 ? 6 : dow - 1;
-  const monday = new Date(lastDate);
-  monday.setUTCDate(lastDate.getUTCDate() - daysBack);
-  monday.setUTCHours(0, 0, 0, 0);
-  const wtd = bars.filter(function(b) { return new Date(b.t) >= monday; });
-  if (!wtd.length) return 0.5;
-  const hi = Math.max(...wtd.map(function(b) { return b.h != null ? b.h : b.c; }));
-  const lo = Math.min(...wtd.map(function(b) { return b.l != null ? b.l : b.c; }));
-  const range = hi - lo;
-  if (range <= 0) return 0.5;
-  const pos = (last.c - lo) / range;
-  if (pos >= 0.75) return 1.0;
-  if (pos >= 0.50) return 0.5;
-  return 0.0;
+  const seed   = hashStr(stock.ticker + criterion.id);
+  const base   = pseudoRand(seed);
+  const biased = Math.min(1, Math.max(0, base * 0.4 + stock.quality * 0.6));
+  const noise  = (pseudoRand(seed+7) - 0.5) * 0.25;
+  return Math.min(1, Math.max(0, biased + noise));
 }
 
 // ============================================================
@@ -1810,112 +1423,77 @@ async function runScan() {
 // ============================================================
 //  FETCH STOCK DATA  (real — via /api/yf proxy → Yahoo Finance)
 // ============================================================
-// Fetches daily (1y), weekly (2y), and monthly (max) data in parallel.
-// All three are passed into the scoring engine so every criterion uses
-// real OHLCV bars. Falls back to mock data only if daily fetch fails.
-
-// Fetch one Yahoo Finance endpoint and return parsed bars
-async function fetchYF(ticker, range, interval) {
-  const res = await fetch(`/api/yf?ticker=${encodeURIComponent(ticker)}&range=${range}&interval=${interval}`);
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const json = await res.json();
-  const result = json?.chart?.result?.[0];
-  if (!result) throw new Error('No chart data');
-  return parseYFResult(result);
-}
-
-// Convert Yahoo Finance chart result into an array of { t, o, h, l, c, v } bars
-function parseYFResult(result) {
-  const meta = result.meta;
-  const ts   = result.timestamp || [];
-  const q    = result.indicators.quote[0];
-  const bars = [];
-  for (let i = 0; i < ts.length; i++) {
-    if (q.close[i] == null) continue;
-    bars.push({
-      t: ts[i] * 1000,           // convert Unix seconds → milliseconds
-      o: q.open   ? q.open[i]   : null,
-      h: q.high   ? q.high[i]   : null,
-      l: q.low    ? q.low[i]    : null,
-      c: q.close[i],
-      v: q.volume ? q.volume[i] : 0,
-    });
-  }
-  return { meta, bars };
-}
+// server.js proxies: /api/yf?ticker=X&range=1y&interval=1d
+//   → https://query1.finance.yahoo.com/v8/finance/chart/X?range=1y&interval=1d
+// Falls back to mock data if the proxy request fails.
 
 async function fetchStockData(ticker) {
-  let daily = null, weekly = null, monthly = null;
-
-  // Fetch all three timeframes in parallel
   try {
-    const [d, w, m] = await Promise.all([
-      fetchYF(ticker, '1y',  '1d'),
-      fetchYF(ticker, '2y',  '1wk'),
-      fetchYF(ticker, 'max', '1mo'),
-    ]);
-    daily = d; weekly = w; monthly = m;
-  } catch (err) {
-    // If the parallel batch fails, try each individually so partial data is usable
-    console.warn(`[${ticker}] Parallel fetch error (${err.message}), retrying individually`);
-    try { daily   = await fetchYF(ticker, '1y',  '1d');  } catch (e) { console.warn(`[${ticker}] daily failed: ${e.message}`); }
-    try { weekly  = await fetchYF(ticker, '2y',  '1wk'); } catch (e) { console.warn(`[${ticker}] weekly failed: ${e.message}`); }
-    try { monthly = await fetchYF(ticker, 'max', '1mo'); } catch (e) { console.warn(`[${ticker}] monthly failed: ${e.message}`); }
-  }
+    const res = await fetch(`/api/yf?ticker=${encodeURIComponent(ticker)}&range=1y&interval=1d`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const json = await res.json();
 
-  // If daily data is unavailable fall back to mock so the scan can continue
-  if (!daily) {
-    console.warn(`[${ticker}] No daily data — using mock fallback`);
+    const result = json?.chart?.result?.[0];
+    if (!result) throw new Error('No chart data returned');
+
+    const meta   = result.meta;
+    const quotes = result.indicators.quote[0];
+
+    // Filter out null values (market holidays / missing bars)
+    const closes  = quotes.close.filter(v => v != null);
+    const volumes = quotes.volume ? quotes.volume.filter(v => v != null) : [];
+
+    const currentPrice = meta.regularMarketPrice ?? closes.at(-1);
+    const prevClose    = closes.at(-2) ?? closes.at(-1);
+    const change       = prevClose
+      ? Math.round(((currentPrice - prevClose) / prevClose) * 10000) / 100
+      : 0;
+
+    // --- REAL EMA50 CALCULATION ---
+    // This is the hard filter: price must be above the 50-day EMA to pass
+    const ema50      = calcEMA(closes, 50);
+    const above_ema50 = ema50 > 0 && currentPrice > ema50;
+
+    // 1-year return: compare current price to the oldest close in the 1y window
+    const yr_return = closes.length >= 2 && closes[0] > 0 && currentPrice > closes[0]
+      ? 1.0 : 0.0;
+
+    // Volume ratio vs 20-day average
+    const avgVol20 = volumes.length >= 20
+      ? volumes.slice(-21, -1).reduce((a, b) => a + b, 0) / 20
+      : (volumes.at(-1) ?? 0);
+    const vol_ratio = avgVol20 > 0
+      ? Math.round((volumes.at(-1) / avgVol20) * 100) / 100
+      : 1.0;
+
+    // quality: how far price sits above the EMA50 (used to bias mock criterion scores)
+    const quality = ema50 > 0
+      ? Math.min(1, Math.max(0, (currentPrice / ema50 - 0.85) / 0.30))
+      : 0.5;
+
+    return {
+      name:         meta.longName || meta.shortName || ticker,
+      price:        currentPrice,
+      change,
+      vol_ratio,
+      quality,
+      above_ema50,
+      yr_return,
+    };
+
+  } catch (err) {
+    console.warn(`[${ticker}] Yahoo Finance fetch failed (${err.message}) — using mock fallback`);
     const seed = hashStr(ticker);
     return {
-      name:        ticker,
-      price:       Math.round(pseudoRand(seed) * 200 + 5),
-      change:      Math.round((pseudoRand(seed+1)*12-4)*100)/100,
-      vol_ratio:   Math.round(pseudoRand(seed+2)*2.5*100)/100,
-      above_ema50: pseudoRand(seed+4) > 0.35,
-      yr_return:   pseudoRand(seed+5) > 0.40 ? 1.0 : 0.0,
-      daily: null, weekly: null, monthly: null,
+      name:         ticker,
+      price:        Math.round(pseudoRand(seed) * 200 + 5),
+      change:       Math.round((pseudoRand(seed+1)*12-4)*100)/100,
+      vol_ratio:    Math.round(pseudoRand(seed+2)*2.5*100)/100,
+      quality:      Math.round(pseudoRand(seed+3)*0.6*100)/100 + 0.3,
+      above_ema50:  pseudoRand(seed+4) > 0.35,
+      yr_return:    pseudoRand(seed+5) > 0.40 ? 1.0 : 0.0,
     };
   }
-
-  const dailyBars = daily.bars;
-  const meta      = daily.meta;
-  const closes    = dailyBars.map(function(b) { return b.c; });
-  const volumes   = dailyBars.map(function(b) { return b.v; });
-
-  const currentPrice = meta.regularMarketPrice ?? closes[closes.length - 1];
-  const prevClose    = closes[closes.length - 2] ?? closes[closes.length - 1];
-  const change       = prevClose
-    ? Math.round(((currentPrice - prevClose) / prevClose) * 10000) / 100
-    : 0;
-
-  // Hard filter: price must be above the 50-day EMA
-  const ema50       = calcEMA(closes, 50);
-  const above_ema50 = ema50 > 0 && currentPrice > ema50;
-
-  // 1-year return: compare current price to the oldest close in the 1y daily window
-  const yr_return = closes.length >= 2 && closes[0] > 0 && currentPrice > closes[0]
-    ? 1.0 : 0.0;
-
-  // Volume ratio vs 20-day average
-  const avgVol20  = volumes.length >= 20
-    ? volumes.slice(-21, -1).reduce(function(a, b) { return a + b; }, 0) / 20
-    : (volumes[volumes.length - 1] ?? 0);
-  const vol_ratio = avgVol20 > 0
-    ? Math.round((volumes[volumes.length - 1] / avgVol20) * 100) / 100
-    : 1.0;
-
-  return {
-    name:         meta.longName || meta.shortName || ticker,
-    price:        currentPrice,
-    change,
-    vol_ratio,
-    above_ema50,
-    yr_return,
-    daily:        dailyBars,
-    weekly:       weekly  ? weekly.bars  : null,
-    monthly:      monthly ? monthly.bars : null,
-  };
 }
 
 // EMA formula: seed with SMA of first `period` closes, then apply
@@ -2225,129 +1803,6 @@ function openModal(ticker) {
 }
 
 function closeModal() { document.getElementById('modal').classList.remove('open'); }
-
-// ============================================================
-//  TAB SWITCHING
-// ============================================================
-let marketWidgetLoaded = false;
-
-function switchTab(tab) {
-  document.getElementById('tab-screener').style.display = tab === 'screener' ? '' : 'none';
-  document.getElementById('tab-market').style.display   = tab === 'market'   ? '' : 'none';
-  document.getElementById('tab-btn-screener').classList.toggle('active', tab === 'screener');
-  document.getElementById('tab-btn-market').classList.toggle('active',   tab === 'market');
-  if (tab === 'market' && !marketWidgetLoaded) {
-    injectMarketWidget();
-    marketWidgetLoaded = true;
-  }
-}
-
-// Inject the TradingView Market Quotes widget on first open (lazy-loaded to avoid
-// VS Code treating the JSON config block as JavaScript inside a <script> tag).
-function injectMarketWidget() {
-  const container = document.getElementById('market-widget-container');
-  container.innerHTML =
-    '<div class="tradingview-widget-container__widget"></div>' +
-    '<div style="font-size:11px;color:#888;margin-top:6px">' +
-      '<a href="https://www.tradingview.com/markets/" rel="noopener nofollow" target="_blank" style="color:#2962ff">Market summary</a>' +
-      ' by TradingView' +
-    '</div>';
-  const script = document.createElement('script');
-  script.type  = 'text/javascript';
-  script.src   = 'https://s3.tradingview.com/external-embedding/embed-widget-market-quotes.js';
-  script.async = true;
-  script.innerHTML = JSON.stringify({
-    colorTheme:      "light",
-    locale:          "en",
-    largeChartUrl:   "",
-    isTransparent:   false,
-    showSymbolLogo:  true,
-    backgroundColor: "#ffffff",
-    support_host:    "https://www.tradingview.com",
-    width:           550,
-    height:          600,
-    symbolsGroups: [
-      {
-        name: "Indices",
-        symbols: [
-          { name: "FOREXCOM:SPXUSD", displayName: "S&P 500 Index" },
-          { name: "FOREXCOM:NSXUSD", displayName: "US 100 Cash CFD" },
-          { name: "FOREXCOM:DJI",    displayName: "Dow Jones Industrial Average Index" },
-          { name: "INDEX:NKY",       displayName: "Japan 225" },
-          { name: "INDEX:DEU40",     displayName: "DAX Index" },
-          { name: "FOREXCOM:UKXGBP", displayName: "FTSE 100 Index" },
-        ],
-      },
-      {
-        name: "Futures",
-        symbols: [
-          { name: "BMFBOVESPA:ISP1!", displayName: "S&P 500 Futures" },
-          { name: "BMFBOVESPA:EUR1!", displayName: "Euro Futures" },
-          { name: "CMCMARKETS:GOLD",  displayName: "Gold" },
-          { name: "PYTH:WTI3!",      displayName: "WTI Crude Oil" },
-          { name: "BMFBOVESPA:CCM1!", displayName: "Corn" },
-        ],
-      },
-      {
-        name: "Bonds",
-        symbols: [
-          { name: "EUREX:FGBL1!", displayName: "Euro Bund" },
-          { name: "EUREX:FBTP1!", displayName: "Euro BTP" },
-          { name: "EUREX:FGBM1!", displayName: "Euro BOBL" },
-        ],
-      },
-      {
-        name: "Forex",
-        symbols: [
-          { name: "FX:EURUSD", displayName: "EUR to USD" },
-          { name: "FX:GBPUSD", displayName: "GBP to USD" },
-          { name: "FX:USDJPY", displayName: "USD to JPY" },
-          { name: "FX:USDCHF", displayName: "USD to CHF" },
-          { name: "FX:AUDUSD", displayName: "AUD to USD" },
-          { name: "FX:USDCAD", displayName: "USD to CAD" },
-        ],
-      },
-    ],
-  });
-  container.appendChild(script);
-}
-
-// ============================================================
-//  BUILT-IN WATCHLIST (Market Overview → Screener)
-// ============================================================
-// Yahoo Finance-compatible symbols for the same instruments shown in the widget.
-// TradingView uses its own symbol format (FOREXCOM:SPXUSD) which differs from
-// Yahoo Finance's format (^GSPC). These are the closest equivalents.
-const BUILTIN_WATCHLIST = [
-  { ticker: '^GSPC',    exchange: '—', name: 'S&P 500 Index' },
-  { ticker: '^NDX',     exchange: '—', name: 'Nasdaq 100' },
-  { ticker: '^DJI',     exchange: '—', name: 'Dow Jones' },
-  { ticker: '^N225',    exchange: '—', name: 'Nikkei 225' },
-  { ticker: '^GDAXI',   exchange: '—', name: 'DAX Index' },
-  { ticker: '^FTSE',    exchange: '—', name: 'FTSE 100' },
-  { ticker: 'ES=F',     exchange: '—', name: 'S&P 500 Futures' },
-  { ticker: '6E=F',     exchange: '—', name: 'Euro Futures' },
-  { ticker: 'GC=F',     exchange: '—', name: 'Gold' },
-  { ticker: 'CL=F',     exchange: '—', name: 'WTI Crude Oil' },
-  { ticker: 'ZC=F',     exchange: '—', name: 'Corn' },
-  { ticker: '^TNX',     exchange: '—', name: '10Y Treasury Yield' },
-  { ticker: '^TYX',     exchange: '—', name: '30Y Treasury Yield' },
-  { ticker: '^FVX',     exchange: '—', name: '5Y Treasury Yield' },
-  { ticker: 'EURUSD=X', exchange: '—', name: 'EUR/USD' },
-  { ticker: 'GBPUSD=X', exchange: '—', name: 'GBP/USD' },
-  { ticker: 'USDJPY=X', exchange: '—', name: 'USD/JPY' },
-  { ticker: 'USDCHF=X', exchange: '—', name: 'USD/CHF' },
-  { ticker: 'AUDUSD=X', exchange: '—', name: 'AUD/USD' },
-  { ticker: 'USDCAD=X', exchange: '—', name: 'USD/CAD' },
-];
-
-function loadBuiltinWatchlist() {
-  tickers = BUILTIN_WATCHLIST.map(function(t) {
-    return { ticker: t.ticker, exchange: t.exchange };
-  });
-  updateTickerDisplay();
-  switchTab('screener');
-}
 
 // ============================================================
 //  UTILS
