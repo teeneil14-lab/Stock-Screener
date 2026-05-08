@@ -2551,6 +2551,21 @@ async function runScan() {
       const dLabel = earningsDays < 1 ? 'today' : `in ${Math.ceil(earningsDays)}d`;
       filteredOut.push({ ...t, ...stockData, reason: `Earnings ${dLabel}` });
       if (statusEl) { statusEl.textContent='⚡'; statusEl.className='t-status'; statusEl.style.cssText='font-size:9px;padding:1px 5px;color:var(--amber);border:1px solid rgba(160,92,0,0.3);background:var(--amber-dim);border-radius:2px'; }
+    } else if (marketMode !== 'PH' && hadWeeklyCrash) {
+      filteredOut.push({ ...t, ...stockData, reason: 'Weekly crash (−20%+)' });
+      if (statusEl) { statusEl.textContent='✗'; statusEl.className='t-status'; statusEl.style.cssText='font-size:9px;padding:1px 5px;color:var(--red);border:1px solid rgba(200,41,58,0.3);background:var(--red-dim);border-radius:2px'; }
+    } else if (marketMode !== 'PH' && aboveUpperBB) {
+      filteredOut.push({ ...t, ...stockData, reason: 'Extended above upper BB' });
+      if (statusEl) { statusEl.textContent='✗'; statusEl.className='t-status'; statusEl.style.cssText='font-size:9px;padding:1px 5px;color:var(--red);border:1px solid rgba(200,41,58,0.3);background:var(--red-dim);border-radius:2px'; }
+    } else if (marketMode !== 'PH' && touchingLowerBB) {
+      filteredOut.push({ ...t, ...stockData, reason: 'Touching lower BB' });
+      if (statusEl) { statusEl.textContent='✗'; statusEl.className='t-status'; statusEl.style.cssText='font-size:9px;padding:1px 5px;color:var(--red);border:1px solid rgba(200,41,58,0.3);background:var(--red-dim);border-radius:2px'; }
+    } else if (marketMode !== 'PH' && bbWidest6m) {
+      filteredOut.push({ ...t, ...stockData, reason: 'BB widest in 6 months' });
+      if (statusEl) { statusEl.textContent='✗'; statusEl.className='t-status'; statusEl.style.cssText='font-size:9px;padding:1px 5px;color:var(--red);border:1px solid rgba(200,41,58,0.3);background:var(--red-dim);border-radius:2px'; }
+    } else if (marketMode !== 'PH' && belowBBMidline) {
+      filteredOut.push({ ...t, ...stockData, reason: 'Close below BB midline' });
+      if (statusEl) { statusEl.textContent='✗'; statusEl.className='t-status'; statusEl.style.cssText='font-size:9px;padding:1px 5px;color:var(--red);border:1px solid rgba(200,41,58,0.3);background:var(--red-dim);border-radius:2px'; }
     } else if (marketMode === 'PH' && (stockData.avg_value_traded || 0) < 100000) {
       const v = stockData.avg_value_traded || 0;
       const vLabel = v >= 1000 ? `PHP ${Math.round(v/1000)}K` : `PHP ${Math.round(v)}`;
@@ -2588,9 +2603,19 @@ async function runScan() {
 
   const ema50Removed    = filteredOut.filter(f => f.reason === 'Below daily EMA50').length;
   const earningsRemoved = filteredOut.filter(f => f.reason?.startsWith('Earnings')).length;
+  const crashRemoved    = filteredOut.filter(f => f.reason === 'Weekly crash (−20%+)').length;
+  const upperBBRemoved  = filteredOut.filter(f => f.reason === 'Extended above upper BB').length;
+  const lowerBBRemoved  = filteredOut.filter(f => f.reason === 'Touching lower BB').length;
+  const bbWidestRemoved = filteredOut.filter(f => f.reason === 'BB widest in 6 months').length;
+  const belowMidRemoved = filteredOut.filter(f => f.reason === 'Close below BB midline').length;
   const removedParts    = [];
   if (ema50Removed)    removedParts.push(`<span style="color:var(--red)">${ema50Removed}</span> below EMA50`);
   if (earningsRemoved) removedParts.push(`<span style="color:var(--amber)">${earningsRemoved}</span> earnings ≤5d`);
+  if (crashRemoved)    removedParts.push(`<span style="color:var(--red)">${crashRemoved}</span> weekly crash`);
+  if (upperBBRemoved)  removedParts.push(`<span style="color:var(--red)">${upperBBRemoved}</span> above upper BB`);
+  if (lowerBBRemoved)  removedParts.push(`<span style="color:var(--red)">${lowerBBRemoved}</span> lower BB touch`);
+  if (bbWidestRemoved) removedParts.push(`<span style="color:var(--red)">${bbWidestRemoved}</span> BB widest 6m`);
+  if (belowMidRemoved) removedParts.push(`<span style="color:var(--red)">${belowMidRemoved}</span> below BB mid`);
   scanSummaryHTML = `<span>${results.length}</span> tickers ranked` +
     (removedParts.length ? ` &nbsp;·&nbsp; ${removedParts.join(' &nbsp;·&nbsp; ')} removed` : '');
   document.getElementById('result-count-label').innerHTML = scanSummaryHTML;
