@@ -16,7 +16,7 @@ Think of it like a grading system: each stock gets a score out of 100 based on h
 
 ## The File
 
-Everything lives in one file: `screener.html`. This is intentional — it can be opened directly in any web browser with no installation needed. When we move to Claude Code, this file becomes the starting point.
+Everything lives in one file: `screener.html`. 
 
 The file has three parts inside it:
 - **CSS** (the styling — colors, fonts, layout)
@@ -112,9 +112,6 @@ Each stock in the ranked list shows:
 Clicking any row opens a full breakdown modal showing the score for each individual criterion with a pass (green dot) / partial (amber dot) / fail (red dot) indicator.
 
 ---
-
-## Technical Indicators Used (Plain English Definitions)
-
 - **EMA (Exponential Moving Average)** — A line on the chart showing the average price over N periods, but giving more weight to recent prices. A rising EMA means the trend is up. EMA10 reacts fast, EMA200 is very slow and shows the long-term picture.
 - **Bollinger Bands (BB)** — Three lines on the chart: a middle line (20-period simple moving average) with an upper and lower band 2 standard deviations away. When the bands are wide, the stock is volatile. When they are tight (a "squeeze"), it means price has been very quiet and a big move is likely coming.
 - **ATR (Average True Range)** — A number that measures how much a stock moves per day on average. Low ATR = quiet, consolidating. High ATR = volatile, moving a lot.
@@ -122,45 +119,14 @@ Clicking any row opens a full breakdown modal showing the score for each individ
 
 ---
 
-## Data Source (Not Yet Connected)
-
-The app currently uses **placeholder/simulated data** for testing the interface. The real data will come from the **Yahoo Finance API** — a free data source that provides historical price data (open, high, low, close, volume) for stocks.
+## Data Source 
+The real data will come from the **Yahoo Finance API** — a free data source that provides historical price data (open, high, low, close, volume) for stocks.
 
 Key endpoints needed:
 - Daily prices (1 year): to calculate EMA50 filter, WTD range, prior week's high
 - Weekly prices (2 years): to calculate BB squeeze, EMA alignment, prior week close position
 - Monthly prices (5 years): to calculate monthly trend, BB position, prior month close position
 - 52-week comparison: weekly prices going back 2 years gives us both the current price and the price from 52 weeks ago
-
-**Important:** Yahoo Finance's API has CORS restrictions, meaning a web browser can't call it directly without a backend server acting as a middleman (proxy). This needs to be built when connecting real data.
-
----
-
-## What Still Needs to Be Built (Next Steps for Claude Code)
-
-1. **Backend proxy server** — A small server (Node.js recommended) that fetches Yahoo Finance data and passes it to the front end. This solves the CORS problem. Plain English: a middleman that gets the stock data from Yahoo and hands it to our app.
-
-2. **Real indicator calculations** — Replace the simulated scores with actual math using real OHLCV data:
-   - EMA calculation: `EMA = previous_EMA + multiplier × (current_price - previous_EMA)` where `multiplier = 2 / (N + 1)`
-   - Bollinger Band width: `(upper_band - lower_band) / middle_band`
-   - Close position in range: `(close - low) / (high - low)`
-   - Prior week's high: highest high from Monday–Friday of the last completed week
-   - WTD range: highest high and lowest low from Monday of the current week to today
-
-3. **Rate limiting** — Yahoo Finance allows a limited number of requests per minute. For large watchlists, requests need to be spaced out or batched.
-
-4. **Caching** — Store fetched data temporarily so the same stock isn't fetched multiple times in the same session.
-
----
-
-## File Naming Convention
-
-| File | Description |
-|---|---|
-| `stock_screener_v5.html` | Current working version of the app |
-| `CLAUDE.md` | This file — project context for Claude |
-
-When making changes, always save as the next version number (v6, v7, etc.) so there is always a working backup.
 
 ---
 

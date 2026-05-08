@@ -99,59 +99,6 @@
   .tab-btn:hover { color: var(--text2); }
   .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
 
-  /* MARKET TOGGLE (US / PH) */
-  .market-toggle-wrap {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    margin-right: 6px;
-  }
-  .market-toggle-lbl {
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: 0.1em;
-    color: var(--text3);
-    transition: color 0.2s;
-    user-select: none;
-  }
-  .market-toggle-lbl.active { color: var(--accent); }
-  .market-toggle {
-    position: relative;
-    width: 44px;
-    height: 22px;
-    cursor: pointer;
-    flex-shrink: 0;
-  }
-  .market-toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
-  .market-toggle-track {
-    position: absolute;
-    inset: 0;
-    background: var(--bg3);
-    border: 1px solid var(--border2);
-    border-radius: 11px;
-    transition: background 0.2s, border-color 0.2s;
-  }
-  .market-toggle input:checked ~ .market-toggle-track {
-    background: var(--green-dim);
-    border-color: var(--accent);
-  }
-  .market-toggle-knob {
-    position: absolute;
-    width: 16px;
-    height: 16px;
-    background: var(--border2);
-    border-radius: 50%;
-    top: 2px;
-    left: 3px;
-    transition: transform 0.2s, background 0.2s;
-    pointer-events: none;
-  }
-  .market-toggle input:checked ~ .market-toggle-knob {
-    transform: translateX(22px);
-    background: var(--accent);
-  }
-
   .tab-page {
     height: calc(100vh - 85px);
     overflow: hidden;
@@ -660,38 +607,18 @@
     min-height: 0;
   }
   .main-body.flipped { flex-direction: column-reverse; }
+  .main-body.flipped .pane-list { border-bottom: none; border-top: 2px solid var(--border2); }
+
   .pane-list {
     display: flex;
     flex-direction: column;
+    border-bottom: 2px solid var(--border2);
     min-height: 0;
+    transition: flex 0.2s;
   }
   .pane-list.hidden { display: none; }
   .pane-list.full   { flex: 1; }
   .pane-list.split  { flex: 0 0 auto; height: calc(5 * 52px + 32px + 2px); }
-
-  .pane-resizer {
-    flex-shrink: 0;
-    height: 6px;
-    background: var(--border2);
-    cursor: ns-resize;
-    display: none;
-    align-items: center;
-    justify-content: center;
-    z-index: 5;
-    user-select: none;
-  }
-  .pane-resizer.visible { display: flex; }
-  .pane-resizer::after {
-    content: '';
-    width: 32px;
-    height: 3px;
-    border-radius: 2px;
-    background: var(--bg3);
-  }
-  .pane-resizer:hover,
-  .pane-resizer.dragging { background: var(--accent); }
-  .pane-resizer:hover::after,
-  .pane-resizer.dragging::after { background: rgba(255,255,255,0.5); }
 
   .pane-chart {
     flex: 1;
@@ -699,6 +626,7 @@
     flex-direction: column;
     min-height: 0;
     background: var(--bg2);
+    transition: flex 0.2s;
   }
   .pane-chart.hidden { display: none; }
   .pane-chart.full   { flex: 1; }
@@ -1233,7 +1161,7 @@
   .glance-pane.visible { display: block; }
   .glance-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr); /* overridden by JS */
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
     gap: 8px;
   }
   .glance-card {
@@ -1265,14 +1193,7 @@
     font-size: 10px;
     font-weight: 600;
   }
-  /* aspect-ratio keeps the chart body proportional as column width changes */
-  .glance-card-body { aspect-ratio: 16 / 9; position: relative; width: 100%; }
-  .glance-cols-btns {
-    display: none;
-    align-items: center;
-    gap: 3px;
-  }
-  .glance-cols-btns.visible { display: flex; }
+  .glance-card-body { height: 120px; position: relative; }
 
   /* SCAN PROGRESS BAR — prominent strip below main toolbar */
   .scan-progress {
@@ -1349,16 +1270,6 @@
 <div class="header">
   <div class="logo">CTS<span> / </span>GLOBAL SCREENER</div>
   <div class="header-right">
-    <!-- US / PH market toggle -->
-    <div class="market-toggle-wrap">
-      <span class="market-toggle-lbl active" id="mkt-lbl-us">US</span>
-      <label class="market-toggle" title="Switch between US and Philippine market">
-        <input type="checkbox" id="market-chk" onchange="switchMarket(this.checked?'PH':'US')">
-        <span class="market-toggle-track"></span>
-        <span class="market-toggle-knob"></span>
-      </label>
-      <span class="market-toggle-lbl" id="mkt-lbl-ph">PH</span>
-    </div>
     <div class="progress-bar-wrap" id="progress-wrap">
       <div class="progress-bar-track">
         <div class="progress-bar-fill" id="progress-fill" style="width:0%"></div>
@@ -1385,8 +1296,8 @@
   <div class="sidebar" id="sidebar">
   <div class="sidebar-scroll">
 
-    <!-- Setup Type (US only) -->
-    <div class="sidebar-section" id="setup-type-section">
+    <!-- Setup Type -->
+    <div class="sidebar-section">
       <div class="section-label">Setup Type</div>
       <div class="setup-tabs">
         <button class="setup-tab active" id="tab-s1" onclick="setSetup(1)">
@@ -1396,11 +1307,6 @@
           SETUP B<br>Flag→Coil→Reset
         </button>
       </div>
-    </div>
-    <!-- PH mode label (replaces setup tabs) -->
-    <div class="sidebar-section" id="ph-setup-label" style="display:none">
-      <div class="section-label">PH SCREENER</div>
-      <div style="font-size:10px;color:var(--text3);margin-top:6px;font-family:'IBM Plex Mono',monospace;line-height:1.6">Top 25% Close Criteria<br>Monthly · Weekly · Daily</div>
     </div>
 
     <!-- Upload -->
@@ -1442,7 +1348,6 @@
       <div class="pref-panel-header">
         <div class="section-label" style="margin-bottom:0">MY TASTE &nbsp;<span id="pref-count-badge" style="color:#d97706"></span></div>
         <div style="display:flex;align-items:center;gap:6px">
-          <button class="view-btn" id="btn-adapt-weights" onclick="applyAdaptedWeights()" title="Adjust criterion weights to match your starred picks — click again to reset">ADAPT TO TASTE</button>
           <button class="section-toggle-btn" id="arrow-taste" onclick="toggleSection('taste')" title="Collapse">▾</button>
           <button onclick="clearLiked()" style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);background:none;border:none;cursor:pointer;letter-spacing:0.05em">✕ CLEAR</button>
         </div>
@@ -1494,24 +1399,6 @@
           <div class="pane-controls">
             <button class="view-btn" id="btn-view-list"   onclick="setListView('list')"   title="Ranked list">LIST</button>
             <button class="view-btn" id="btn-view-glance" onclick="setListView('glance')" title="Candlestick glance view">GLANCE</button>
-            <div class="glance-cols-btns" id="glance-cols-btns">
-              <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);margin:0 4px 0 6px;letter-spacing:0.06em">TF</span>
-              <button class="view-btn active" id="glance-tf-D" onclick="setGlanceTF('D')">D</button>
-              <button class="view-btn"        id="glance-tf-W" onclick="setGlanceTF('W')">W</button>
-              <button class="view-btn"        id="glance-tf-M" onclick="setGlanceTF('M')">M</button>
-              <span style="width:1px;height:14px;background:var(--border2);display:inline-block;margin:0 4px"></span>
-              <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);margin-right:4px;letter-spacing:0.06em">RANGE</span>
-              <button class="view-btn"        id="glance-range-3m"  onclick="setGlanceRange('3M')">3M</button>
-              <button class="view-btn"        id="glance-range-6m"  onclick="setGlanceRange('6M')">6M</button>
-              <button class="view-btn active" id="glance-range-12m" onclick="setGlanceRange('12M')">1Y</button>
-              <span style="width:1px;height:14px;background:var(--border2);display:inline-block;margin:0 4px"></span>
-              <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);margin-right:4px;letter-spacing:0.06em">COLS</span>
-              <button class="view-btn" id="glance-col-2" onclick="setGlanceCols(2)">2</button>
-              <button class="view-btn" id="glance-col-3" onclick="setGlanceCols(3)">3</button>
-              <button class="view-btn active" id="glance-col-4" onclick="setGlanceCols(4)">4</button>
-              <button class="view-btn" id="glance-col-5" onclick="setGlanceCols(5)">5</button>
-              <button class="view-btn" id="glance-col-6" onclick="setGlanceCols(6)">6</button>
-            </div>
             <button class="view-btn" id="btn-hide-list" onclick="togglePane('list')" title="Hide list">↑ HIDE LIST</button>
           </div>
         </div>
@@ -1527,9 +1414,6 @@
         </div>
       </div>
 
-      <!-- RESIZER -->
-      <div class="pane-resizer" id="pane-resizer"></div>
-
       <!-- CHART PANE -->
       <div class="pane-chart full" id="pane-chart">
         <div class="pane-toolbar">
@@ -1543,11 +1427,6 @@
             <!-- Multi-view -->
             <button class="view-btn"        id="btn-mode-2x" onclick="setChartMode('2x')" title="Weekly + Daily side by side">W+D</button>
             <button class="view-btn"        id="btn-mode-3x" onclick="setChartMode('3x')" title="Monthly + Weekly + Daily">M+W+D</button>
-            <span style="width:1px;height:14px;background:var(--border2);display:inline-block;margin:0 3px"></span>
-            <!-- Range -->
-            <button class="view-btn"        id="btn-range-3m"  onclick="setChartRange('3M')"  title="3-month view">3M</button>
-            <button class="view-btn"        id="btn-range-6m"  onclick="setChartRange('6M')"  title="6-month view">6M</button>
-            <button class="view-btn active" id="btn-range-12m" onclick="setChartRange('12M')" title="1-year view">1Y</button>
             <span style="width:1px;height:14px;background:var(--border2);display:inline-block;margin:0 3px"></span>
             <button class="view-btn" id="btn-hide-chart" onclick="togglePane('chart')">↓ HIDE CHART</button>
           </div>
@@ -1662,8 +1541,7 @@ const SETUPS = {
     criteria: [
       { id:"m_trend",      tf:"MONTHLY", name:"Monthly uptrend",                    desc:"Price > EMA50 (monthly)",                                              weight:10 },
       { id:"m_momentum",   tf:"MONTHLY", name:"Monthly BB position",               desc:"Price in upper half of BB, BB expanding",                              weight:10 },
-      { id:"m_close_top",      tf:"MONTHLY", name:"Prior month close — top 25%",       desc:"Prior monthly candle closed in top 25% of its H–L range",              weight:15 },
-      { id:"m_range_contract", tf:"MONTHLY", name:"Monthly range contraction (3 mo)",  desc:"Each of the last 3 months has a smaller H–L range than the month before", weight:10 },
+      { id:"m_close_top",  tf:"MONTHLY", name:"Prior month close — top 25%",       desc:"Prior monthly candle closed in top 25% of its H–L range",              weight:15 },
       { id:"w_flag",       tf:"WEEKLY",  name:"Weekly BB — mid to upper",          desc:"Price between middle and upper BB; higher score nearer the middle band", weight:10 },
       { id:"w_ema",        tf:"WEEKLY",  name:"Weekly EMA alignment",              desc:"EMA10 > EMA20 > EMA50 stacked",                                        weight:10 },
       { id:"w_close_top",  tf:"WEEKLY",  name:"Prior week close — top 25%",        desc:"Prior weekly candle closed in top 25% of its H–L range",              weight:15 },
@@ -1678,8 +1556,7 @@ const SETUPS = {
     criteria: [
       { id:"m_flag",        tf:"MONTHLY", name:"Monthly flag/base",                desc:"6+ month BB squeeze, near resistance",                                  weight:10 },
       { id:"m_ema200",      tf:"MONTHLY", name:"Monthly EMA200 support",           desc:"Price above or near EMA200",                                           weight:10 },
-      { id:"m_close_top",      tf:"MONTHLY", name:"Prior month close — top 25%",       desc:"Prior monthly candle closed in top 25% of its H–L range",             weight:15 },
-      { id:"m_range_contract", tf:"MONTHLY", name:"Monthly range contraction (3 mo)",  desc:"Each of the last 3 months has a smaller H–L range than the month before", weight:10 },
+      { id:"m_close_top",   tf:"MONTHLY", name:"Prior month close — top 25%",      desc:"Prior monthly candle closed in top 25% of its H–L range",             weight:15 },
       { id:"w_coil",        tf:"WEEKLY",  name:"Weekly coil",                      desc:"BB width <6% of midline, multi-week tight range",                      weight:10 },
       { id:"w_vol_decline", tf:"WEEKLY",  name:"Weekly volume decline",            desc:"Volume declining 4+ consecutive weeks",                                weight:10 },
       { id:"w_close_top",   tf:"WEEKLY",  name:"Prior week close — top 25%",       desc:"Prior weekly candle closed in top 25% of its H–L range",             weight:15 },
@@ -1688,15 +1565,6 @@ const SETUPS = {
       { id:"d_wtd_top",     tf:"DAILY",   name:"Close — top 25% of WTD range",     desc:"Close in top 25% of week-to-date H–L range (Mon to current day)",    weight:10 },
       { id:"yr_return",     tf:"YEARLY",  name:"Positive 1-year return",           desc:"Current price > price 52 weeks ago",                                   weight:10 },
     ]
-  },
-  // PH (Philippine Stock Exchange) — three close-position criteria only
-  ph: {
-    name: "PH — Close Top 25%",
-    criteria: [
-      { id:"m_close_top", tf:"MONTHLY", name:"Prior month close — top 25%", desc:"Prior monthly candle closed in top 25% of its H–L range", weight:34 },
-      { id:"w_close_top", tf:"WEEKLY",  name:"Prior week close — top 25%",  desc:"Prior weekly candle closed in top 25% of its H–L range",  weight:33 },
-      { id:"d_wtd_top",   tf:"DAILY",   name:"Close — top 25% of WTD range", desc:"Today's close in top 25% of week-to-date H–L range",     weight:33 },
-    ]
   }
 };
 
@@ -1704,13 +1572,6 @@ const SETUPS = {
 //  STATE
 // ============================================================
 let currentSetup  = 1;
-let marketMode    = 'US'; // 'US' | 'PH'
-
-// Returns the setup IDs that are active for the current market
-function getActiveSetupIds() { return marketMode === 'PH' ? ['ph'] : [1, 2]; }
-// Yahoo Finance uses .PS suffix for PSE-listed stocks
-function toYFTicker(ticker)  { return marketMode === 'PH' ? ticker + '.PS' : ticker; }
-
 let tickers       = [];
 let results       = [];
 let filteredOut   = [];   // tickers removed by EMA50 filter
@@ -1740,22 +1601,12 @@ let chartVisible  = true;
 let sidebarVisible = true;
 let panesFlipped   = false;
 let activeCriteriaFilters = new Set();
-let chartMode       = 'D';   // 'D' | 'W' | 'M' | '2x' | '3x'
-let chartRange      = '12M'; // '3M' | '6M' | '12M'
-let scanSummaryHTML = '';    // saved after each scan, restored when criteria filters cleared
-
-const _originalWeights = {};  // { setupId: { criterion_id: weight } } — captured at init
-let   _weightsAdapted  = false;
+let chartMode     = 'D';  // 'D' | 'W' | 'M' | '2x' | '3x'
 
 // ============================================================
 //  INIT
 // ============================================================
 window.addEventListener('DOMContentLoaded', () => {
-  [1, 2, 'ph'].forEach(sid => {
-    _originalWeights[sid] = {};
-    SETUPS[sid].criteria.forEach(c => { _originalWeights[sid][c.id] = c.weight; });
-  });
-  migrateLikedCriteria();
   renderCriteria();
   renderPatternPanel();
   startClock();
@@ -1771,7 +1622,6 @@ function startClock() {
 }
 
 function setSetup(n) {
-  if (marketMode === 'PH') return;
   currentSetup = n;
   activeCriteriaFilters.clear();
   document.getElementById('tab-s1').classList.toggle('active', n===1);
@@ -1856,28 +1706,22 @@ function applyPaneState() {
   const paneChart = document.getElementById('pane-chart');
   const btnList   = document.getElementById('btn-hide-list');
   const btnChart  = document.getElementById('btn-hide-chart');
-  const resizer   = document.getElementById('pane-resizer');
 
   if (listVisible && chartVisible) {
     paneList.className  = 'pane-list split';
     paneChart.className = 'pane-chart full';
     btnList.textContent  = '↑ HIDE LIST';
     btnChart.textContent = '↓ HIDE CHART';
-    if (resizer) resizer.classList.add('visible');
   } else if (listVisible && !chartVisible) {
     paneList.className  = 'pane-list full';
-    paneList.style.height = '';
     paneChart.className = 'pane-chart hidden';
     btnList.textContent  = '↑ HIDE LIST';
     btnChart.textContent = '↓ SHOW CHART';
-    if (resizer) resizer.classList.remove('visible');
   } else if (!listVisible && chartVisible) {
     paneList.className  = 'pane-list hidden';
-    paneList.style.height = '';
     paneChart.className = 'pane-chart full';
     btnList.textContent  = '↓ SHOW LIST';
     btnChart.textContent = '↓ HIDE CHART';
-    if (resizer) resizer.classList.remove('visible');
   } else {
     // Both hidden — force both on
     listVisible = true;
@@ -2052,11 +1896,7 @@ function scoreStock(stockData, setupId) {
   const finalScore = Math.round((totalScore / totalW) * 100);
 
   const tags = [];
-  if (finalScore >= 75) {
-    const lbl = setupId==='ph' ? 'PH TOP25' : (setupId===1?'SETUP A':'SETUP B');
-    const cls = setupId==='ph' ? 'setup1'   : (setupId===1?'setup1':'setup2');
-    tags.push({ label: lbl, cls });
-  }
+  if (finalScore >= 75) tags.push({ label: setupId===1?'SETUP A':'SETUP B', cls: setupId===1?'setup1':'setup2' });
   if (tfNorm.MONTHLY >= 70) tags.push({ label:'MTH MOMENTUM', cls:'momentum' });
   if (tfNorm.WEEKLY  >= 70) tags.push({ label:'WK FLAG',      cls:'momentum' });
   if (tfNorm.DAILY   >= 70) tags.push({ label:'DAILY ENTRY',  cls:'setup1'   });
@@ -2064,11 +1904,6 @@ function scoreStock(stockData, setupId) {
   if ((criteriaScores['d_rsi']?.raw||0) >= 0.75)         tags.push({ label:'RSI 50–68',     cls:'momentum' });
   if ((criteriaScores['m_close_top']?.raw||0) >= 0.75)  tags.push({ label:'MTH CLOSE TOP', cls:'momentum' });
   if ((criteriaScores['w_close_top']?.raw||0) >= 0.75)  tags.push({ label:'WK CLOSE TOP',  cls:'momentum' });
-  // PH liquidity confirmation — only shown when a criterion is at full score (1.0)
-  if (setupId === 'ph' && (stockData.avg_value_traded || 0) >= 100000) {
-    const hasFullScore = SETUPS.ph.criteria.some(c => (criteriaScores[c.id]?.raw ?? 0) >= 1.0);
-    if (hasFullScore) tags.push({ label: 'AV > 100K', cls: 'setup1' });
-  }
   if (stockData.change >= 5) tags.push({ label:'+'+stockData.change+'%', cls:'momentum' });
   if (stockData.vol_ratio > 2) tags.push({ label:'VOL SURGE', cls:'warn' });
 
@@ -2084,8 +1919,7 @@ function computeCriterion(criterion, stock) {
     case 'm_momentum':    return computeMonthlyMomentum(stock.monthly);
     case 'm_flag':        return computeMonthlyFlag(stock.monthly);
     case 'm_ema200':      return computeMonthlyEMA200(stock.monthly);
-    case 'm_close_top':      return computePriorCloseTop(stock.monthly);
-    case 'm_range_contract': return computeMonthlyRangeContraction(stock.monthly);
+    case 'm_close_top':   return computePriorCloseTop(stock.monthly);
     case 'w_flag':        return computeWeeklyFlag(stock.weekly);
     case 'w_coil':        return computeWeeklyCoil(stock.weekly);
     case 'w_ema':         return computeWeeklyEMA(stock.weekly);
@@ -2180,25 +2014,6 @@ function computeMonthlyEMA200(bars) {
   const pctAbove = (lastClose - ema) / ema;
   if (pctAbove >= 0) return 1.0;
   if (pctAbove >= -0.03) return 0.5;
-  return 0.0;
-}
-
-// m_range_contract: each of the last 3 completed months has a smaller H–L range than the one before it
-function computeMonthlyRangeContraction(bars) {
-  if (!bars || bars.length < 5) return 0.5;
-  function range(b) {
-    const h = b.h != null ? b.h : b.c;
-    const l = b.l != null ? b.l : b.c;
-    return h - l;
-  }
-  // bars[length-1] may be the current incomplete month; use the 3 prior completed ones
-  const r1 = range(bars[bars.length - 2]); // most recent completed
-  const r2 = range(bars[bars.length - 3]);
-  const r3 = range(bars[bars.length - 4]);
-  const step1 = r1 < r2; // most recent tighter than the one before
-  const step2 = r2 < r3; // that one tighter than the one before it
-  if (step1 && step2) return 1.0;
-  if (step1 || step2) return 0.5;
   return 0.0;
 }
 
@@ -2497,17 +2312,13 @@ async function runScan() {
   // Reset glance view — switch back to list so stale charts aren't shown
   if (glanceView) setListView('list');
 
-  // Fetch sector rankings and sector classifications before the main loop (US only)
-  if (marketMode !== 'PH') {
-    scanMeta.innerHTML = 'Fetching sector ETF rankings…';
-    sectorRankMap = await buildSectorRankMap();
-    scanMeta.innerHTML = 'Fetching ticker sector data…';
-    tickerSectorMap = await fetchAllTickerSectors(tickers.map(t => t.ticker));
-    scanMeta.innerHTML = 'Fetching earnings calendar…';
-    earningsMap = await fetchAllEarningsDates(tickers.map(t => t.ticker));
-  } else {
-    scanMeta.innerHTML = 'Preparing PH scan…';
-  }
+  // Fetch sector rankings and sector classifications before the main loop
+  scanMeta.innerHTML = 'Fetching sector ETF rankings…';
+  sectorRankMap = await buildSectorRankMap();
+  scanMeta.innerHTML = 'Fetching ticker sector data…';
+  tickerSectorMap = await fetchAllTickerSectors(tickers.map(t => t.ticker));
+  scanMeta.innerHTML = 'Fetching earnings calendar…';
+  earningsMap = await fetchAllEarningsDates(tickers.map(t => t.ticker));
 
   const total     = tickers.length;
   const scanStart = Date.now();
@@ -2529,20 +2340,10 @@ async function runScan() {
 
     // Hard filter 1 — price must be above daily EMA50
     const aboveEma50 = stockData.above_ema50;
-    // Hard filter 2 — no earnings within the next 5 calendar days (US only)
-    const earningsTs   = marketMode !== 'PH' ? earningsMap[t.ticker] : null;
+    // Hard filter 2 — no earnings within the next 5 calendar days
+    const earningsTs   = earningsMap[t.ticker];
     const earningsDays = earningsTs ? (earningsTs - Date.now() / 1000) / 86400 : Infinity;
     const earningsSoon = earningsDays >= 0 && earningsDays <= 5;
-    // Hard filter 3 — no 20%+ single-week drop in the last 3 completed weeks
-    const hadWeeklyCrash  = stockData.had_weekly_crash;
-    // Hard filter 4 — last daily candle open AND close both above upper BB (parabolic)
-    const aboveUpperBB    = stockData.above_upper_bb;
-    // Hard filter 5 — last daily candle low touches or breaks lower BB (breakdown)
-    const touchingLowerBB = stockData.touching_lower_bb;
-    // Hard filter 6 — BB width is at its widest point in the last 6 months (bands fully expanded)
-    const bbWidest6m      = stockData.bb_widest_6m;
-    // Hard filter 7 — today's close is below the BB midline (20-period SMA)
-    const belowBBMidline  = stockData.below_bb_midline;
 
     if (!aboveEma50) {
       filteredOut.push({ ...t, ...stockData, reason: 'Below daily EMA50' });
@@ -2551,11 +2352,6 @@ async function runScan() {
       const dLabel = earningsDays < 1 ? 'today' : `in ${Math.ceil(earningsDays)}d`;
       filteredOut.push({ ...t, ...stockData, reason: `Earnings ${dLabel}` });
       if (statusEl) { statusEl.textContent='⚡'; statusEl.className='t-status'; statusEl.style.cssText='font-size:9px;padding:1px 5px;color:var(--amber);border:1px solid rgba(160,92,0,0.3);background:var(--amber-dim);border-radius:2px'; }
-    } else if (marketMode === 'PH' && (stockData.avg_value_traded || 0) < 100000) {
-      const v = stockData.avg_value_traded || 0;
-      const vLabel = v >= 1000 ? `PHP ${Math.round(v/1000)}K` : `PHP ${Math.round(v)}`;
-      filteredOut.push({ ...t, ...stockData, reason: `Avg value ${vLabel} < 100K` });
-      if (statusEl) { statusEl.textContent='✗'; statusEl.className='t-status'; statusEl.style.cssText='font-size:9px;padding:1px 5px;color:var(--red);border:1px solid rgba(200,41,58,0.3);background:var(--red-dim);border-radius:2px'; }
     } else {
       const scored      = scoreStock(stockData, currentSetup);
       const sectorName  = tickerSectorMap[t.ticker] || '';
@@ -2591,9 +2387,9 @@ async function runScan() {
   const removedParts    = [];
   if (ema50Removed)    removedParts.push(`<span style="color:var(--red)">${ema50Removed}</span> below EMA50`);
   if (earningsRemoved) removedParts.push(`<span style="color:var(--amber)">${earningsRemoved}</span> earnings ≤5d`);
-  scanSummaryHTML = `<span>${results.length}</span> tickers ranked` +
+  document.getElementById('result-count-label').innerHTML =
+    `<span>${results.length}</span> tickers ranked` +
     (removedParts.length ? ` &nbsp;·&nbsp; ${removedParts.join(' &nbsp;·&nbsp; ')} removed` : '');
-  document.getElementById('result-count-label').innerHTML = scanSummaryHTML;
   document.getElementById('list-count-label').textContent = results.length + ' tickers';
 
   if (results.length) {
@@ -2646,57 +2442,23 @@ function parseYFResult(result) {
   return { meta, bars };
 }
 
-// ── Stooq fetch helper (for Philippine / PSE stocks) ─────────────────────────
-// Stooq uses .ph suffix for PSE-listed stocks (e.g. jfc.ph, sm.ph, ali.ph)
-async function fetchStooq(ticker, interval, days) {
-  const symbol = ticker.toLowerCase() + '.ph';
-  const d2     = new Date();
-  const d1     = new Date(d2.getTime() - days * 86400000);
-  const fmt    = d => d.toISOString().slice(0, 10).replace(/-/g, '');
-  const url    = `/api/stooq?symbol=${encodeURIComponent(symbol)}&interval=${interval}&d1=${fmt(d1)}&d2=${fmt(d2)}`;
-  const res    = await fetch(url);
-  if (!res.ok) throw new Error(`Stooq HTTP ${res.status}`);
-  const json   = await res.json();
-  if (!json.bars?.length) throw new Error(`No Stooq data for ${symbol}`);
-  return json.bars;
-}
-
 async function fetchStockData(ticker) {
-  const yTicker = toYFTicker(ticker);
   let daily = null, weekly = null, monthly = null;
 
-  if (marketMode === 'PH') {
-    // PH mode — Stooq.com (Yahoo Finance does not carry PSE bar data)
-    try {
-      const [d, w, m] = await Promise.all([
-        fetchStooq(ticker, 'd', 400),   // ~1 yr + buffer of daily bars
-        fetchStooq(ticker, 'w', 800),   // ~2 yrs of weekly bars
-        fetchStooq(ticker, 'm', 2000),  // ~5 yrs of monthly bars
-      ]);
-      daily   = { bars: d, meta: null };
-      weekly  = { bars: w, meta: null };
-      monthly = { bars: m, meta: null };
-    } catch (err) {
-      console.warn(`[${ticker}] Stooq parallel error (${err.message}), retrying individually`);
-      try { daily   = { bars: await fetchStooq(ticker, 'd', 400),  meta: null }; } catch (e) { console.warn(`[${ticker}] Stooq daily failed: ${e.message}`); }
-      try { weekly  = { bars: await fetchStooq(ticker, 'w', 800),  meta: null }; } catch (e) { console.warn(`[${ticker}] Stooq weekly failed: ${e.message}`); }
-      try { monthly = { bars: await fetchStooq(ticker, 'm', 2000), meta: null }; } catch (e) { console.warn(`[${ticker}] Stooq monthly failed: ${e.message}`); }
-    }
-  } else {
-    // US mode — Yahoo Finance
-    try {
-      const [d, w, m] = await Promise.all([
-        fetchYF(yTicker, '1y',  '1d'),
-        fetchYF(yTicker, '2y',  '1wk'),
-        fetchYF(yTicker, 'max', '1mo'),
-      ]);
-      daily = d; weekly = w; monthly = m;
-    } catch (err) {
-      console.warn(`[${ticker}] Parallel fetch error (${err.message}), retrying individually`);
-      try { daily   = await fetchYF(yTicker, '1y',  '1d');  } catch (e) { console.warn(`[${ticker}] daily failed: ${e.message}`); }
-      try { weekly  = await fetchYF(yTicker, '2y',  '1wk'); } catch (e) { console.warn(`[${ticker}] weekly failed: ${e.message}`); }
-      try { monthly = await fetchYF(yTicker, 'max', '1mo'); } catch (e) { console.warn(`[${ticker}] monthly failed: ${e.message}`); }
-    }
+  // Fetch all three timeframes in parallel
+  try {
+    const [d, w, m] = await Promise.all([
+      fetchYF(ticker, '1y',  '1d'),
+      fetchYF(ticker, '2y',  '1wk'),
+      fetchYF(ticker, 'max', '1mo'),
+    ]);
+    daily = d; weekly = w; monthly = m;
+  } catch (err) {
+    // If the parallel batch fails, try each individually so partial data is usable
+    console.warn(`[${ticker}] Parallel fetch error (${err.message}), retrying individually`);
+    try { daily   = await fetchYF(ticker, '1y',  '1d');  } catch (e) { console.warn(`[${ticker}] daily failed: ${e.message}`); }
+    try { weekly  = await fetchYF(ticker, '2y',  '1wk'); } catch (e) { console.warn(`[${ticker}] weekly failed: ${e.message}`); }
+    try { monthly = await fetchYF(ticker, 'max', '1mo'); } catch (e) { console.warn(`[${ticker}] monthly failed: ${e.message}`); }
   }
 
   // If daily data is unavailable fall back to mock so the scan can continue
@@ -2708,10 +2470,8 @@ async function fetchStockData(ticker) {
       price:       Math.round(pseudoRand(seed) * 200 + 5),
       change:      Math.round((pseudoRand(seed+1)*12-4)*100)/100,
       vol_ratio:   Math.round(pseudoRand(seed+2)*2.5*100)/100,
-      above_ema50:   pseudoRand(seed+4) > 0.35,
-      bb_widest_6m:   false,
-      below_bb_midline: false,
-      yr_return:     pseudoRand(seed+5) > 0.40 ? 1.0 : 0.0,
+      above_ema50: pseudoRand(seed+4) > 0.35,
+      yr_return:   pseudoRand(seed+5) > 0.40 ? 1.0 : 0.0,
       daily: null, weekly: null, monthly: null,
     };
   }
@@ -2721,7 +2481,7 @@ async function fetchStockData(ticker) {
   const closes    = dailyBars.map(function(b) { return b.c; });
   const volumes   = dailyBars.map(function(b) { return b.v; });
 
-  const currentPrice = meta?.regularMarketPrice ?? closes[closes.length - 1];
+  const currentPrice = meta.regularMarketPrice ?? closes[closes.length - 1];
   const prevClose    = closes[closes.length - 2] ?? closes[closes.length - 1];
   const change       = prevClose
     ? Math.round(((currentPrice - prevClose) / prevClose) * 10000) / 100
@@ -2730,45 +2490,6 @@ async function fetchStockData(ticker) {
   // Hard filter: price must be above the 50-day EMA
   const ema50       = calcEMA(closes, 50);
   const above_ema50 = ema50 > 0 && currentPrice > ema50;
-
-  // Hard filter: last daily candle open AND close both above upper BB (parabolic/extended)
-  const dailyBB = calcBB(closes);
-  const lastBar = dailyBars[dailyBars.length - 1];
-  const above_upper_bb = !!(dailyBB && lastBar && lastBar.o != null &&
-    lastBar.o > dailyBB.upper && lastBar.c > dailyBB.upper);
-
-  // Hard filter: last daily candle low touches or breaks below lower BB (selling/breakdown)
-  const touching_lower_bb = !!(dailyBB && lastBar && lastBar.l != null &&
-    lastBar.l <= dailyBB.lower);
-
-  // Hard filter: today's close is below the BB midline (20-period SMA)
-  const below_bb_midline = !!(dailyBB && lastBar && lastBar.c < dailyBB.middle);
-
-  // Hard filter: current daily BB width is the widest point in the past 6 months (~126 trading days)
-  let bb_widest_6m = false;
-  if (closes.length >= 146) {
-    const WINDOW = 126;
-    const widths = [];
-    for (let i = closes.length - WINDOW; i < closes.length; i++) {
-      const bb = calcBB(closes.slice(0, i + 1));
-      widths.push(bb ? (bb.upper - bb.lower) : 0);  // absolute $-width, not normalised %
-    }
-    const currentWidth = widths[widths.length - 1];
-    const maxWidth     = Math.max(...widths);
-    bb_widest_6m = maxWidth > 0 && currentWidth >= maxWidth;
-  }
-
-  // Hard filter: no 20%+ single-week drop in the last 3 completed weeks
-  let had_weekly_crash = false;
-  if (weekly && weekly.bars.length >= 5) {
-    const wb = weekly.bars;
-    for (let i = wb.length - 2; i >= wb.length - 4 && i > 0; i--) {
-      if (wb[i - 1].c > 0 && (wb[i].c - wb[i - 1].c) / wb[i - 1].c <= -0.20) {
-        had_weekly_crash = true;
-        break;
-      }
-    }
-  }
 
   // 1-year return: compare current price to the oldest close in the 1y daily window
   const yr_return = closes.length >= 2 && closes[0] > 0 && currentPrice > closes[0]
@@ -2782,24 +2503,12 @@ async function fetchStockData(ticker) {
     ? Math.round((volumes[volumes.length - 1] / avgVol20) * 100) / 100
     : 1.0;
 
-  // PH filter: average value traded (price × volume) over the last 20 daily bars
-  const last20     = dailyBars.slice(-20);
-  const avg_value_traded = last20.length
-    ? last20.reduce((s, b) => s + (b.c || 0) * (b.v || 0), 0) / last20.length
-    : 0;
-
   return {
-    name:         meta?.longName || meta?.shortName || ticker,
+    name:         meta.longName || meta.shortName || ticker,
     price:        currentPrice,
     change,
     vol_ratio,
-    avg_value_traded,
     above_ema50,
-    above_upper_bb,
-    touching_lower_bb,
-    had_weekly_crash,
-    bb_widest_6m,
-    below_bb_midline,
     yr_return,
     daily:        dailyBars,
     weekly:       weekly  ? weekly.bars  : null,
@@ -2853,15 +2562,6 @@ function renderResults() {
 
   sortedResults = [...filtered].sort(getSortFn(lastSort));
 
-  const countLabel = document.getElementById('result-count-label');
-  if (countLabel) {
-    if (activeCriteriaFilters.size > 0) {
-      countLabel.innerHTML = `<span>${sortedResults.length}</span> of <span>${results.length}</span> match selected criteria`;
-    } else if (scanSummaryHTML) {
-      countLabel.innerHTML = scanSummaryHTML;
-    }
-  }
-
   let html = `<div class="rank-header">
     <div>#</div><div></div><div>TICKER</div><div>SCORE</div><div>SIGNALS</div>
     <div>MTH / WK / DAY / YR</div><div class="right">PRICE</div><div class="right">CHG%</div>
@@ -2909,7 +2609,7 @@ function rankRow(r, rankNum, idx) {
       <button class="star-btn${r.isStarred ? ' star-active' : ''}"
               id="star-${idx}"
               onclick="event.stopPropagation(); toggleStar('${r.ticker}')"
-              title="${r.isStarred ? 'Add again as new entry (remove via My Picks tab)' : 'Add to My Picks'}">
+              title="${r.isStarred ? 'Remove from My Picks' : 'Add to My Picks'}">
         ${r.isStarred ? '★' : '☆'}
       </button>
     </div>
@@ -2977,8 +2677,7 @@ const DEFAULT_STUDIES = [
 
 function loadChart(stock) {
   if (!stock) return;
-  const defaultExch = marketMode === 'PH' ? 'PSE' : '';
-  const exchange = (stock.exchange && stock.exchange !== '—') ? stock.exchange : defaultExch;
+  const exchange = stock.exchange && stock.exchange !== '—' ? stock.exchange : '';
   const symbol   = exchange ? `${exchange}:${stock.ticker}` : stock.ticker;
 
   document.getElementById('chart-symbol-label').textContent = symbol;
@@ -3026,7 +2725,6 @@ function loadChart(stock) {
       autosize:           true,
       symbol,
       interval:           iv,
-      range:              chartRange,
       theme:              "light",
       style:              "1",
       locale:             "en",
@@ -3053,30 +2751,13 @@ function loadChart(stock) {
 
 function setChartMode(mode) {
   chartMode = mode;
+  // Highlight the correct button
   ['D','W','M','2x','3x'].forEach(m => {
     const el = document.getElementById('btn-mode-' + m.toLowerCase());
     if (el) el.classList.toggle('active', m === mode);
   });
-  if (mode === 'D' || mode === 'W' || mode === 'M') {
-    glanceTF = mode;
-    ['D','W','M'].forEach(t => {
-      const el = document.getElementById(`glance-tf-${t}`);
-      if (el) el.classList.toggle('active', t === mode);
-    });
-  }
+  // Reload chart if a stock is already selected
   if (activeRow >= 0 && sortedResults[activeRow]) loadChart(sortedResults[activeRow]);
-}
-
-function setChartRange(range) {
-  chartRange = range;
-  ['3M','6M','12M'].forEach(r => {
-    const el1 = document.getElementById('btn-range-' + r.toLowerCase());
-    if (el1) el1.classList.toggle('active', r === range);
-    const el2 = document.getElementById('glance-range-' + r.toLowerCase());
-    if (el2) el2.classList.toggle('active', r === range);
-  });
-  if (activeRow >= 0 && sortedResults[activeRow]) loadChart(sortedResults[activeRow]);
-  if (glanceView) _rebuildGlanceCharts();
 }
 
 // ============================================================
@@ -3238,8 +2919,8 @@ function calcBollingerBands(bars, period = 20, mult = 2) {
 }
 
 function removeStarredFromTab(ticker) {
-  // Remove from all active setup pools
-  getActiveSetupIds().forEach(sid => {
+  // Remove from both setup pools
+  [1, 2].forEach(sid => {
     saveLiked(sid, loadLiked(sid).filter(l => l.ticker !== ticker));
   });
 
@@ -3278,7 +2959,7 @@ function renderPicksEmpty() {
   grid.innerHTML = `<div class="picks-empty">
     <div class="picks-empty-icon">☆</div>
     <div class="picks-empty-title">NO STARRED PICKS YET</div>
-    <div style="font-size:10px;margin-top:4px">${marketMode === 'PH' ? 'Run a PH scan and click ☆ on any result to save it here' : 'Run a scan and click ☆ on any result to save it here'}</div>
+    <div style="font-size:10px;margin-top:4px">Run a scan and click ☆ on any result to save it here</div>
   </div>`;
 }
 
@@ -3320,7 +3001,7 @@ async function addPickByTicker(rawTicker) {
       monthlyBars: (r.monthly || []).slice(-60) .map(b => ({ t:b.t, o:b.o, h:b.h, l:b.l, c:b.c })),
     };
 
-    getActiveSetupIds().forEach(sid => {
+    [1, 2].forEach(sid => {
       const existing = loadLiked(sid).filter(l => l.ticker !== ticker);
       const scored   = scoreStock(r, sid);
       const criteriaVector = {};
@@ -3357,9 +3038,9 @@ async function switchPicksChart(ticker, tf) {
   if (tf === 'W' && (!entry.weeklyBars || entry.weeklyBars.length < 5)) {
     container.innerHTML = '<div style="height:100%;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace">Loading weekly data…</div>';
     try {
-      const { bars } = await fetchYF(toYFTicker(ticker), '2y', '1wk');
+      const { bars } = await fetchYF(ticker, '2y', '1wk');
       const weeklyBars = bars.slice(-104).map(b => ({ t:b.t, o:b.o, h:b.h, l:b.l, c:b.c }));
-      getActiveSetupIds().forEach(sid => {
+      [1, 2].forEach(sid => {
         const pool = loadLiked(sid);
         const e = pool.find(l => l.ticker === ticker);
         if (e) { e.weeklyBars = weeklyBars; saveLiked(sid, pool); }
@@ -3375,9 +3056,9 @@ async function switchPicksChart(ticker, tf) {
   if (tf === 'M' && (!entry.monthlyBars || entry.monthlyBars.length < 5)) {
     container.innerHTML = '<div style="height:100%;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace">Loading monthly data…</div>';
     try {
-      const { bars } = await fetchYF(toYFTicker(ticker), 'max', '1mo');
+      const { bars } = await fetchYF(ticker, 'max', '1mo');
       const monthlyBars = bars.slice(-60).map(b => ({ t:b.t, o:b.o, h:b.h, l:b.l, c:b.c }));
-      getActiveSetupIds().forEach(sid => {
+      [1, 2].forEach(sid => {
         const pool = loadLiked(sid);
         const e = pool.find(l => l.ticker === ticker);
         if (e) { e.monthlyBars = monthlyBars; saveLiked(sid, pool); }
@@ -3557,7 +3238,7 @@ function renderStarredCharts() {
       </div>
       <div class="picks-chart-wrap" id="picks-chart-${entry.ticker}"></div>
       <div class="picks-card-tf-bar">
-        ${(currentSetup === 'ph' ? ['MONTHLY','WEEKLY','DAILY'] : ['MONTHLY','WEEKLY','DAILY','YEARLY']).map(tf => {
+        ${['MONTHLY','WEEKLY','DAILY','YEARLY'].map(tf => {
           const v  = entry.tfNorm?.[tf] || 0;
           const tc = v>=70?'score-high':v>=40?'score-mid':'score-low';
           return `<div class="picks-card-tf-item">
@@ -3584,68 +3265,9 @@ function switchTab(tab) {
     document.getElementById(`tab-${t}`).style.display        = tab === t ? '' : 'none';
     document.getElementById(`tab-btn-${t}`).classList.toggle('active', tab === t);
   });
-  if (tab === 'sectors' && !sectorsLoaded && marketMode !== 'PH') loadSectors();
-  if (tab === 'imap'    && !imapLoaded    && marketMode !== 'PH') loadIndustryMap(false);
+  if (tab === 'sectors' && !sectorsLoaded) loadSectors();
+  if (tab === 'imap'    && !imapLoaded)    loadIndustryMap(false);
   if (tab === 'picks')                     renderStarredCharts();
-}
-
-// ============================================================
-//  MARKET MODE SWITCH (US ↔ PH)
-// ============================================================
-function switchMarket(mode) {
-  marketMode   = mode;
-  currentSetup = mode === 'PH' ? 'ph' : 1;
-
-  // Toggle header labels
-  document.getElementById('mkt-lbl-us').classList.toggle('active', mode === 'US');
-  document.getElementById('mkt-lbl-ph').classList.toggle('active', mode === 'PH');
-
-  // Show/hide US-only tabs; reset their loaded flags so data re-fetches on next visit
-  ['sectors','imap'].forEach(t => {
-    const btn = document.getElementById(`tab-btn-${t}`);
-    if (btn) btn.style.display = mode === 'PH' ? 'none' : '';
-  });
-  sectorsLoaded = false;
-  imapLoaded    = false;
-
-  // Swap sidebar setup selector vs PH label
-  document.getElementById('setup-type-section').style.display = mode === 'PH' ? 'none' : '';
-  document.getElementById('ph-setup-label').style.display     = mode === 'PH' ? '' : 'none';
-
-  // Reset all scan state so stale US/PH data doesn't mix
-  tickers = []; results = []; filteredOut = [];
-  sectorRankMap = {}; tickerSectorMap = {}; earningsMap = {};
-  activeCriteriaFilters.clear();
-
-  // Reset file input so the same file can be re-dropped
-  const fi = document.getElementById('file-input');
-  if (fi) fi.value = '';
-
-  // Re-render sidebar criteria and preference panel for new setup
-  renderCriteria();
-  renderPatternPanel();
-
-  // Reset Setup A/B buttons to default (in case user was on Setup B before switching to US)
-  if (mode === 'US') {
-    document.getElementById('tab-s1').classList.add('active');
-    document.getElementById('tab-s2').classList.remove('active');
-  }
-
-  // Navigate to screener tab and clear the results area
-  switchTab('screener');
-  updateTickerDisplay();
-  document.getElementById('results-area').innerHTML = `
-    <div class="empty-state">
-      <div class="empty-icon">⊡</div>
-      <div class="empty-title">AWAITING WATCHLIST</div>
-      <div class="empty-desc">${mode === 'PH'
-        ? 'Upload a TradingView .txt with PSE tickers, then press Run Scan.'
-        : 'Upload a TradingView .txt watchlist, select Setup A or B, then press Run Scan.'
-      }</div>
-    </div>`;
-  document.getElementById('result-count-label').textContent = 'Ranked results will appear here';
-  document.getElementById('list-count-label').textContent   = '0 tickers';
-  document.getElementById('download-btn').style.display     = 'none';
 }
 
 // ============================================================
@@ -3886,11 +3508,18 @@ function toggleStar(ticker) {
   const r = results.find(res => res.ticker === ticker);
   if (!r) return;
 
-  // Always add a new entry — even if already starred. Each star is a separate dated pick;
-  // the same stock at a different point in time may have different price structure.
-  // Removal from picks is done via the My Picks tab.
-  {
-    // Star — save to all active setup pools with each setup's own criteria vector
+  // Check current state using setup 1 as the source of truth
+  const likedA = loadLiked(1);
+  const likedB = loadLiked(2);
+  const isCurrentlyStarred = likedA.some(l => l.ticker === ticker) || likedB.some(l => l.ticker === ticker);
+
+  if (isCurrentlyStarred) {
+    // Un-star — remove from both pools
+    saveLiked(1, likedA.filter(l => l.ticker !== ticker));
+    saveLiked(2, likedB.filter(l => l.ticker !== ticker));
+    r.isStarred = false;
+  } else {
+    // Star — save to BOTH setup pools with each setup's own criteria vector
     const sharedBase = {
       ticker:      r.ticker,
       name:        r.name || '',
@@ -3905,8 +3534,9 @@ function toggleStar(ticker) {
       monthlyBars: (r.monthly || []).slice(-60) .map(b => ({ t:b.t, o:b.o, h:b.h, l:b.l, c:b.c })),
     };
 
-    getActiveSetupIds().forEach(sid => {
-      const liked = loadLiked(sid);
+    [1, 2].forEach(sid => {
+      const liked = sid === 1 ? likedA : likedB;
+      // Score this stock against each setup's own criteria to get the right vector
       const scored = scoreStock(r, sid);
       const criteriaVector = {};
       SETUPS[sid].criteria.forEach(c => { criteriaVector[c.id] = scored.criteriaScores?.[c.id]?.raw ?? 0; });
@@ -3917,18 +3547,12 @@ function toggleStar(ticker) {
     r.isStarred = true;
   }
 
-  // Update star button in DOM without full re-render (list view + glance view)
+  // Update star button in DOM without full re-render
   const btn = document.getElementById(`star-${results.indexOf(r)}`);
   if (btn) {
     btn.textContent = r.isStarred ? '★' : '☆';
     btn.classList.toggle('star-active', r.isStarred);
-    btn.title = r.isStarred ? 'Add again as new entry (remove via My Picks tab)' : 'Add to My Picks';
-  }
-  const glanceBtn = document.getElementById(`glance-star-${ticker}`);
-  if (glanceBtn) {
-    glanceBtn.textContent = r.isStarred ? '★' : '☆';
-    glanceBtn.classList.toggle('star-active', r.isStarred);
-    glanceBtn.title = r.isStarred ? 'Add again as new entry (remove via My Picks tab)' : 'Add to My Picks';
+    btn.title = r.isStarred ? 'Remove from My Picks' : 'Add to My Picks';
   }
 
   computeAllSimilarityBonuses();
@@ -3939,15 +3563,9 @@ function toggleStar(ticker) {
 }
 
 function clearLiked() {
-  getActiveSetupIds().forEach(sid => saveLiked(sid, []));
+  saveLiked(1, []);
+  saveLiked(2, []);
   results.forEach(r => { r.isStarred = false; r.prefBonus = 0; r.prefSim = 0; });
-  // Also reset adapted weights if active
-  if (_weightsAdapted) {
-    resetWeights(currentSetup);
-    _weightsAdapted = false;
-    const btn = document.getElementById('btn-adapt-weights');
-    if (btn) { btn.textContent = 'ADAPT TO TASTE'; btn.classList.remove('active'); }
-  }
   computeAllSimilarityBonuses();
   renderPatternPanel();
   if (results.length) renderResults();
@@ -3985,82 +3603,6 @@ function renderPatternPanel() {
       <div class="pref-crit-pct">${pct}%</div>
     </div>`;
   }).join('');
-}
-
-// ============================================================
-//  MIGRATE LIKED ENTRIES — fill in any criteria added after stocks were starred
-// ============================================================
-function migrateLikedCriteria() {
-  [1, 2, 'ph'].forEach(sid => {
-    const liked = loadLiked(sid);
-    if (!liked.length) return;
-    const currentIds = SETUPS[sid].criteria.map(c => c.id);
-    let changed = false;
-    liked.forEach(entry => {
-      const missing = currentIds.filter(id => !(id in (entry.criteriaVector || {})));
-      if (!missing.length) return;
-      // Reconstruct a minimal stock object from bars stored at star time
-      const fakeStock = {
-        monthly:   entry.monthlyBars || [],
-        weekly:    entry.weeklyBars  || [],
-        daily:     entry.dailyBars   || [],
-        yr_return: entry.criteriaVector?.['yr_return'] ?? 0,
-      };
-      missing.forEach(id => {
-        const criterion = SETUPS[sid].criteria.find(c => c.id === id);
-        if (criterion) entry.criteriaVector[id] = computeCriterion(criterion, fakeStock);
-      });
-      changed = true;
-    });
-    if (changed) saveLiked(sid, liked);
-  });
-}
-
-// ============================================================
-//  ADAPT WEIGHTS TO TASTE
-// ============================================================
-function adaptWeightsToTaste(setupId) {
-  const profile = getStarredProfile(setupId);
-  if (!profile) return false;
-  const criteria  = SETUPS[setupId].criteria;
-  const totalOrig = criteria.reduce((a, c) => a + _originalWeights[setupId][c.id], 0);
-  const rawNew    = criteria.map(c => _originalWeights[setupId][c.id] * (profile[c.id] ?? 0.5));
-  const sumRaw    = rawNew.reduce((a, b) => a + b, 0);
-  if (!sumRaw) return false;
-  const scale = totalOrig / sumRaw;
-  criteria.forEach((c, i) => { c.weight = Math.round(rawNew[i] * scale * 10) / 10; });
-  return true;
-}
-
-function resetWeights(setupId) {
-  SETUPS[setupId].criteria.forEach(c => { c.weight = _originalWeights[setupId][c.id]; });
-}
-
-function applyAdaptedWeights() {
-  if (_weightsAdapted) {
-    resetWeights(currentSetup);
-    _weightsAdapted = false;
-  } else {
-    const ok = adaptWeightsToTaste(currentSetup);
-    if (!ok) return;
-    _weightsAdapted = true;
-  }
-  // Re-score all results with new weights
-  results.forEach(r => {
-    const s = scoreStock(r, currentSetup);
-    r.score = s.score; r.criteriaScores = s.criteriaScores;
-    r.tfNorm = s.tfNorm; r.tags = s.tags;
-    r.rankScore = r.score + (r.sectorBonus || 0) + (r.prefBonus || 0);
-  });
-  computeAllSimilarityBonuses();
-  renderCriteria();
-  renderPatternPanel();
-  renderResults();
-  const btn = document.getElementById('btn-adapt-weights');
-  if (btn) {
-    btn.textContent = _weightsAdapted ? 'RESET WEIGHTS' : 'ADAPT TO TASTE';
-    btn.classList.toggle('active', _weightsAdapted);
-  }
 }
 
 // ============================================================
@@ -4272,8 +3814,6 @@ function sortSectors(col) {
 //  GLANCE VIEW — grid of candlestick charts for all results
 // ============================================================
 let glanceView        = false;   // false = list, true = glance
-let glanceCols        = 4;       // charts per row: 2–6
-let glanceTF          = 'D';     // 'D' | 'W' | 'M'
 const _glanceCharts   = {};      // ticker → LightweightCharts instance
 
 function setListView(mode) {
@@ -4282,47 +3822,7 @@ function setListView(mode) {
   document.getElementById('btn-view-glance').classList.toggle('active',  glanceView);
   document.getElementById('results-area').style.display = glanceView ? 'none' : '';
   document.getElementById('glance-pane' ).classList.toggle('visible', glanceView);
-  document.getElementById('glance-cols-btns').classList.toggle('visible', glanceView);
   if (glanceView) renderGlanceView();
-}
-
-function setGlanceTF(tf) {
-  glanceTF = tf;
-  chartMode = tf;
-  ['D','W','M'].forEach(t => {
-    document.getElementById(`glance-tf-${t}`).classList.toggle('active', t === tf);
-  });
-  ['D','W','M','2x','3x'].forEach(m => {
-    const el = document.getElementById('btn-mode-' + m.toLowerCase());
-    if (el) el.classList.toggle('active', m === tf);
-  });
-  if (activeRow >= 0 && sortedResults[activeRow]) loadChart(sortedResults[activeRow]);
-  _rebuildGlanceCharts();
-}
-
-function setGlanceRange(range) { setChartRange(range); }
-
-function setGlanceCols(n) {
-  glanceCols = n;
-  [2,3,4,5,6].forEach(i => {
-    document.getElementById(`glance-col-${i}`).classList.toggle('active', i === n);
-  });
-  const grid = document.getElementById('glance-grid');
-  if (grid) grid.style.gridTemplateColumns = `repeat(${n}, 1fr)`;
-  _rebuildGlanceCharts();
-}
-
-function _rebuildGlanceCharts() {
-  Object.keys(_glanceCharts).forEach(t => {
-    try { _glanceCharts[t].remove(); } catch {}
-    delete _glanceCharts[t];
-  });
-  requestAnimationFrame(() => {
-    sortedResults.forEach((r, idx) => {
-      const container = document.getElementById(`glance-body-${idx}`);
-      if (container) _buildGlanceChart(container, r);
-    });
-  });
 }
 
 function renderGlanceView() {
@@ -4334,7 +3834,6 @@ function renderGlanceView() {
 
   const grid = document.getElementById('glance-grid');
   grid.innerHTML = '';
-  grid.style.gridTemplateColumns = `repeat(${glanceCols}, 1fr)`;
 
   if (!sortedResults.length) {
     grid.innerHTML = '<div style="padding:40px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;font-size:11px">No results to display</div>';
@@ -4353,13 +3852,6 @@ function renderGlanceView() {
     card.innerHTML = `
       <div class="glance-card-header">
         <span class="glance-card-ticker">${r.ticker}</span>
-        <button class="star-btn${r.isStarred ? ' star-active' : ''}"
-                id="glance-star-${r.ticker}"
-                onclick="event.stopPropagation(); toggleStar('${r.ticker}')"
-                title="${r.isStarred ? 'Add again as new entry (remove via My Picks tab)' : 'Add to My Picks'}"
-                style="font-size:11px;padding:0 3px;margin:0 2px;">
-          ${r.isStarred ? '★' : '☆'}
-        </button>
         <span class="glance-card-score ${colorClass}">${sc}%</span>
       </div>
       <div style="display:flex;align-items:center;justify-content:space-between;padding:2px 8px 2px;font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3)">
@@ -4380,24 +3872,17 @@ function renderGlanceView() {
   requestAnimationFrame(() => {
     sortedResults.forEach((r, idx) => {
       const container = document.getElementById(`glance-body-${idx}`);
-      if (container) _buildGlanceChart(container, r);
+      if (container && r.daily && r.daily.length >= 5) {
+        _buildGlanceChart(container, r, idx);
+      }
     });
   });
 }
 
-function _buildGlanceChart(container, r) {
-  const rawBars = glanceTF === 'M' ? r.monthly : glanceTF === 'W' ? r.weekly : r.daily;
-  if (!rawBars || rawBars.length < 5) return;
-
+function _buildGlanceChart(container, r, idx) {
   const toSec = t => Math.floor(t / 1000);
   const seen  = new Set();
-  const GLANCE_BARS = {
-    D: { '3M': 63,  '6M': 126, '12M': 252 },
-    W: { '3M': 13,  '6M': 26,  '12M': 52  },
-    M: { '3M': 3,   '6M': 6,   '12M': 12  },
-  };
-  const maxBars = GLANCE_BARS[glanceTF]?.[chartRange] ?? 252;
-  const bars  = rawBars.slice(-maxBars)
+  const bars  = r.daily
     .map(b => ({ t: b.t, o: b.o ?? b.c, h: b.h ?? b.c, l: b.l ?? b.c, c: b.c }))
     .filter(b => b.c > 0)
     .sort((a, bv) => a.t - bv.t)
@@ -4407,7 +3892,8 @@ function _buildGlanceChart(container, r) {
 
   try {
     const chart = LightweightCharts.createChart(container, {
-      autoSize: true,
+      width:  container.clientWidth || 220,
+      height: 120,
       layout:       { background: { color: '#ffffff' }, textColor: '#6b7280' },
       grid:         { vertLines: { color: '#f5f5f5' }, horzLines: { color: '#f5f5f5' } },
       rightPriceScale: { visible: false },
@@ -4424,74 +3910,11 @@ function _buildGlanceChart(container, r) {
       borderUpColor:  '#0a7c4e', borderDownColor: '#c82828',
       wickUpColor:    '#0a7c4e', wickDownColor:   '#c82828',
     });
-    candles.setData(bars.map(b => ({ time: toSec(b.t), open: b.o, high: b.h, low: b.l, close: b.c })));
-
-    // Bollinger Bands (20-period, 2 std devs) — rolling calculation across every bar
-    const BB_PERIOD = 20;
-    const closes    = bars.map(b => b.c);
-    const bbUpper   = [], bbMiddle = [], bbLower = [];
-    for (let i = BB_PERIOD - 1; i < bars.length; i++) {
-      const slice = closes.slice(i - BB_PERIOD + 1, i + 1);
-      const sma   = slice.reduce((a, b) => a + b, 0) / BB_PERIOD;
-      const std   = Math.sqrt(slice.reduce((a, b) => a + (b - sma) ** 2, 0) / BB_PERIOD);
-      const t     = toSec(bars[i].t);
-      bbUpper .push({ time: t, value: sma + 2 * std });
-      bbMiddle.push({ time: t, value: sma });
-      bbLower .push({ time: t, value: sma - 2 * std });
-    }
-    const bandStyle = { lineWidth: 1, priceLineVisible: false, lastValueVisible: false };
-    chart.addLineSeries({ ...bandStyle, color: 'rgba(99,132,199,0.55)' }).setData(bbUpper);
-    chart.addLineSeries({ ...bandStyle, color: 'rgba(150,150,150,0.45)', lineStyle: 2 }).setData(bbMiddle);
-    chart.addLineSeries({ ...bandStyle, color: 'rgba(99,132,199,0.55)' }).setData(bbLower);
-
+    const visible = bars.slice(-60);
+    candles.setData(visible.map(b => ({ time: toSec(b.t), open: b.o, high: b.h, low: b.l, close: b.c })));
     chart.timeScale().fitContent();
   } catch {}
 }
-
-// ============================================================
-//  PANE RESIZER — drag the border between list and chart
-// ============================================================
-(function() {
-  let dragging = false;
-  let startY   = 0;
-  let startH   = 0;
-
-  const resizer = document.getElementById('pane-resizer');
-  if (!resizer) return;
-
-  resizer.addEventListener('mousedown', e => {
-    const paneList = document.getElementById('pane-list');
-    if (!paneList.classList.contains('split')) return;
-    dragging = true;
-    startY   = e.clientY;
-    startH   = paneList.getBoundingClientRect().height;
-    resizer.classList.add('dragging');
-    document.body.style.cursor     = 'ns-resize';
-    document.body.style.userSelect = 'none';
-    e.preventDefault();
-  });
-
-  document.addEventListener('mousemove', e => {
-    if (!dragging) return;
-    const paneList  = document.getElementById('pane-list');
-    const mainBody  = document.getElementById('main-body');
-    const totalH    = mainBody.getBoundingClientRect().height;
-    const delta     = e.clientY - startY;
-    // In flipped layout the list is at the bottom, so drag direction inverts
-    const newH      = panesFlipped
-      ? startH - delta
-      : startH + delta;
-    paneList.style.height = Math.min(Math.max(newH, 80), totalH - 80) + 'px';
-  });
-
-  document.addEventListener('mouseup', () => {
-    if (!dragging) return;
-    dragging = false;
-    resizer.classList.remove('dragging');
-    document.body.style.cursor     = '';
-    document.body.style.userSelect = '';
-  });
-})();
 </script>
 </body>
 </html>
