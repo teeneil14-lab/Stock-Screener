@@ -1274,6 +1274,27 @@
   }
   .glance-cols-btns.visible { display: flex; }
 
+  /* DATA ERROR BANNER — shown when API calls fail during a scan */
+  .data-error-banner {
+    display: none;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 20px;
+    background: rgba(200,41,58,0.08);
+    border-bottom: 2px solid var(--red);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--red);
+  }
+  .data-error-banner.visible { display: flex; }
+  .data-error-banner strong { font-weight: 600; }
+  .data-error-banner a {
+    color: var(--red);
+    text-decoration: underline;
+    cursor: pointer;
+    margin-left: auto;
+  }
+
   /* SCAN PROGRESS BAR — prominent strip below main toolbar */
   .scan-progress {
     display: none;
@@ -1483,6 +1504,12 @@
         <div class="scan-progress-fill" id="scan-bar" style="width:0%"></div>
       </div>
       <div class="scan-progress-meta" id="scan-meta">Preparing…</div>
+    </div>
+
+    <!-- DATA ERROR BANNER — shown when Yahoo Finance API calls fail -->
+    <div class="data-error-banner" id="data-error-banner">
+      <strong>⚠ Data fetch failed</strong> — scores below are unreliable (all showing ~50%). Make sure the server is running: open a terminal and run <code style="background:rgba(200,41,58,0.12);padding:1px 5px;border-radius:2px;font-size:10px">node server.js</code> then scan again.
+      <a onclick="document.getElementById('data-error-banner').classList.remove('visible')">✕ dismiss</a>
     </div>
 
     <div class="main-body" id="main-body">
@@ -2494,6 +2521,8 @@ async function runScan() {
 
   results = []; filteredOut = [];
   sectorRankMap = {}; tickerSectorMap = {}; earningsMap = {};
+  let noDataCount = 0;
+  document.getElementById('data-error-banner').classList.remove('visible');
   // Reset glance view — switch back to list so stale charts aren't shown
   if (glanceView) setListView('list');
 
@@ -2526,6 +2555,7 @@ async function runScan() {
     scanMeta.innerHTML    = `<span class="scan-progress-ticker">${t.ticker}</span> &nbsp;·&nbsp; ${i+1} / ${total} &nbsp;·&nbsp; ${Math.round(elapsedSec)}s elapsed${etaSec !== '–' ? ' &nbsp;·&nbsp; ~' + etaSec + 's left' : ''}`;
 
     const stockData = await fetchStockData(t.ticker);
+    if (stockData._noData) noDataCount++;
 
     // Hard filter 1 — price must be above daily EMA50
     const aboveEma50 = stockData.above_ema50;
@@ -2593,6 +2623,11 @@ async function runScan() {
   scanBar.style.width = '100%';
   scanPct.textContent = '100%';
   scanMeta.textContent = `Done — ${total} tickers scanned in ${Math.round((Date.now()-scanStart)/1000)}s`;
+
+  // Show data-error banner if more than 20% of tickers had no real data
+  if (noDataCount > 0 && noDataCount >= Math.ceil(total * 0.2)) {
+    document.getElementById('data-error-banner').classList.add('visible');
+  }
 
   autoRestoreStars();
   computeAllSimilarityBonuses();
@@ -2724,11 +2759,13 @@ async function fetchStockData(ticker) {
     }
   }
 
-  // If daily data is unavailable fall back to mock so the scan can continue
+  // If daily data is unavailable fall back to mock so the scan can continue.
+  // _noData: true is used after the scan to detect API failures and warn the user.
   if (!daily) {
     console.warn(`[${ticker}] No daily data — using mock fallback`);
     const seed = hashStr(ticker);
     return {
+      _noData:     true,
       name:        ticker,
       price:       Math.round(pseudoRand(seed) * 200 + 5),
       change:      Math.round((pseudoRand(seed+1)*12-4)*100)/100,
@@ -2769,18 +2806,22 @@ async function fetchStockData(ticker) {
   // Hard filter: today's close is below the BB midline (20-period SMA)
   const below_bb_midline = !!(dailyBB && lastBar && lastBar.c < dailyBB.middle);
 
-  // Hard filter: current daily BB width is the widest point in the past 6 months (~126 trading days)
+  // Hard filter: current daily BB is in the widest 25% of the past 6 months (~126 trading days).
+  // Uses normalised width ((upper-lower)/middle) so a price crash doesn't inflate the comparison.
+  // 75th-percentile threshold instead of max so one-off spike events (e.g. tariff shock) don't
+  // dominate the lookback and let currently-wide stocks slip through.
   let bb_widest_6m = false;
   if (closes.length >= 146) {
     const WINDOW = 126;
     const widths = [];
     for (let i = closes.length - WINDOW; i < closes.length; i++) {
       const bb = calcBB(closes.slice(0, i + 1));
-      widths.push(bb ? (bb.upper - bb.lower) : 0);  // absolute $-width, not normalised %
+      widths.push(bb ? bb.width : 0);  // normalised: (upper-lower)/middle
     }
     const currentWidth = widths[widths.length - 1];
-    const maxWidth     = Math.max(...widths);
-    bb_widest_6m = maxWidth > 0 && currentWidth >= maxWidth;
+    const sorted       = [...widths].sort((a, b) => a - b);
+    const p75          = sorted[Math.floor(sorted.length * 0.75)];
+    bb_widest_6m = currentWidth > 0 && currentWidth >= p75;
   }
 
   // Hard filter: no 20%+ single-week drop in the last 3 completed weeks

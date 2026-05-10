@@ -1,0 +1,12 @@
+{
+  "name": "cts-global-screener",
+  "version": "1.0.0",
+  "description": "CTS Global Stock Screener — single-file app with Yahoo Finance proxy",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=16"
+  }
+}
