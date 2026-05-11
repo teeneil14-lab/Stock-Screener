@@ -2821,7 +2821,15 @@ async function fetchStockData(ticker) {
     const currentWidth = widths[widths.length - 1];
     const sorted       = [...widths].sort((a, b) => a - b);
     const p75          = sorted[Math.floor(sorted.length * 0.75)];
-    bb_widest_6m = currentWidth > 0 && currentWidth >= p75;
+    const wideEnough   = currentWidth > 0 && currentWidth >= p75;
+
+    // Also require close touching or above the upper BB for 3 consecutive days
+    const touchingUpper3d = wideEnough && [0, 1, 2].every(daysBack => {
+      const bb    = calcBB(closes.slice(0, closes.length - daysBack));
+      const close = closes[closes.length - 1 - daysBack];
+      return bb && close >= bb.upper;
+    });
+    bb_widest_6m = touchingUpper3d;
   }
 
   // Hard filter: no 20%+ single-week drop in the last 3 completed weeks
