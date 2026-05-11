@@ -1106,6 +1106,167 @@
     flex: 1;
   }
 
+  /* FILTERED-OUT LIST PANEL */
+  .flist-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 210;
+    align-items: center;
+    justify-content: center;
+  }
+  .flist-overlay.open { display: flex; }
+  .flist-panel {
+    background: var(--bg);
+    border: 1px solid var(--border2);
+    border-radius: 5px;
+    width: 94vw;
+    max-width: 1200px;
+    height: 88vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .flist-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    gap: 12px;
+  }
+  .flist-title {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    color: var(--red);
+    white-space: nowrap;
+  }
+  .flist-subtitle {
+    font-size: 10px;
+    color: var(--text3);
+    margin-top: 2px;
+    white-space: nowrap;
+  }
+  .flist-toolbar { display: flex; align-items: center; gap: 6px; flex: 1; }
+  .flist-body { overflow-y: auto; flex: 1; }
+
+  /* list view rows */
+  .flist-list-header {
+    display: grid;
+    grid-template-columns: 32px 1fr 90px 70px 70px;
+    gap: 8px;
+    padding: 6px 14px;
+    border-bottom: 1px solid var(--border);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    color: var(--text3);
+    letter-spacing: 0.06em;
+    background: var(--bg2);
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+  .flist-list-row {
+    display: grid;
+    grid-template-columns: 32px 1fr 90px 70px 70px;
+    gap: 8px;
+    align-items: center;
+    padding: 7px 14px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--border);
+  }
+  .flist-list-row:hover { background: var(--bg2); }
+  .flist-row-num {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--text3);
+    text-align: center;
+  }
+  .flist-row-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .flist-row-ticker {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: 0.05em;
+  }
+  .flist-row-name {
+    font-size: 10px;
+    color: var(--text3);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .flist-reason-tag {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 8px;
+    padding: 2px 5px;
+    border-radius: 2px;
+    background: var(--red-dim);
+    color: var(--red);
+    border: 1px solid rgba(200,40,40,0.25);
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+    align-self: flex-start;
+  }
+  .flist-row-price {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--text2);
+    text-align: right;
+  }
+  .flist-row-chg {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    text-align: right;
+  }
+
+  /* glance view */
+  .flist-glance-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    padding: 14px;
+  }
+  .flist-glance-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    cursor: pointer;
+    overflow: hidden;
+  }
+  .flist-glance-card:hover { border-color: var(--border2); }
+  .flist-glance-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 8px 4px;
+  }
+  .flist-glance-ticker {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: 0.05em;
+  }
+  .flist-glance-price {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    color: var(--text3);
+  }
+  .flist-glance-body { aspect-ratio: 16 / 9; position: relative; width: 100%; }
+
+  .flist-chip {
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .flist-chip:hover { opacity: 0.75; }
+
   /* BREAKDOWN */
   .breakdown-grid {
     display: grid;
@@ -1676,6 +1837,28 @@
       <button class="modal-close" onclick="closeModal()">✕ CLOSE</button>
     </div>
     <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+
+<div class="flist-overlay" id="flist-overlay" onclick="if(event.target===this)closeFList()">
+  <div class="flist-panel">
+    <div class="flist-header">
+      <div style="flex-shrink:0">
+        <div class="flist-title" id="flist-title">—</div>
+        <div class="flist-subtitle" id="flist-subtitle"></div>
+      </div>
+      <div class="flist-toolbar">
+        <button class="view-btn active" id="flist-btn-list"   onclick="setFListView('list')">LIST</button>
+        <button class="view-btn"        id="flist-btn-glance" onclick="setFListView('glance')">GLANCE</button>
+        <div id="flist-tf-btns" style="display:none;gap:4px;margin-left:4px">
+          <button class="view-btn active" id="flist-tf-D" onclick="setFListTF('D')">D</button>
+          <button class="view-btn"        id="flist-tf-W" onclick="setFListTF('W')">W</button>
+          <button class="view-btn"        id="flist-tf-M" onclick="setFListTF('M')">M</button>
+        </div>
+      </div>
+      <button class="modal-close" onclick="closeFList()">✕ CLOSE</button>
+    </div>
+    <div class="flist-body" id="flist-body"></div>
   </div>
 </div>
 
@@ -2644,13 +2827,13 @@ async function runScan() {
   const bbWidestRemoved = filteredOut.filter(f => f.reason === 'BB widest in 6 months').length;
   const belowMidRemoved = filteredOut.filter(f => f.reason === 'Close below BB midline').length;
   const removedParts    = [];
-  if (ema50Removed)    removedParts.push(`<span style="color:var(--red)">${ema50Removed}</span> below EMA50`);
-  if (earningsRemoved) removedParts.push(`<span style="color:var(--amber)">${earningsRemoved}</span> earnings ≤5d`);
-  if (crashRemoved)    removedParts.push(`<span style="color:var(--red)">${crashRemoved}</span> weekly crash`);
-  if (upperBBRemoved)  removedParts.push(`<span style="color:var(--red)">${upperBBRemoved}</span> above upper BB`);
-  if (lowerBBRemoved)  removedParts.push(`<span style="color:var(--red)">${lowerBBRemoved}</span> lower BB touch`);
-  if (bbWidestRemoved) removedParts.push(`<span style="color:var(--red)">${bbWidestRemoved}</span> BB widest 6m`);
-  if (belowMidRemoved) removedParts.push(`<span style="color:var(--red)">${belowMidRemoved}</span> below BB mid`);
+  if (ema50Removed)    removedParts.push(`<span class="flist-chip" onclick="showFList('Below daily EMA50')"><span style="color:var(--red)">${ema50Removed}</span> below EMA50</span>`);
+  if (earningsRemoved) removedParts.push(`<span class="flist-chip" onclick="showFList('Earnings')"><span style="color:var(--amber)">${earningsRemoved}</span> earnings ≤5d</span>`);
+  if (crashRemoved)    removedParts.push(`<span class="flist-chip" onclick="showFList('Weekly crash (−20%+)')"><span style="color:var(--red)">${crashRemoved}</span> weekly crash</span>`);
+  if (upperBBRemoved)  removedParts.push(`<span class="flist-chip" onclick="showFList('Extended above upper BB')"><span style="color:var(--red)">${upperBBRemoved}</span> above upper BB</span>`);
+  if (lowerBBRemoved)  removedParts.push(`<span class="flist-chip" onclick="showFList('Touching lower BB')"><span style="color:var(--red)">${lowerBBRemoved}</span> lower BB touch</span>`);
+  if (bbWidestRemoved) removedParts.push(`<span class="flist-chip" onclick="showFList('BB widest in 6 months')"><span style="color:var(--red)">${bbWidestRemoved}</span> BB widest 6m</span>`);
+  if (belowMidRemoved) removedParts.push(`<span class="flist-chip" onclick="showFList('Close below BB midline')"><span style="color:var(--red)">${belowMidRemoved}</span> below BB mid</span>`);
   scanSummaryHTML = `<span>${results.length}</span> tickers ranked` +
     (removedParts.length ? ` &nbsp;·&nbsp; ${removedParts.join(' &nbsp;·&nbsp; ')} removed` : '');
   document.getElementById('result-count-label').innerHTML = scanSummaryHTML;
@@ -3270,6 +3453,177 @@ function openModal(ticker) {
 }
 
 function closeModal() { document.getElementById('modal').classList.remove('open'); }
+
+// ============================================================
+//  FILTERED-OUT LIST PANEL
+// ============================================================
+function showFList(reason) {
+  flistItems = filteredOut.filter(f =>
+    reason === 'Earnings' ? f.reason?.startsWith('Earnings') : f.reason === reason
+  );
+  const label = reason === 'Earnings' ? 'EARNINGS WITHIN 5 DAYS' : reason.toUpperCase();
+  document.getElementById('flist-title').textContent    = label;
+  document.getElementById('flist-subtitle').textContent =
+    `${flistItems.length} ticker${flistItems.length !== 1 ? 's' : ''} removed by this filter`;
+  document.getElementById('flist-overlay').classList.add('open');
+  _renderFList();
+}
+
+function setFListView(mode) {
+  flistView = mode;
+  document.getElementById('flist-btn-list'  ).classList.toggle('active', mode === 'list');
+  document.getElementById('flist-btn-glance').classList.toggle('active', mode === 'glance');
+  document.getElementById('flist-tf-btns'   ).style.display = mode === 'glance' ? 'flex' : 'none';
+  _renderFList();
+}
+
+function setFListTF(tf) {
+  flistTF = tf;
+  ['D','W','M'].forEach(t =>
+    document.getElementById(`flist-tf-${t}`).classList.toggle('active', t === tf)
+  );
+  _destroyFListCharts();
+  _renderFList();
+}
+
+function _destroyFListCharts() {
+  Object.keys(_flistCharts).forEach(k => {
+    try { _flistCharts[k].remove(); } catch {}
+    delete _flistCharts[k];
+  });
+}
+
+function closeFList() {
+  _destroyFListCharts();
+  document.getElementById('flist-overlay').classList.remove('open');
+}
+
+function _renderFList() {
+  if (flistView === 'glance') _renderFListGlance();
+  else                        _renderFListList();
+}
+
+function _renderFListList() {
+  const body = document.getElementById('flist-body');
+  if (!flistItems.length) {
+    body.innerHTML = '<div style="padding:40px;color:var(--text3);font-size:12px;text-align:center;font-family:\'IBM Plex Mono\',monospace">No tickers in this category</div>';
+    return;
+  }
+  body.innerHTML = `
+    <div class="flist-list-header">
+      <div>#</div><div>TICKER</div><div style="text-align:right">PRICE</div><div style="text-align:right">CHG%</div><div></div>
+    </div>
+    ${flistItems.map((f, i) => {
+      const chgColor = (f.change ?? 0) >= 0 ? 'var(--green)' : 'var(--red)';
+      const chgSign  = (f.change ?? 0) >= 0 ? '+' : '';
+      const price    = f.price != null ? '$' + Number(f.price).toFixed(2) : '—';
+      const chg      = f.change != null ? `${chgSign}${f.change}%` : '—';
+      return `<div class="flist-list-row" onclick="closeFList();loadChart(${JSON.stringify({ ticker: f.ticker, name: f.name || f.ticker, exchange: f.exchange || '' })})">
+        <div class="flist-row-num">${i + 1}</div>
+        <div class="flist-row-info">
+          <div class="flist-row-ticker">${f.ticker}</div>
+          <div class="flist-row-name">${f.name || '—'}</div>
+        </div>
+        <div class="flist-row-price">${price}</div>
+        <div class="flist-row-chg" style="color:${chgColor}">${chg}</div>
+        <div></div>
+      </div>`;
+    }).join('')}`;
+}
+
+function _renderFListGlance() {
+  _destroyFListCharts();
+  const body = document.getElementById('flist-body');
+  if (!flistItems.length) {
+    body.innerHTML = '<div style="padding:40px;color:var(--text3);font-size:12px;text-align:center;font-family:\'IBM Plex Mono\',monospace">No tickers in this category</div>';
+    return;
+  }
+
+  const grid = document.createElement('div');
+  grid.className = 'flist-glance-grid';
+
+  flistItems.forEach((f, idx) => {
+    const price = f.price != null ? '$' + Number(f.price).toFixed(2) : '—';
+    const chgColor = (f.change ?? 0) >= 0 ? 'var(--green)' : 'var(--red)';
+    const chgSign  = (f.change ?? 0) >= 0 ? '+' : '';
+    const card = document.createElement('div');
+    card.className = 'flist-glance-card';
+    card.id        = `flist-gc-${idx}`;
+    card.innerHTML = `
+      <div class="flist-glance-header">
+        <span class="flist-glance-ticker">${f.ticker}</span>
+        <span class="flist-glance-price">${price} <span style="color:${chgColor}">${chgSign}${f.change ?? '—'}%</span></span>
+      </div>
+      <div class="flist-glance-body" id="flist-gb-${idx}"></div>`;
+    card.addEventListener('click', () => { closeFList(); loadChart({ ticker: f.ticker, name: f.name || f.ticker, exchange: f.exchange || '' }); });
+    grid.appendChild(card);
+  });
+
+  body.innerHTML = '';
+  body.appendChild(grid);
+
+  requestAnimationFrame(() => {
+    flistItems.forEach((f, idx) => {
+      const container = document.getElementById(`flist-gb-${idx}`);
+      if (container) _buildFListChart(container, f, flistTF, idx);
+    });
+  });
+}
+
+function _buildFListChart(container, f, tf, key) {
+  const rawBars = tf === 'M' ? f.monthly : tf === 'W' ? f.weekly : f.daily;
+  if (!rawBars || rawBars.length < 5) return;
+
+  const toSec = t => Math.floor(t / 1000);
+  const seen  = new Set();
+  const maxBars = tf === 'M' ? 12 : tf === 'W' ? 52 : 252;
+  const bars = rawBars.slice(-maxBars)
+    .map(b => ({ t: b.t, o: b.o ?? b.c, h: b.h ?? b.c, l: b.l ?? b.c, c: b.c }))
+    .filter(b => b.c > 0)
+    .sort((a, b) => a.t - b.t)
+    .filter(b => { const s = toSec(b.t); return seen.has(s) ? false : (seen.add(s), true); });
+
+  if (bars.length < 5) return;
+  try {
+    const chart = LightweightCharts.createChart(container, {
+      autoSize: true,
+      layout:          { background: { color: '#ffffff' }, textColor: '#6b7280' },
+      grid:            { vertLines: { color: '#f5f5f5' }, horzLines: { color: '#f5f5f5' } },
+      rightPriceScale: { visible: false },
+      leftPriceScale:  { visible: false },
+      timeScale:       { visible: false },
+      crosshair:       { mode: LightweightCharts.CrosshairMode.None },
+      handleScroll: false,
+      handleScale:  false,
+    });
+    _flistCharts[key] = chart;
+
+    chart.addCandlestickSeries({
+      upColor: '#0a7c4e', downColor: '#c82828',
+      borderUpColor: '#0a7c4e', borderDownColor: '#c82828',
+      wickUpColor: '#0a7c4e', wickDownColor: '#c82828',
+    }).setData(bars.map(b => ({ time: toSec(b.t), open: b.o, high: b.h, low: b.l, close: b.c })));
+
+    const BB_PERIOD = 20;
+    const closes = bars.map(b => b.c);
+    const bbU = [], bbM = [], bbL = [];
+    for (let i = BB_PERIOD - 1; i < bars.length; i++) {
+      const slice = closes.slice(i - BB_PERIOD + 1, i + 1);
+      const sma = slice.reduce((a, b) => a + b, 0) / BB_PERIOD;
+      const std = Math.sqrt(slice.reduce((a, b) => a + (b - sma) ** 2, 0) / BB_PERIOD);
+      const t = toSec(bars[i].t);
+      bbU.push({ time: t, value: sma + 2 * std });
+      bbM.push({ time: t, value: sma });
+      bbL.push({ time: t, value: sma - 2 * std });
+    }
+    const bs = { lineWidth: 1, priceLineVisible: false, lastValueVisible: false };
+    chart.addLineSeries({ ...bs, color: 'rgba(99,132,199,0.55)' }).setData(bbU);
+    chart.addLineSeries({ ...bs, color: 'rgba(150,150,150,0.45)', lineStyle: 2 }).setData(bbM);
+    chart.addLineSeries({ ...bs, color: 'rgba(99,132,199,0.55)' }).setData(bbL);
+
+    chart.timeScale().fitContent();
+  } catch {}
+}
 
 // ============================================================
 //  UTILS
@@ -4348,6 +4702,11 @@ function sortSectors(col) {
 let glanceView        = false;   // false = list, true = glance
 let glanceCols        = 4;       // charts per row: 2–6
 let glanceTF          = 'D';     // 'D' | 'W' | 'M'
+
+let flistView         = 'list';  // 'list' | 'glance'
+let flistTF           = 'D';
+let flistItems        = [];
+const _flistCharts    = {};
 const _glanceCharts   = {};      // ticker → LightweightCharts instance
 
 function setListView(mode) {
