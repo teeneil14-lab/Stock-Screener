@@ -1050,7 +1050,7 @@
   /* RANK ROW */
   .rank-row {
     display: grid;
-    grid-template-columns: 32px 32px 130px 90px 80px 90px 1fr 110px 100px 100px;
+    grid-template-columns: 32px 32px 130px 90px 80px 90px 1fr 54px 110px 100px 100px;
     align-items: center;
     padding: 0 16px;
     height: 52px;
@@ -1130,6 +1130,13 @@
   .tag.sector-bonus { color: #7c3aed; border-color: rgba(124,58,237,0.3); background: rgba(124,58,237,0.1); }
   .rank-score-bonus { font-family: 'Inter', sans-serif; font-size: 8px; color: #7c3aed; letter-spacing: 0.04em; white-space: nowrap; }
   .rank-sector-col { font-family: 'Inter', sans-serif; font-size: 9px; color: var(--text3); letter-spacing: 0.03em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 6px; }
+
+  /* RS vs SPX pip bars */
+  .rs-pips { display: flex; gap: 2px; align-items: center; justify-content: center; }
+  .pip { width: 6px; height: 13px; border-radius: 2px; background: #e2e8f0; }
+  .rs-strong .pip.on { background: #0a7c4e; }
+  .rs-mid    .pip.on { background: #d97706; }
+  .rs-weak   .pip.on { background: #dc2626; }
 
   /* STAR / PREFERENCE SYSTEM */
   .star-btn {
@@ -1311,7 +1318,7 @@
   /* TABLE HEADER */
   .rank-header {
     display: grid;
-    grid-template-columns: 32px 32px 130px 90px 80px 90px 1fr 110px 100px 100px;
+    grid-template-columns: 32px 32px 130px 90px 80px 90px 1fr 54px 110px 100px 100px;
     align-items: center;
     padding: 0 16px;
     height: 32px;
@@ -2032,6 +2039,7 @@
           <option value="wk_high">Nearest Weekly High ↓</option>
           <option value="mo_high">Nearest Monthly High ↓</option>
           <option value="52wk_high">Nearest 52-Wk High ↓</option>
+          <option value="rs_spx">RS vs SPX ↓</option>
         </select>
         <button class="view-btn" id="btn-flip-panes" onclick="flipPanes()" title="Swap chart and list position">↕ FLIP</button>
         <button class="view-btn danger" id="download-btn" onclick="downloadFiltered()" style="display:none">↓ EXPORT FILTERED .TXT</button>
@@ -2266,6 +2274,7 @@ const SETUPS = {
       { id:"d_rsi",        tf:"DAILY",   name:"Daily RSI 50–68",                   desc:"14-period RSI between 50 and 68 — momentum without being overbought", weight:10 },
       { id:"d_wtd_top",    tf:"DAILY",   name:"Close — top 25% of WTD range",      desc:"Close in top 25% of week-to-date H–L range (Mon to current day)",     weight:10 },
       { id:"yr_return",    tf:"YEARLY",  name:"Positive 1-year return",            desc:"Current price > price 52 weeks ago",                                   weight:10 },
+      { id:"rs_spx",       tf:"YEARLY",  name:"RS vs S&P 500 (5-day)",             desc:"Number of the past 5 trading days the stock outperformed the S&P 500 index", weight:10 },
     ]
   },
   2: {
@@ -2282,6 +2291,7 @@ const SETUPS = {
       { id:"d_rsi",         tf:"DAILY",   name:"Daily RSI 50–68",                  desc:"14-period RSI between 50 and 68 — momentum without being overbought", weight:10 },
       { id:"d_wtd_top",     tf:"DAILY",   name:"Close — top 25% of WTD range",     desc:"Close in top 25% of week-to-date H–L range (Mon to current day)",    weight:10 },
       { id:"yr_return",     tf:"YEARLY",  name:"Positive 1-year return",           desc:"Current price > price 52 weeks ago",                                   weight:10 },
+      { id:"rs_spx",        tf:"YEARLY",  name:"RS vs S&P 500 (5-day)",            desc:"Number of the past 5 trading days the stock outperformed the S&P 500 index", weight:10 },
     ]
   },
   // PH (Philippine Stock Exchange) — three close-position criteria only
@@ -2331,6 +2341,7 @@ let sectorRankMap   = {}; // sector name → bonus pts (0–10)
 let tickerSectorMap = {}; // ticker symbol → YF sector name
 let earningsMap     = {}; // ticker symbol → next earnings Unix timestamp (seconds)
 let lastSort      = "score";
+let cachedSPXBars = null; // fetched once per scan; shared across all tickers
 let activeRow     = -1;   // index into sorted results array
 let listVisible   = true;
 let chartVisible  = true;
@@ -2763,7 +2774,11 @@ function scoreStock(stockData, setupId) {
   if (stockData.change >= 5) tags.push({ label:'+'+stockData.change+'%', cls:'momentum' });
   if (stockData.vol_ratio > 2) tags.push({ label:'VOL SURGE', cls:'warn' });
 
-  return { score:finalScore, criteriaScores, tfNorm, tags };
+  const rsDays = Math.round((criteriaScores['rs_spx']?.raw || 0) * 5);
+  if (rsDays >= 4) tags.push({ label:'RS RISING', cls:'momentum' });
+  if (rsDays <= 1) tags.push({ label:'RS FADING', cls:'warn' });
+
+  return { score:finalScore, criteriaScores, tfNorm, tags, rsDays };
 }
 
 // Compute score 0–1 for a single criterion using real OHLCV bar data.
@@ -2786,6 +2801,7 @@ function computeCriterion(criterion, stock) {
     case 'd_reset':       return computeDailyReset(stock.daily);
     case 'd_rsi':         return computeDailyRSI(stock.daily);
     case 'd_wtd_top':     return computeWTDTop(stock.daily);
+    case 'rs_spx':        return computeRSvsSPX(stock.daily, stock.spxDaily);
     default:              return 0.5;
   }
 }
@@ -3107,6 +3123,22 @@ function computeWTDTop(bars) {
   return 0.0;
 }
 
+// rs_spx: count how many of the last 5 days the stock's RS line (stock/SPX) rose
+// Each rising RS day = stock outperformed SPX that day. Score = days / 5 → 0.0–1.0
+function computeRSvsSPX(daily, spxDaily) {
+  if (!spxDaily || spxDaily.length < 7 || !daily || daily.length < 7) return 0.5;
+  const n = Math.min(daily.length, spxDaily.length);
+  const stock = daily.slice(-n);
+  const spx   = spxDaily.slice(-n);
+  let days = 0;
+  for (let i = n - 1; i >= n - 5 && i >= 1; i--) {
+    const rsToday = stock[i].c / spx[i].c;
+    const rsYest  = stock[i-1].c / spx[i-1].c;
+    if (rsToday > rsYest) days++;
+  }
+  return days / 5;
+}
+
 // ============================================================
 //  SECTOR BONUS HELPERS
 // ============================================================
@@ -3185,6 +3217,7 @@ async function runScan() {
 
   results = []; filteredOut = [];
   sectorRankMap = {}; tickerSectorMap = {}; earningsMap = {};
+  cachedSPXBars = null;
   let noDataCount = 0;
   document.getElementById('data-error-banner').classList.remove('visible');
   // Reset glance view — switch back to list so stale charts aren't shown
@@ -3192,6 +3225,8 @@ async function runScan() {
 
   // Fetch sector rankings and sector classifications before the main loop (US only)
   if (marketMode !== 'PH') {
+    scanMeta.innerHTML = 'Fetching S&P 500 benchmark data…';
+    await ensureSPXBars();
     scanMeta.innerHTML = 'Fetching sector ETF rankings…';
     sectorRankMap = await buildSectorRankMap();
     scanMeta.innerHTML = 'Fetching ticker sector data…';
@@ -3385,6 +3420,17 @@ function parseYFResult(result) {
   return { meta, bars };
 }
 
+// Fetch SPX daily bars once per scan and cache them for all tickers to share
+async function ensureSPXBars() {
+  try {
+    const result = await fetchYF('^GSPC', '1y', '1d');
+    cachedSPXBars = result.bars;
+  } catch (e) {
+    console.warn('[SPX] Failed to fetch SPX bars:', e.message);
+    cachedSPXBars = null;
+  }
+}
+
 // ── Stooq fetch helper (for Philippine / PSE stocks) ─────────────────────────
 // Stooq uses .ph suffix for PSE-listed stocks (e.g. jfc.ph, sm.ph, ali.ph)
 async function fetchStooq(ticker, interval, days) {
@@ -3557,6 +3603,7 @@ async function fetchStockData(ticker) {
     daily:        dailyBars,
     weekly:       weekly  ? weekly.bars  : null,
     monthly:      monthly ? monthly.bars : null,
+    spxDaily:     cachedSPXBars,
   };
 }
 
@@ -3617,7 +3664,7 @@ function renderResults() {
 
   let html = `<div class="rank-header">
     <div>#</div><div></div><div>TICKER</div><div>SCORE</div><div></div><div>SECTOR</div><div>SIGNALS</div>
-    <div>MTH / WK / DAY / YR</div><div class="right">PRICE</div><div class="right">CHG%</div>
+    <div style="text-align:center">RS</div><div>MTH / WK / DAY / YR</div><div class="right">PRICE</div><div class="right">CHG%</div>
   </div>`;
 
   html += sortedResults.map((r, i) => rankRow(r, i+1, i)).join('');
@@ -3680,6 +3727,13 @@ function rankRow(r, rankNum, idx) {
     <div class="rank-bar-col"><div class="score-bar-mini"><div class="score-bar-mini-fill ${barClass}" style="width:${Math.min(sc,100)}%"></div></div></div>
     <div class="rank-sector-col">${r.sectorName || ''}</div>
     <div class="rank-tags">${tagsHtml}</div>
+    <div class="rs-pips ${(r.rsDays??0)>=4?'rs-strong':(r.rsDays??0)>=3?'rs-mid':'rs-weak'}">
+      <span class="pip${(r.rsDays??0)>=1?' on':''}"></span>
+      <span class="pip${(r.rsDays??0)>=2?' on':''}"></span>
+      <span class="pip${(r.rsDays??0)>=3?' on':''}"></span>
+      <span class="pip${(r.rsDays??0)>=4?' on':''}"></span>
+      <span class="pip${(r.rsDays??0)>=5?' on':''}"></span>
+    </div>
     <div class="rank-tf-scores">${tfHtml}</div>
     <div class="rank-price">$${Number(r.price).toFixed(2)}</div>
     <div class="rank-change ${chgClass}">${chgSign}${r.change}%</div>
@@ -3857,6 +3911,7 @@ function getSortFn(by) {
   if (by==='wk_high')  return (a,b) => getPeriodHighProx(b,'weekly') - getPeriodHighProx(a,'weekly');
   if (by==='mo_high')  return (a,b) => getPeriodHighProx(b,'monthly') - getPeriodHighProx(a,'monthly');
   if (by==='52wk_high') return (a,b) => get52WkHighProx(b) - get52WkHighProx(a);
+  if (by==='rs_spx')   return (a,b) => (b.rsDays??0) - (a.rsDays??0);
   return (a,b) => (b.rankScore??b.score) - (a.rankScore??a.score);
 }
 
