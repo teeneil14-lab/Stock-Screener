@@ -2726,82 +2726,97 @@ async function runScan() {
   const total     = tickers.length;
   const scanStart = Date.now();
 
-  for (let i = 0; i < total; i++) {
-    const t        = tickers[i];
-    const statusEl = document.getElementById('status-'+t.ticker);
-    if (statusEl) { statusEl.textContent='…'; statusEl.className='t-status running'; }
+  const SCAN_CONCURRENCY = 3; // fetch this many stocks at once
 
-    // Update big progress bar BEFORE the (slow) fetch so user sees current ticker
-    const pctNow = Math.round((i / total) * 100);
-    scanBar.style.width   = pctNow + '%';
-    scanPct.textContent   = pctNow + '%';
-    const elapsedSec      = (Date.now() - scanStart) / 1000;
-    const etaSec          = i > 0 ? Math.round((elapsedSec / i) * (total - i)) : '–';
-    scanMeta.innerHTML    = `<span class="scan-progress-ticker">${t.ticker}</span> &nbsp;·&nbsp; ${i+1} / ${total} &nbsp;·&nbsp; ${Math.round(elapsedSec)}s elapsed${etaSec !== '–' ? ' &nbsp;·&nbsp; ~' + etaSec + 's left' : ''}`;
+  for (let i = 0; i < total; i += SCAN_CONCURRENCY) {
+    const batch = tickers.slice(i, Math.min(i + SCAN_CONCURRENCY, total));
 
-    const stockData = await fetchStockData(t.ticker);
-    if (stockData._noData) noDataCount++;
+    // Mark all stocks in this batch as "running" before fetching
+    batch.forEach(t => {
+      const el = document.getElementById('status-' + t.ticker);
+      if (el) { el.textContent = '…'; el.className = 't-status running'; }
+    });
 
-    // Hard filter 1 — price must be above daily EMA50
-    const aboveEma50 = stockData.above_ema50;
-    // Hard filter 2 — no earnings within the next 5 calendar days (US only)
-    const earningsTs   = marketMode !== 'PH' ? earningsMap[t.ticker] : null;
-    const earningsDays = earningsTs ? (earningsTs - Date.now() / 1000) / 86400 : Infinity;
-    const earningsSoon = earningsDays >= 0 && earningsDays <= 5;
-    // Hard filter 3 — no 20%+ single-week drop in the last 3 completed weeks
-    const hadWeeklyCrash  = stockData.had_weekly_crash;
-    // Hard filter 4 — last daily candle open AND close both above upper BB (parabolic)
-    const aboveUpperBB    = stockData.above_upper_bb;
-    // Hard filter 5 — last daily candle low touches or breaks lower BB (breakdown)
-    const touchingLowerBB = stockData.touching_lower_bb;
-    // Hard filter 6 — BB width is at its widest point in the last 6 months (bands fully expanded)
-    const bbWidest6m      = stockData.bb_widest_6m;
-    // Hard filter 7 — today's close is below the BB midline (20-period SMA)
-    const belowBBMidline  = stockData.below_bb_midline;
+    // Update big progress bar
+    const pctNow     = Math.round((i / total) * 100);
+    scanBar.style.width = pctNow + '%';
+    scanPct.textContent = pctNow + '%';
+    const elapsedSec = (Date.now() - scanStart) / 1000;
+    const etaSec     = i > 0 ? Math.round((elapsedSec / i) * (total - i)) : '–';
+    scanMeta.innerHTML = `<span class="scan-progress-ticker">${batch.map(b => b.ticker).join(' · ')}</span> &nbsp;·&nbsp; ${i+1}${batch.length > 1 ? '–'+(i+batch.length) : ''} / ${total} &nbsp;·&nbsp; ${Math.round(elapsedSec)}s elapsed${etaSec !== '–' ? ' &nbsp;·&nbsp; ~' + etaSec + 's left' : ''}`;
 
-    if (!aboveEma50) {
-      filteredOut.push({ ...t, ...stockData, reason: 'Below daily EMA50' });
-      if (statusEl) { statusEl.textContent='✗'; statusEl.className='t-status'; statusEl.style.cssText='font-size:9px;padding:1px 5px;color:var(--red);border:1px solid rgba(200,41,58,0.3);background:var(--red-dim);border-radius:2px'; }
-    } else if (earningsSoon) {
-      const dLabel = earningsDays < 1 ? 'today' : `in ${Math.ceil(earningsDays)}d`;
-      filteredOut.push({ ...t, ...stockData, reason: `Earnings ${dLabel}` });
-      if (statusEl) { statusEl.textContent='⚡'; statusEl.className='t-status'; statusEl.style.cssText='font-size:9px;padding:1px 5px;color:var(--amber);border:1px solid rgba(160,92,0,0.3);background:var(--amber-dim);border-radius:2px'; }
-    } else if (marketMode !== 'PH' && hadWeeklyCrash) {
-      filteredOut.push({ ...t, ...stockData, reason: 'Weekly crash (−20%+)' });
-      if (statusEl) { statusEl.textContent='✗'; statusEl.className='t-status'; statusEl.style.cssText='font-size:9px;padding:1px 5px;color:var(--red);border:1px solid rgba(200,41,58,0.3);background:var(--red-dim);border-radius:2px'; }
-    } else if (marketMode !== 'PH' && aboveUpperBB) {
-      filteredOut.push({ ...t, ...stockData, reason: 'Extended above upper BB' });
-      if (statusEl) { statusEl.textContent='✗'; statusEl.className='t-status'; statusEl.style.cssText='font-size:9px;padding:1px 5px;color:var(--red);border:1px solid rgba(200,41,58,0.3);background:var(--red-dim);border-radius:2px'; }
-    } else if (marketMode !== 'PH' && touchingLowerBB) {
-      filteredOut.push({ ...t, ...stockData, reason: 'Touching lower BB' });
-      if (statusEl) { statusEl.textContent='✗'; statusEl.className='t-status'; statusEl.style.cssText='font-size:9px;padding:1px 5px;color:var(--red);border:1px solid rgba(200,41,58,0.3);background:var(--red-dim);border-radius:2px'; }
-    } else if (marketMode !== 'PH' && bbWidest6m) {
-      filteredOut.push({ ...t, ...stockData, reason: 'BB widest in 6 months' });
-      if (statusEl) { statusEl.textContent='✗'; statusEl.className='t-status'; statusEl.style.cssText='font-size:9px;padding:1px 5px;color:var(--red);border:1px solid rgba(200,41,58,0.3);background:var(--red-dim);border-radius:2px'; }
-    } else if (marketMode !== 'PH' && belowBBMidline) {
-      filteredOut.push({ ...t, ...stockData, reason: 'Close below BB midline' });
-      if (statusEl) { statusEl.textContent='✗'; statusEl.className='t-status'; statusEl.style.cssText='font-size:9px;padding:1px 5px;color:var(--red);border:1px solid rgba(200,41,58,0.3);background:var(--red-dim);border-radius:2px'; }
-    } else if (marketMode === 'PH' && (stockData.avg_value_traded || 0) < 100000) {
-      const v = stockData.avg_value_traded || 0;
-      const vLabel = v >= 1000 ? `PHP ${Math.round(v/1000)}K` : `PHP ${Math.round(v)}`;
-      filteredOut.push({ ...t, ...stockData, reason: `Avg value ${vLabel} < 100K` });
-      if (statusEl) { statusEl.textContent='✗'; statusEl.className='t-status'; statusEl.style.cssText='font-size:9px;padding:1px 5px;color:var(--red);border:1px solid rgba(200,41,58,0.3);background:var(--red-dim);border-radius:2px'; }
-    } else {
-      const scored      = scoreStock(stockData, currentSetup);
-      const sectorName  = tickerSectorMap[t.ticker] || '';
-      const sectorBonus = sectorRankMap[sectorName]  || 0;
-      const rankScore   = scored.score + sectorBonus;
-      if (sectorBonus > 0) scored.tags.unshift({ label: `+${sectorBonus} SECTOR`, cls: 'sector-bonus' });
-      results.push({ ...t, ...stockData, ...scored, sectorBonus, sectorName, rankScore });
-      if (statusEl) { statusEl.textContent='✓'; statusEl.className='t-status done'; }
+    // Fetch all stocks in the batch simultaneously
+    const fetched = await Promise.all(
+      batch.map(t => fetchStockData(t.ticker).then(sd => ({ t, stockData: sd })))
+    );
+
+    // Process each result and update the UI
+    for (const { t, stockData } of fetched) {
+      const statusEl = document.getElementById('status-' + t.ticker);
+      if (stockData._noData) noDataCount++;
+
+      // Hard filter 1 — price must be above daily EMA50
+      const aboveEma50 = stockData.above_ema50;
+      // Hard filter 2 — no earnings within the next 5 calendar days (US only)
+      const earningsTs   = marketMode !== 'PH' ? earningsMap[t.ticker] : null;
+      const earningsDays = earningsTs ? (earningsTs - Date.now() / 1000) / 86400 : Infinity;
+      const earningsSoon = earningsDays >= 0 && earningsDays <= 5;
+      // Hard filter 3 — no 20%+ single-week drop in the last 3 completed weeks
+      const hadWeeklyCrash  = stockData.had_weekly_crash;
+      // Hard filter 4 — last daily candle open AND close both above upper BB (parabolic)
+      const aboveUpperBB    = stockData.above_upper_bb;
+      // Hard filter 5 — last daily candle low touches or breaks lower BB (breakdown)
+      const touchingLowerBB = stockData.touching_lower_bb;
+      // Hard filter 6 — BB width is at its widest point in the last 6 months (bands fully expanded)
+      const bbWidest6m      = stockData.bb_widest_6m;
+      // Hard filter 7 — today's close is below the BB midline (20-period SMA)
+      const belowBBMidline  = stockData.below_bb_midline;
+
+      if (!aboveEma50) {
+        filteredOut.push({ ...t, ...stockData, reason: 'Below daily EMA50' });
+        if (statusEl) { statusEl.textContent='✗'; statusEl.className='t-status'; statusEl.style.cssText='font-size:9px;padding:1px 5px;color:var(--red);border:1px solid rgba(200,41,58,0.3);background:var(--red-dim);border-radius:2px'; }
+      } else if (earningsSoon) {
+        const dLabel = earningsDays < 1 ? 'today' : `in ${Math.ceil(earningsDays)}d`;
+        filteredOut.push({ ...t, ...stockData, reason: `Earnings ${dLabel}` });
+        if (statusEl) { statusEl.textContent='⚡'; statusEl.className='t-status'; statusEl.style.cssText='font-size:9px;padding:1px 5px;color:var(--amber);border:1px solid rgba(160,92,0,0.3);background:var(--amber-dim);border-radius:2px'; }
+      } else if (marketMode !== 'PH' && hadWeeklyCrash) {
+        filteredOut.push({ ...t, ...stockData, reason: 'Weekly crash (−20%+)' });
+        if (statusEl) { statusEl.textContent='✗'; statusEl.className='t-status'; statusEl.style.cssText='font-size:9px;padding:1px 5px;color:var(--red);border:1px solid rgba(200,41,58,0.3);background:var(--red-dim);border-radius:2px'; }
+      } else if (marketMode !== 'PH' && aboveUpperBB) {
+        filteredOut.push({ ...t, ...stockData, reason: 'Extended above upper BB' });
+        if (statusEl) { statusEl.textContent='✗'; statusEl.className='t-status'; statusEl.style.cssText='font-size:9px;padding:1px 5px;color:var(--red);border:1px solid rgba(200,41,58,0.3);background:var(--red-dim);border-radius:2px'; }
+      } else if (marketMode !== 'PH' && touchingLowerBB) {
+        filteredOut.push({ ...t, ...stockData, reason: 'Touching lower BB' });
+        if (statusEl) { statusEl.textContent='✗'; statusEl.className='t-status'; statusEl.style.cssText='font-size:9px;padding:1px 5px;color:var(--red);border:1px solid rgba(200,41,58,0.3);background:var(--red-dim);border-radius:2px'; }
+      } else if (marketMode !== 'PH' && bbWidest6m) {
+        filteredOut.push({ ...t, ...stockData, reason: 'BB widest in 6 months' });
+        if (statusEl) { statusEl.textContent='✗'; statusEl.className='t-status'; statusEl.style.cssText='font-size:9px;padding:1px 5px;color:var(--red);border:1px solid rgba(200,41,58,0.3);background:var(--red-dim);border-radius:2px'; }
+      } else if (marketMode !== 'PH' && belowBBMidline) {
+        filteredOut.push({ ...t, ...stockData, reason: 'Close below BB midline' });
+        if (statusEl) { statusEl.textContent='✗'; statusEl.className='t-status'; statusEl.style.cssText='font-size:9px;padding:1px 5px;color:var(--red);border:1px solid rgba(200,41,58,0.3);background:var(--red-dim);border-radius:2px'; }
+      } else if (marketMode === 'PH' && (stockData.avg_value_traded || 0) < 100000) {
+        const v = stockData.avg_value_traded || 0;
+        const vLabel = v >= 1000 ? `PHP ${Math.round(v/1000)}K` : `PHP ${Math.round(v)}`;
+        filteredOut.push({ ...t, ...stockData, reason: `Avg value ${vLabel} < 100K` });
+        if (statusEl) { statusEl.textContent='✗'; statusEl.className='t-status'; statusEl.style.cssText='font-size:9px;padding:1px 5px;color:var(--red);border:1px solid rgba(200,41,58,0.3);background:var(--red-dim);border-radius:2px'; }
+      } else {
+        const scored      = scoreStock(stockData, currentSetup);
+        const sectorName  = tickerSectorMap[t.ticker] || '';
+        const sectorBonus = sectorRankMap[sectorName]  || 0;
+        const rankScore   = scored.score + sectorBonus;
+        if (sectorBonus > 0) scored.tags.unshift({ label: `+${sectorBonus} SECTOR`, cls: 'sector-bonus' });
+        results.push({ ...t, ...stockData, ...scored, sectorBonus, sectorName, rankScore });
+        if (statusEl) { statusEl.textContent='✓'; statusEl.className='t-status done'; }
+      }
     }
 
-    // Update small header bar
-    const pctDone = Math.round(((i+1)/total)*100);
-    progressFill.style.width = pctDone+'%';
-    progressLabel.textContent = (i+1)+' / '+total;
+    // Update small header bar after the batch
+    const completedCount = Math.min(i + SCAN_CONCURRENCY, total);
+    progressFill.style.width  = Math.round((completedCount / total) * 100) + '%';
+    progressLabel.textContent = completedCount + ' / ' + total;
 
-    await sleep(120);
+    // Brief pause between batches (not between every single stock)
+    if (i + SCAN_CONCURRENCY < total) await sleep(150);
   }
 
   // Finish progress bar at 100%

@@ -14,6 +14,21 @@ const MIME = {
   '.json': 'application/json',
 };
 
+// ─── Response cache ──────────────────────────────────────────────────────────
+// Caches Yahoo Finance chart responses for 5 minutes so re-scans are instant.
+const yfCache    = new Map();
+const CACHE_TTL  = 5 * 60 * 1000; // 5 minutes
+
+function getCached(key) {
+  const entry = yfCache.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.ts > CACHE_TTL) { yfCache.delete(key); return null; }
+  return entry;
+}
+function setCache(key, status, body) {
+  yfCache.set(key, { ts: Date.now(), status, body });
+}
+
 // ─── Yahoo Finance crumb management ─────────────────────────────────────────
 // YF's v8 chart API requires a "crumb" token (tied to a session cookie).
 // We fetch one crumb at startup and refresh it every 25 minutes.
@@ -111,6 +126,10 @@ function yfHeaders() {
 
 // ─── Yahoo Finance chart proxy ───────────────────────────────────────────────
 async function proxyYahoo(ticker, range, interval) {
+  const cacheKey = `${ticker}|${range}|${interval}`;
+  const cached   = getCached(cacheKey);
+  if (cached) return { status: cached.status, body: cached.body };
+
   await ensureCrumb();
 
   return new Promise((resolve, reject) => {
@@ -131,7 +150,10 @@ async function proxyYahoo(ticker, range, interval) {
     const req = https.get(options, (res) => {
       let body = '';
       res.on('data', (chunk) => { body += chunk; });
-      res.on('end',  ()      => resolve({ status: res.statusCode, body }));
+      res.on('end',  () => {
+        if (res.statusCode === 200) setCache(cacheKey, res.statusCode, body);
+        resolve({ status: res.statusCode, body });
+      });
     });
 
     req.on('error', reject);
