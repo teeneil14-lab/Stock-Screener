@@ -5241,20 +5241,41 @@ function _buildGlanceChart(container, r) {
   if (!rawBars || rawBars.length < 5) return;
 
   const toSec = t => Math.floor(t / 1000);
-  const seen  = new Set();
   const GLANCE_BARS = {
     D: { '3M': 63,  '6M': 126, '12M': 252 },
     W: { '3M': 13,  '6M': 26,  '12M': 52  },
     M: { '3M': 3,   '6M': 6,   '12M': 12  },
   };
   const maxBars = GLANCE_BARS[glanceTF]?.[glanceRange] ?? 252;
-  const bars  = rawBars.slice(-maxBars)
+
+  // Build the full de-duplicated history first (needed so BB has enough warm-up data)
+  const seenAll = new Set();
+  const allBars = rawBars
     .map(b => ({ t: b.t, o: b.o ?? b.c, h: b.h ?? b.c, l: b.l ?? b.c, c: b.c }))
     .filter(b => b.c > 0)
     .sort((a, bv) => a.t - bv.t)
-    .filter(b => { const s = toSec(b.t); return seen.has(s) ? false : (seen.add(s), true); });
+    .filter(b => { const s = toSec(b.t); return seenAll.has(s) ? false : (seenAll.add(s), true); });
 
+  // Candles shown = last maxBars from the full history
+  const bars = allBars.slice(-maxBars);
   if (bars.length < 5) return;
+
+  // Bollinger Bands — calculated over ALL available history so even the first
+  // visible candle has a full 20-bar look-back behind it
+  const BB_PERIOD  = 20;
+  const allCloses  = allBars.map(b => b.c);
+  const visibleSet = new Set(bars.map(b => toSec(b.t)));
+  const bbUpper = [], bbMiddle = [], bbLower = [];
+  for (let i = BB_PERIOD - 1; i < allBars.length; i++) {
+    const t = toSec(allBars[i].t);
+    if (!visibleSet.has(t)) continue;
+    const slice = allCloses.slice(i - BB_PERIOD + 1, i + 1);
+    const sma   = slice.reduce((a, b) => a + b, 0) / BB_PERIOD;
+    const std   = Math.sqrt(slice.reduce((a, b) => a + (b - sma) ** 2, 0) / BB_PERIOD);
+    bbUpper .push({ time: t, value: sma + 2 * std });
+    bbMiddle.push({ time: t, value: sma });
+    bbLower .push({ time: t, value: sma - 2 * std });
+  }
 
   try {
     const chart = LightweightCharts.createChart(container, {
@@ -5277,19 +5298,6 @@ function _buildGlanceChart(container, r) {
     });
     candles.setData(bars.map(b => ({ time: toSec(b.t), open: b.o, high: b.h, low: b.l, close: b.c })));
 
-    // Bollinger Bands (20-period, 2 std devs) — rolling calculation across every bar
-    const BB_PERIOD = 20;
-    const closes    = bars.map(b => b.c);
-    const bbUpper   = [], bbMiddle = [], bbLower = [];
-    for (let i = BB_PERIOD - 1; i < bars.length; i++) {
-      const slice = closes.slice(i - BB_PERIOD + 1, i + 1);
-      const sma   = slice.reduce((a, b) => a + b, 0) / BB_PERIOD;
-      const std   = Math.sqrt(slice.reduce((a, b) => a + (b - sma) ** 2, 0) / BB_PERIOD);
-      const t     = toSec(bars[i].t);
-      bbUpper .push({ time: t, value: sma + 2 * std });
-      bbMiddle.push({ time: t, value: sma });
-      bbLower .push({ time: t, value: sma - 2 * std });
-    }
     const bandStyle = { lineWidth: 1, priceLineVisible: false, lastValueVisible: false };
     chart.addLineSeries({ ...bandStyle, color: 'rgba(99,132,199,0.55)' }).setData(bbUpper);
     chart.addLineSeries({ ...bandStyle, color: 'rgba(150,150,150,0.45)', lineStyle: 2 }).setData(bbMiddle);
