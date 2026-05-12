@@ -768,7 +768,7 @@
   /* RANK ROW */
   .rank-row {
     display: grid;
-    grid-template-columns: 32px 32px 130px 110px 1fr 110px 100px 100px;
+    grid-template-columns: 32px 32px 130px 110px 90px 1fr 110px 100px 100px;
     align-items: center;
     padding: 0 16px;
     height: 52px;
@@ -843,6 +843,7 @@
   .tag.neutral { color: var(--text3); border-color: var(--border); }
   .tag.sector-bonus { color: #7c3aed; border-color: rgba(124,58,237,0.3); background: rgba(124,58,237,0.1); }
   .rank-score-bonus { font-family: 'IBM Plex Mono', monospace; font-size: 8px; color: #7c3aed; letter-spacing: 0.04em; white-space: nowrap; }
+  .rank-sector-col { font-family: 'IBM Plex Mono', monospace; font-size: 9px; color: var(--text3); letter-spacing: 0.03em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 6px; }
 
   /* STAR / PREFERENCE SYSTEM */
   .star-btn {
@@ -937,6 +938,36 @@
   }
   .picks-empty-icon { font-size:32px; opacity:0.3; }
   .picks-empty-title { font-weight:600; letter-spacing:0.08em; }
+  .picks-view-btn {
+    font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:600; letter-spacing:0.06em;
+    background:transparent; color:var(--text2); border:1px solid var(--border); border-radius:4px;
+    padding:5px 10px; cursor:pointer; transition:background 0.15s,color 0.15s; white-space:nowrap;
+  }
+  .picks-view-btn:hover { background:var(--bg3); }
+  .picks-view-btn.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .picks-list-wrap { width:100%; }
+  .picks-list-table { width:100%; border-collapse:collapse; font-family:'IBM Plex Mono',monospace; font-size:11px; }
+  .picks-list-table thead th {
+    padding:7px 12px; text-align:left; border-bottom:2px solid var(--border);
+    color:var(--text3); font-size:9px; letter-spacing:0.08em; font-weight:600;
+    position:sticky; top:0; background:var(--bg2); z-index:1;
+  }
+  .picks-list-table thead th.perf-col { text-align:right; }
+  .picks-list-table tbody tr { border-bottom:1px solid var(--border); transition:background 0.12s; }
+  .picks-list-table tbody tr:hover { background:var(--bg3); }
+  .picks-list-table td { padding:9px 12px; vertical-align:middle; }
+  .picks-list-ticker { font-weight:700; font-size:13px; color:var(--text); }
+  .picks-list-name { font-size:9px; color:var(--text3); font-family:'IBM Plex Sans',sans-serif; margin-top:2px; }
+  .picks-list-date { font-size:10px; color:#d97706; white-space:nowrap; }
+  .picks-list-star-price { color:var(--text3); font-size:9px; margin-top:2px; }
+  .picks-list-score { font-size:10px; color:var(--text2); }
+  .picks-perf-cell { text-align:right; font-size:11px; font-weight:600; white-space:nowrap; }
+  .picks-perf-pos { color:var(--green); }
+  .picks-perf-neg { color:var(--red); }
+  .picks-perf-na { color:var(--text3); font-size:10px; font-weight:400; text-align:right; }
+  .picks-perf-loading { color:var(--text3); font-size:10px; font-weight:400; text-align:right; }
+  .picks-list-remove { background:none; border:none; cursor:pointer; color:var(--text3); font-size:14px; padding:2px 6px; border-radius:3px; transition:color 0.12s,background 0.12s; }
+  .picks-list-remove:hover { color:var(--red); background:var(--red-dim); }
 
   .rank-tf-scores {
     display: flex;
@@ -994,7 +1025,7 @@
   /* TABLE HEADER */
   .rank-header {
     display: grid;
-    grid-template-columns: 32px 32px 130px 110px 1fr 110px 100px 100px;
+    grid-template-columns: 32px 32px 130px 110px 90px 1fr 110px 100px 100px;
     align-items: center;
     padding: 0 16px;
     height: 32px;
@@ -1845,10 +1876,13 @@
         <div class="picks-title">MY PICKS — STARRED CHARTS</div>
         <div style="font-size:10px;color:var(--text3);font-family:'IBM Plex Mono',monospace" id="picks-subtitle">Charts frozen at the moment you starred them</div>
       </div>
-      <div class="picks-tf-group">
-        <button class="picks-tf-btn active" id="picks-global-D" onclick="switchAllPicksCharts('D')">DAILY</button>
-        <button class="picks-tf-btn" id="picks-global-W" onclick="switchAllPicksCharts('W')">WEEKLY</button>
-        <button class="picks-tf-btn" id="picks-global-M" onclick="switchAllPicksCharts('M')">MONTHLY</button>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div class="picks-tf-group" id="picks-tf-controls">
+          <button class="picks-tf-btn active" id="picks-global-D" onclick="switchAllPicksCharts('D')">DAILY</button>
+          <button class="picks-tf-btn" id="picks-global-W" onclick="switchAllPicksCharts('W')">WEEKLY</button>
+          <button class="picks-tf-btn" id="picks-global-M" onclick="switchAllPicksCharts('M')">MONTHLY</button>
+        </div>
+        <button class="picks-view-btn" id="picks-view-toggle" onclick="togglePicksView()">LIST VIEW</button>
       </div>
       <div class="picks-add-form">
         <input id="picks-add-input" class="picks-add-input" type="text" placeholder="TICKER"
@@ -3173,7 +3207,7 @@ function renderResults() {
   }
 
   let html = `<div class="rank-header">
-    <div>#</div><div></div><div>TICKER</div><div>SCORE</div><div>SIGNALS</div>
+    <div>#</div><div></div><div>TICKER</div><div>SCORE</div><div>SECTOR</div><div>SIGNALS</div>
     <div>MTH / WK / DAY / YR</div><div class="right">PRICE</div><div class="right">CHG%</div>
   </div>`;
 
@@ -3231,11 +3265,11 @@ function rankRow(r, rankNum, idx) {
     <div class="rank-score-cell">
       <div>
         <div class="rank-score-num ${colorClass}">${baseScore}%${r.sectorBonus > 0 ? `<span style="font-size:9px;margin-left:3px;color:#7c3aed">+${r.sectorBonus}</span>` : ''}${r.prefBonus > 0 ? `<span style="font-size:9px;margin-left:3px;color:#d97706">★+${r.prefBonus}</span>` : ''}</div>
-        ${r.sectorBonus > 0 ? `<div class="rank-score-bonus">${r.sectorName}</div>` : ''}
         ${r.prefBonus > 0 ? `<div class="rank-score-pref">${Math.round((r.prefSim||0)*100)}% match</div>` : ''}
       </div>
       <div class="score-bar-mini"><div class="score-bar-mini-fill ${barClass}" style="width:${Math.min(sc,100)}%"></div></div>
     </div>
+    <div class="rank-sector-col">${r.sectorName || ''}</div>
     <div class="rank-tags">${tagsHtml}</div>
     <div class="rank-tf-scores">${tfHtml}</div>
     <div class="rank-price">$${Number(r.price).toFixed(2)}</div>
@@ -3738,9 +3772,11 @@ function removeStarredFromTab(ticker) {
     delete _lwCharts[ticker];
   }
 
-  // Remove card from DOM
+  // Remove card/row from DOM (works in both chart grid and list view)
   const card = document.getElementById(`picks-card-${ticker}`);
   if (card) card.remove();
+  const row = document.getElementById(`picks-list-row-${ticker}`);
+  if (row) row.remove();
 
   // Un-star in results list if currently showing
   const r = results.find(res => res.ticker === ticker);
@@ -3991,7 +4027,18 @@ function calcEMAAt(closes, period, idx) {
   return ema;
 }
 
-let picksGlobalTF = 'D';
+let picksGlobalTF  = 'D';
+let picksViewMode  = 'grid'; // 'grid' | 'list'
+
+function togglePicksView() {
+  picksViewMode = picksViewMode === 'grid' ? 'list' : 'grid';
+  const btn      = document.getElementById('picks-view-toggle');
+  const tfGroup  = document.getElementById('picks-tf-controls');
+  if (btn)     btn.textContent = picksViewMode === 'list' ? 'CHART VIEW' : 'LIST VIEW';
+  if (tfGroup) tfGroup.style.display = picksViewMode === 'list' ? 'none' : '';
+  if (picksViewMode === 'list') renderPicksList();
+  else                          renderStarredCharts();
+}
 
 function switchAllPicksCharts(tf) {
   picksGlobalTF = tf;
@@ -4066,6 +4113,112 @@ function renderStarredCharts() {
   });
 }
 
+function renderPicksList() {
+  Object.keys(_lwCharts).forEach(t => { try { _lwCharts[t].remove(); } catch {} delete _lwCharts[t]; });
+
+  const grid  = document.getElementById('picks-grid');
+  const liked = loadLiked(currentSetup);
+  if (!grid) return;
+  grid.innerHTML = '';
+
+  if (!liked.length) { renderPicksEmpty(); return; }
+
+  const sorted = [...liked].sort((a, b) => b.starredAt - a.starredAt);
+
+  grid.innerHTML = `
+    <div class="picks-list-wrap">
+      <table class="picks-list-table">
+        <thead>
+          <tr>
+            <th>TICKER</th>
+            <th>STARRED AT</th>
+            <th>SCORE</th>
+            <th class="perf-col">5D</th>
+            <th class="perf-col">1M</th>
+            <th class="perf-col">3M</th>
+            <th class="perf-col">1Y</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="picks-list-body">
+          ${sorted.map(entry => {
+            const dateStr = new Date(entry.starredAt).toLocaleDateString('en-US', { day:'numeric', month:'short', year:'numeric' });
+            return `<tr id="picks-list-row-${entry.ticker}">
+              <td>
+                <div class="picks-list-ticker">${entry.ticker}</div>
+                <div class="picks-list-name">${entry.name}</div>
+              </td>
+              <td>
+                <div class="picks-list-date">★ ${dateStr}</div>
+                <div class="picks-list-star-price">$${Number(entry.price).toFixed(2)}</div>
+              </td>
+              <td class="picks-list-score">${entry.score}%</td>
+              <td class="picks-perf-loading" id="perf-5d-${entry.ticker}">…</td>
+              <td class="picks-perf-loading" id="perf-1m-${entry.ticker}">…</td>
+              <td class="picks-perf-loading" id="perf-3m-${entry.ticker}">…</td>
+              <td class="picks-perf-loading" id="perf-1y-${entry.ticker}">…</td>
+              <td><button class="picks-list-remove" onclick="removeStarredFromTab('${entry.ticker}')" title="Remove">×</button></td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  // Fetch live performance data for every pick (runs concurrently)
+  sorted.forEach(entry => loadPickPerformance(entry));
+}
+
+async function loadPickPerformance(entry) {
+  const ticker = entry.ticker;
+  const starTs = entry.starredAt; // ms
+
+  const perfIds = ['5d','1m','3m','1y'];
+  const setCell = (period, value) => {
+    const el = document.getElementById(`perf-${period}-${ticker}`);
+    if (!el) return;
+    if (value === null) {
+      el.textContent = '—';
+      el.className   = 'picks-perf-na';
+    } else {
+      const sign = value >= 0 ? '+' : '';
+      el.textContent = `${sign}${value.toFixed(1)}%`;
+      el.className   = `picks-perf-cell ${value >= 0 ? 'picks-perf-pos' : 'picks-perf-neg'}`;
+    }
+  };
+
+  try {
+    const yTicker = toYFTicker(ticker);
+    const { bars } = await fetchYF(yTicker, '2y', '1d');
+    if (!bars || !bars.length) { perfIds.forEach(p => setCell(p, null)); return; }
+
+    // Find the bar whose date is closest to the star date
+    let starIdx = 0, bestDiff = Infinity;
+    bars.forEach((bar, i) => {
+      const diff = Math.abs(bar.t - starTs);
+      if (diff < bestDiff) { bestDiff = diff; starIdx = i; }
+    });
+
+    // Use the actual closing price of the star-date bar as the reference
+    const refPrice = bars[starIdx].c;
+    if (!refPrice) { perfIds.forEach(p => setCell(p, null)); return; }
+
+    // If a bar N trading days after the star exists in the dataset, that date has already passed
+    const getReturn = (tradingDays) => {
+      const idx = starIdx + tradingDays;
+      if (idx >= bars.length) return null; // not enough data yet — period not reached
+      return (bars[idx].c / refPrice - 1) * 100;
+    };
+
+    setCell('5d', getReturn(5));
+    setCell('1m', getReturn(21));
+    setCell('3m', getReturn(63));
+    setCell('1y', getReturn(252));
+  } catch(err) {
+    perfIds.forEach(p => setCell(p, null));
+  }
+}
+
 let sectorsLoaded = false;
 
 function switchTab(tab) {
@@ -4075,7 +4228,7 @@ function switchTab(tab) {
   });
   if (tab === 'sectors' && !sectorsLoaded && marketMode !== 'PH') loadSectors();
   if (tab === 'imap'    && !imapLoaded    && marketMode !== 'PH') loadIndustryMap(false);
-  if (tab === 'picks')                     renderStarredCharts();
+  if (tab === 'picks') { if (picksViewMode === 'list') renderPicksList(); else renderStarredCharts(); }
 }
 
 // ============================================================
