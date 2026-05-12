@@ -450,6 +450,82 @@
     line-height: 1.5;
   }
 
+  /* WATCHLIST SLOTS */
+  .wl-slots { display: flex; flex-direction: column; gap: 5px; }
+  .wl-slot {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 10px;
+    border: 1px dashed var(--border2);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s;
+    min-height: 34px;
+  }
+  .wl-slot:hover, .wl-slot.drag-over {
+    border-color: var(--accent);
+    background: var(--green-dim);
+  }
+  .wl-slot.has-data { border-style: solid; }
+  .wl-slot-check {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    cursor: pointer;
+  }
+  .wl-slot-check input[type="checkbox"] {
+    width: 12px; height: 12px;
+    cursor: pointer;
+    accent-color: var(--accent);
+    flex-shrink: 0;
+  }
+  .wl-slot-letter {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--accent);
+    min-width: 12px;
+    flex-shrink: 0;
+  }
+  .wl-slot-name {
+    font-family: 'Inter', sans-serif;
+    font-size: 10px;
+    color: var(--text2);
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .wl-slot-name.empty { color: var(--text3); font-style: italic; }
+  .wl-slot-count {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    color: var(--accent);
+    flex-shrink: 0;
+    min-width: 22px;
+    text-align: right;
+  }
+  .wl-slot-clear {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text3);
+    font-size: 10px;
+    padding: 0 2px;
+    flex-shrink: 0;
+    line-height: 1;
+  }
+  .wl-slot-clear:hover { color: var(--red); }
+  .wl-load-hint {
+    font-family: 'Inter', sans-serif;
+    font-size: 9px;
+    color: var(--text3);
+    text-align: center;
+    margin-top: 5px;
+    letter-spacing: 0.03em;
+  }
+
   /* TICKER LIST PREVIEW */
   .ticker-preview {
     display: none;
@@ -1659,16 +1735,43 @@
         <button class="section-toggle-btn" id="arrow-watchlist" onclick="toggleSection('watchlist')" title="Collapse">▾</button>
       </div>
       <div id="body-watchlist">
-        <div class="upload-zone" id="upload-zone">
-          <input type="file" accept=".txt" id="file-input" multiple onchange="handleFile(event)">
-          <div class="upload-icon">⊞</div>
-          <div class="upload-title">Drop TradingView .txt</div>
-          <div class="upload-sub">Export from TV Watchlist<br>→ Share → Export as .txt<br>Multiple files supported</div>
+        <div class="wl-slots">
+          <div class="wl-slot" id="wl-slot-0" onclick="triggerSlotLoad(0)">
+            <label class="wl-slot-check" onclick="event.stopPropagation()">
+              <input type="checkbox" id="wl-check-0" checked onchange="updateActiveSlots()">
+            </label>
+            <span class="wl-slot-letter">A</span>
+            <span class="wl-slot-name empty" id="wl-name-0">empty — click to load</span>
+            <span class="wl-slot-count" id="wl-count-0"></span>
+            <button class="wl-slot-clear" id="wl-clear-0" onclick="event.stopPropagation(); clearSlot(0)" style="display:none" title="Clear slot A">✕</button>
+            <input type="file" accept=".txt" id="wl-input-0" style="display:none" onchange="handleSlotFile(event, 0)">
+          </div>
+          <div class="wl-slot" id="wl-slot-1" onclick="triggerSlotLoad(1)">
+            <label class="wl-slot-check" onclick="event.stopPropagation()">
+              <input type="checkbox" id="wl-check-1" checked onchange="updateActiveSlots()">
+            </label>
+            <span class="wl-slot-letter">B</span>
+            <span class="wl-slot-name empty" id="wl-name-1">empty — click to load</span>
+            <span class="wl-slot-count" id="wl-count-1"></span>
+            <button class="wl-slot-clear" id="wl-clear-1" onclick="event.stopPropagation(); clearSlot(1)" style="display:none" title="Clear slot B">✕</button>
+            <input type="file" accept=".txt" id="wl-input-1" style="display:none" onchange="handleSlotFile(event, 1)">
+          </div>
+          <div class="wl-slot" id="wl-slot-2" onclick="triggerSlotLoad(2)">
+            <label class="wl-slot-check" onclick="event.stopPropagation()">
+              <input type="checkbox" id="wl-check-2" checked onchange="updateActiveSlots()">
+            </label>
+            <span class="wl-slot-letter">C</span>
+            <span class="wl-slot-name empty" id="wl-name-2">empty — click to load</span>
+            <span class="wl-slot-count" id="wl-count-2"></span>
+            <button class="wl-slot-clear" id="wl-clear-2" onclick="event.stopPropagation(); clearSlot(2)" style="display:none" title="Clear slot C">✕</button>
+            <input type="file" accept=".txt" id="wl-input-2" style="display:none" onchange="handleSlotFile(event, 2)">
+          </div>
         </div>
+        <div class="wl-load-hint">Click slot or drag &amp; drop .txt onto it</div>
 
         <div class="ticker-count-row" id="ticker-count-row" style="display:none">
-          <div class="ticker-count"><span id="ticker-count-num">0</span> tickers loaded</div>
-          <button class="clear-btn" onclick="clearWatchlist()">✕ clear</button>
+          <div class="ticker-count"><span id="ticker-count-num">0</span> tickers selected</div>
+          <button class="clear-btn" onclick="clearAllWatchlists()">✕ clear all</button>
         </div>
 
         <div class="ticker-preview" id="ticker-preview"></div>
@@ -1996,6 +2099,8 @@ function getActiveSetupIds() { return marketMode === 'PH' ? ['ph'] : [1, 2]; }
 // Yahoo Finance uses .PS suffix for PSE-listed stocks
 function toYFTicker(ticker)  { return marketMode === 'PH' ? ticker + '.PS' : ticker; }
 
+let savedWatchlists = [null, null, null]; // each slot: {name, tickers[]} or null
+
 let tickers       = [];
 let results       = [];
 let filteredOut   = [];   // tickers removed by EMA50 filter
@@ -2046,6 +2151,7 @@ window.addEventListener('DOMContentLoaded', () => {
   renderPatternPanel();
   startClock();
   setupDragDrop();
+  loadSavedWatchlists();
   applyPaneState();
 });
 
@@ -2213,46 +2319,140 @@ function flipPanes() {
 }
 
 // ============================================================
-//  FILE HANDLING
+//  WATCHLIST SLOTS (localStorage-backed, 3 named slots A/B/C)
 // ============================================================
-function setupDragDrop() {
-  const zone = document.getElementById('upload-zone');
-  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
-  zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
-  zone.addEventListener('drop', e => {
-    e.preventDefault();
-    zone.classList.remove('drag-over');
-    const files = Array.from(e.dataTransfer.files).filter(f => f.name.endsWith('.txt'));
-    if (files.length) processFiles(files);
-  });
+function loadSavedWatchlists() {
+  for (let i = 0; i < 3; i++) {
+    try {
+      const raw = localStorage.getItem(`cts_wl_${i}`);
+      if (raw) savedWatchlists[i] = JSON.parse(raw);
+    } catch(e) {}
+  }
+  renderSlots();
+  rebuildTickersFromSlots();
 }
 
-function handleFile(e) {
-  const files = Array.from(e.target.files);
-  if (files.length) processFiles(files);
+function saveSlotToStorage(i) {
+  if (savedWatchlists[i]) {
+    localStorage.setItem(`cts_wl_${i}`, JSON.stringify(savedWatchlists[i]));
+  } else {
+    localStorage.removeItem(`cts_wl_${i}`);
+  }
 }
 
-function processFiles(files) {
-  const results = [];
-  let remaining = files.length;
-  files.forEach(file => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      results.push(...parseTradingViewTxt(e.target.result));
-      remaining--;
-      if (remaining === 0) {
-        // Deduplicate by ticker symbol, keeping first occurrence
-        const seen = new Set();
-        tickers = results.filter(t => {
-          if (seen.has(t.ticker)) return false;
-          seen.add(t.ticker);
-          return true;
-        });
-        updateTickerDisplay();
+function triggerSlotLoad(i) {
+  document.getElementById(`wl-input-${i}`).click();
+}
+
+function handleSlotFile(e, i) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    const parsed = parseTradingViewTxt(ev.target.result);
+    savedWatchlists[i] = { name: file.name, tickers: parsed };
+    saveSlotToStorage(i);
+    renderSlots();
+    rebuildTickersFromSlots();
+    e.target.value = '';
+  };
+  reader.readAsText(file);
+}
+
+function clearSlot(i) {
+  savedWatchlists[i] = null;
+  saveSlotToStorage(i);
+  renderSlots();
+  rebuildTickersFromSlots();
+}
+
+function clearAllWatchlists() {
+  savedWatchlists = [null, null, null];
+  for (let i = 0; i < 3; i++) saveSlotToStorage(i);
+  tickers = []; results = []; filteredOut = [];
+  renderSlots();
+  updateTickerDisplay();
+  document.getElementById('results-area').innerHTML = `<div class="empty-state">
+    <div class="empty-icon">⊡</div>
+    <div class="empty-title">AWAITING WATCHLIST</div>
+    <div class="empty-desc">Upload a TradingView .txt watchlist to begin screening.</div>
+  </div>`;
+  document.getElementById('result-count-label').textContent = 'Ranked results will appear here';
+  document.getElementById('list-count-label').textContent = '0 tickers';
+  document.getElementById('download-btn').style.display = 'none';
+  document.getElementById('chart-symbol-label').textContent = 'no symbol selected';
+  document.getElementById('tv-widget-wrap').innerHTML = `<div class="tv-placeholder">
+    <div class="tv-placeholder-icon">◫</div>
+    <div class="tv-placeholder-text">Click a ticker row to load chart</div>
+  </div>`;
+}
+
+function updateActiveSlots() {
+  rebuildTickersFromSlots();
+}
+
+function rebuildTickersFromSlots() {
+  const seen = new Set();
+  const combined = [];
+  for (let i = 0; i < 3; i++) {
+    const cb = document.getElementById(`wl-check-${i}`);
+    if (!cb || !cb.checked || !savedWatchlists[i]) continue;
+    savedWatchlists[i].tickers.forEach(t => {
+      if (!seen.has(t.ticker)) {
+        seen.add(t.ticker);
+        combined.push(t);
       }
-    };
-    reader.readAsText(file);
-  });
+    });
+  }
+  tickers = combined;
+  updateTickerDisplay();
+}
+
+function renderSlots() {
+  for (let i = 0; i < 3; i++) {
+    const slot = savedWatchlists[i];
+    const nameEl  = document.getElementById(`wl-name-${i}`);
+    const countEl = document.getElementById(`wl-count-${i}`);
+    const clearBtn = document.getElementById(`wl-clear-${i}`);
+    const slotEl  = document.getElementById(`wl-slot-${i}`);
+    if (slot) {
+      nameEl.textContent = slot.name.replace(/\.txt$/i, '');
+      nameEl.classList.remove('empty');
+      countEl.textContent = slot.tickers.length;
+      clearBtn.style.display = '';
+      slotEl.classList.add('has-data');
+    } else {
+      nameEl.textContent = 'empty — click to load';
+      nameEl.classList.add('empty');
+      countEl.textContent = '';
+      clearBtn.style.display = 'none';
+      slotEl.classList.remove('has-data');
+    }
+  }
+}
+
+function setupDragDrop() {
+  for (let i = 0; i < 3; i++) {
+    const slotEl = document.getElementById(`wl-slot-${i}`);
+    slotEl.addEventListener('dragover', e => { e.preventDefault(); slotEl.classList.add('drag-over'); });
+    slotEl.addEventListener('dragleave', () => slotEl.classList.remove('drag-over'));
+    slotEl.addEventListener('drop', e => {
+      e.preventDefault();
+      slotEl.classList.remove('drag-over');
+      const files = Array.from(e.dataTransfer.files).filter(f => f.name.endsWith('.txt'));
+      if (!files.length) return;
+      const file = files[0];
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const parsed = parseTradingViewTxt(ev.target.result);
+        savedWatchlists[i] = { name: file.name, tickers: parsed };
+        saveSlotToStorage(i);
+        renderSlots();
+        rebuildTickersFromSlots();
+      };
+      reader.readAsText(file);
+    });
+  }
 }
 
 function parseTradingViewTxt(text) {
@@ -2292,24 +2492,7 @@ function updateTickerDisplay() {
   }
 }
 
-function clearWatchlist() {
-  tickers = []; results = []; filteredOut = [];
-  document.getElementById('file-input').value = '';
-  updateTickerDisplay();
-  document.getElementById('results-area').innerHTML = `<div class="empty-state">
-    <div class="empty-icon">⊡</div>
-    <div class="empty-title">AWAITING WATCHLIST</div>
-    <div class="empty-desc">Upload a TradingView .txt watchlist to begin screening.</div>
-  </div>`;
-  document.getElementById('result-count-label').textContent = 'Ranked results will appear here';
-  document.getElementById('list-count-label').textContent = '0 tickers';
-  document.getElementById('download-btn').style.display = 'none';
-  document.getElementById('chart-symbol-label').textContent = 'no symbol selected';
-  document.getElementById('tv-widget-wrap').innerHTML = `<div class="tv-placeholder">
-    <div class="tv-placeholder-icon">◫</div>
-    <div class="tv-placeholder-text">Click a ticker row to load chart</div>
-  </div>`;
-}
+function clearWatchlist() { clearAllWatchlists(); }
 
 // ============================================================
 //  DOWNLOAD FILTERED .TXT
@@ -4279,9 +4462,8 @@ function switchMarket(mode) {
   sectorRankMap = {}; tickerSectorMap = {}; earningsMap = {};
   activeCriteriaFilters.clear();
 
-  // Reset file input so the same file can be re-dropped
-  const fi = document.getElementById('file-input');
-  if (fi) fi.value = '';
+  // Clear combined ticker list (slots themselves are preserved)
+  tickers = [];
 
   // Re-render sidebar criteria and preference panel for new setup
   renderCriteria();
