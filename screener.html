@@ -1717,6 +1717,7 @@
         <span class="sort-label">Sort:</span>
         <select class="sort-select" onchange="applySort(this.value)" id="sort-select">
           <option value="score">Match Score ↓</option>
+          <option value="taste">My Taste Match ↓</option>
           <option value="change">% Change ↓</option>
           <option value="ticker">Ticker A–Z</option>
           <option value="wk_high">Nearest Weekly High ↓</option>
@@ -1754,14 +1755,14 @@
             <button class="view-btn"        id="btn-view-sector" onclick="setListView('sector')" title="Sector breakdown pie chart">SECTOR</button>
             <div class="glance-cols-btns" id="glance-cols-btns">
               <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);margin:0 4px 0 6px;letter-spacing:0.06em">TF</span>
-              <button class="view-btn active" id="glance-tf-D" onclick="setGlanceTF('D')">D</button>
-              <button class="view-btn"        id="glance-tf-W" onclick="setGlanceTF('W')">W</button>
+              <button class="view-btn"        id="glance-tf-D" onclick="setGlanceTF('D')">D</button>
+              <button class="view-btn active" id="glance-tf-W" onclick="setGlanceTF('W')">W</button>
               <button class="view-btn"        id="glance-tf-M" onclick="setGlanceTF('M')">M</button>
               <span style="width:1px;height:14px;background:var(--border2);display:inline-block;margin:0 4px"></span>
               <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);margin-right:4px;letter-spacing:0.06em">RANGE</span>
               <button class="view-btn"        id="glance-range-3m"  onclick="setGlanceRange('3M')">3M</button>
-              <button class="view-btn"        id="glance-range-6m"  onclick="setGlanceRange('6M')">6M</button>
-              <button class="view-btn active" id="glance-range-12m" onclick="setGlanceRange('12M')">1Y</button>
+              <button class="view-btn active" id="glance-range-6m"  onclick="setGlanceRange('6M')">6M</button>
+              <button class="view-btn"        id="glance-range-12m" onclick="setGlanceRange('12M')">1Y</button>
               <span style="width:1px;height:14px;background:var(--border2);display:inline-block;margin:0 4px"></span>
               <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);margin-right:4px;letter-spacing:0.06em">COLS</span>
               <button class="view-btn" id="glance-col-2" onclick="setGlanceCols(2)">2</button>
@@ -2026,7 +2027,7 @@ let panesFlipped   = false;
 let activeCriteriaFilters = new Set();
 let chartMode       = 'D';   // 'D' | 'W' | 'M' | '2x' | '3x'
 let chartRange      = '12M'; // '3M' | '6M' | '12M'
-let glanceRange     = '12M'; // independent range for glance view
+let glanceRange     = '6M'; // independent range for glance view
 let scanSummaryHTML = '';    // saved after each scan, restored when criteria filters cleared
 
 const _originalWeights = {};  // { setupId: { criterion_id: weight } } — captured at init
@@ -3452,6 +3453,7 @@ function getPeriodHighProx(r, tf) {
 
 function getSortFn(by) {
   if (by==='score')   return (a,b) => (b.rankScore??b.score) - (a.rankScore??a.score);
+  if (by==='taste')   return (a,b) => (b.prefSim??0) - (a.prefSim??0);
   if (by==='change')  return (a,b) => b.change - a.change;
   if (by==='ticker')  return (a,b) => a.ticker.localeCompare(b.ticker);
   if (by==='wk_high') return (a,b) => getPeriodHighProx(b,'weekly') - getPeriodHighProx(a,'weekly');
@@ -4931,7 +4933,7 @@ function sortSectors(col) {
 let glanceView        = false;   // false = list, true = glance
 let sectorView        = false;
 let glanceCols        = 4;       // charts per row: 2–6
-let glanceTF          = 'D';     // 'D' | 'W' | 'M'
+let glanceTF          = 'W';     // 'D' | 'W' | 'M'
 
 let flistView         = 'list';  // 'list' | 'glance'
 let flistTF           = 'D';
@@ -5308,7 +5310,16 @@ function _buildGlanceChart(container, r) {
   const resizer = document.getElementById('pane-resizer');
   if (!resizer) return;
 
-  resizer.addEventListener('mousedown', e => {
+  function stopDrag(e) {
+    if (!dragging) return;
+    dragging = false;
+    resizer.classList.remove('dragging');
+    document.body.style.cursor     = '';
+    document.body.style.userSelect = '';
+    if (e) resizer.releasePointerCapture(e.pointerId);
+  }
+
+  resizer.addEventListener('pointerdown', e => {
     const paneList = document.getElementById('pane-list');
     if (!paneList.classList.contains('split')) return;
     dragging = true;
@@ -5317,29 +5328,25 @@ function _buildGlanceChart(container, r) {
     resizer.classList.add('dragging');
     document.body.style.cursor     = 'ns-resize';
     document.body.style.userSelect = 'none';
+    resizer.setPointerCapture(e.pointerId);
     e.preventDefault();
   });
 
-  document.addEventListener('mousemove', e => {
+  resizer.addEventListener('pointermove', e => {
     if (!dragging) return;
-    const paneList  = document.getElementById('pane-list');
-    const mainBody  = document.getElementById('main-body');
-    const totalH    = mainBody.getBoundingClientRect().height;
-    const delta     = e.clientY - startY;
+    const paneList = document.getElementById('pane-list');
+    const mainBody = document.getElementById('main-body');
+    const totalH   = mainBody.getBoundingClientRect().height;
+    const delta    = e.clientY - startY;
     // In flipped layout the list is at the bottom, so drag direction inverts
-    const newH      = panesFlipped
+    const newH     = panesFlipped
       ? startH - delta
       : startH + delta;
     paneList.style.height = Math.min(Math.max(newH, 80), totalH - 80) + 'px';
   });
 
-  document.addEventListener('mouseup', () => {
-    if (!dragging) return;
-    dragging = false;
-    resizer.classList.remove('dragging');
-    document.body.style.cursor     = '';
-    document.body.style.userSelect = '';
-  });
+  resizer.addEventListener('pointerup',     stopDrag);
+  resizer.addEventListener('pointercancel', stopDrag);
 })();
 </script>
 </body>
