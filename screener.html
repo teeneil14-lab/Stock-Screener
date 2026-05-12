@@ -3187,6 +3187,7 @@ function renderResults() {
   }
 
   if (glanceView) renderGlanceView();
+  if (sectorView) renderSectorView();
 }
 
 function rankRow(r, rankNum, idx) {
@@ -4760,6 +4761,7 @@ function sortSectors(col) {
 //  GLANCE VIEW — grid of candlestick charts for all results
 // ============================================================
 let glanceView        = false;   // false = list, true = glance
+let sectorView        = false;
 let glanceCols        = 4;       // charts per row: 2–6
 let glanceTF          = 'D';     // 'D' | 'W' | 'M'
 
@@ -4771,16 +4773,16 @@ const _glanceCharts   = {};      // ticker → LightweightCharts instance
 
 function setListView(mode) {
   glanceView = mode === 'glance';
-  const sectorMode = mode === 'sector';
+  sectorView = mode === 'sector';
   document.getElementById('btn-view-list'  ).classList.toggle('active', mode === 'list');
   document.getElementById('btn-view-glance').classList.toggle('active', glanceView);
-  document.getElementById('btn-view-sector').classList.toggle('active', sectorMode);
-  document.getElementById('results-area').style.display = (glanceView || sectorMode) ? 'none' : '';
+  document.getElementById('btn-view-sector').classList.toggle('active', sectorView);
+  document.getElementById('results-area').style.display = (glanceView || sectorView) ? 'none' : '';
   document.getElementById('glance-pane' ).classList.toggle('visible', glanceView);
-  document.getElementById('sector-pane' ).classList.toggle('visible', sectorMode);
+  document.getElementById('sector-pane' ).classList.toggle('visible', sectorView);
   document.getElementById('glance-cols-btns').classList.toggle('visible', glanceView);
   if (glanceView) renderGlanceView();
-  if (sectorMode) renderSectorView();
+  if (sectorView) renderSectorView();
 }
 
 // ============================================================
