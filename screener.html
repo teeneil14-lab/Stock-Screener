@@ -293,6 +293,212 @@
   }
   @keyframes spin { to { transform: rotate(360deg); } }
 
+  /* EMA BREADTH sub-table */
+  .sectors-breadth-caption {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text3);
+    margin-top: 24px;
+    padding: 12px 0 6px;
+    border-top: 1px solid var(--border2);
+    font-family: 'Inter', sans-serif;
+  }
+  .sectors-breadth-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+  }
+  .sectors-breadth-table th {
+    text-align: right;
+    padding: 6px 10px;
+    border-bottom: 2px solid var(--border2);
+    color: var(--text3);
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    user-select: none;
+  }
+  .sectors-breadth-table th:first-child { text-align: left; }
+  .sectors-breadth-table td {
+    padding: 7px 10px;
+    border-bottom: 1px solid var(--border);
+    text-align: right;
+    white-space: nowrap;
+  }
+  .sectors-breadth-table td:first-child { text-align: left; }
+  .sectors-breadth-table tr:hover td { background: rgba(10,124,78,0.04); }
+  .breadth-cell {
+    display: inline-block;
+    min-width: 46px;
+    text-align: center;
+    padding: 2px 7px;
+    border-radius: 3px;
+    font-size: 12px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+  .breadth-strong { background: rgba(10,124,78,0.18); color: #0a7c4e; }
+  .breadth-mid    { background: rgba(200,160,40,0.15); color: #856404; }
+  .breadth-weak   { background: rgba(200,40,40,0.13); color: #c82828; }
+  .breadth-na     { color: var(--text3); }
+  .breadth-loading-msg {
+    font-size: 11px;
+    color: var(--text3);
+    padding: 10px 0 4px;
+    font-family: 'Inter', sans-serif;
+    font-style: italic;
+  }
+  .sectors-breadth-table tr.sgo-row { cursor: pointer; }
+  .sectors-breadth-table tr.sgo-row:hover td { background: rgba(10,124,78,0.06); }
+
+  /* SECTOR GLANCE OVERLAY */
+  .sgo-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    z-index: 2000;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 20px;
+  }
+  .sgo-overlay.open { display: flex; }
+  .sgo-panel {
+    background: var(--bg);
+    border-radius: 6px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    width: 100%;
+    max-width: 1440px;
+    max-height: calc(100vh - 40px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .sgo-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg2);
+    flex-shrink: 0;
+    gap: 12px;
+  }
+  .sgo-title-wrap { display: flex; align-items: baseline; gap: 10px; }
+  .sgo-title {
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text);
+  }
+  .sgo-subtitle {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    color: var(--text3);
+  }
+  .sgo-controls { display: flex; gap: 10px; align-items: center; }
+  .sgo-tf-btns, .sgo-col-btns { display: flex; gap: 3px; }
+  .sgo-tf-btn, .sgo-col-btn {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    font-weight: 500;
+    border: 1px solid var(--border2);
+    background: var(--bg);
+    color: var(--text3);
+    border-radius: 3px;
+    padding: 4px 9px;
+    cursor: pointer;
+    transition: all 0.1s;
+  }
+  .sgo-tf-btn.active, .sgo-col-btn.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+  .sgo-tf-btn:hover:not(.active), .sgo-col-btn:hover:not(.active) { background: var(--bg2); }
+  .sgo-close-btn {
+    font-family: 'Inter', sans-serif;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    background: transparent;
+    color: var(--text3);
+    border: 1px solid var(--border2);
+    border-radius: 3px;
+    padding: 5px 12px;
+    cursor: pointer;
+    margin-left: auto;
+  }
+  .sgo-close-btn:hover { background: var(--bg2); }
+  .sgo-body { flex: 1; overflow-y: auto; padding: 16px; }
+  .sgo-loading {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 200px;
+    gap: 12px;
+    color: var(--text3);
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+  }
+  .sgo-loading.visible { display: flex; }
+  .sgo-spinner {
+    width: 20px; height: 20px;
+    border: 2px solid var(--border2);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  .sgo-grid { display: grid; gap: 10px; }
+  .sgo-card {
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+    background: var(--bg);
+    transition: border-color 0.15s;
+  }
+  .sgo-card:hover { border-color: var(--accent); }
+  .sgo-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 5px 8px 3px;
+  }
+  .sgo-card-ticker {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .sgo-ema-badges { display: flex; gap: 2px; }
+  .sgo-ema-badge {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 8px;
+    font-weight: 700;
+    padding: 1px 4px;
+    border-radius: 2px;
+    letter-spacing: 0.03em;
+  }
+  .sgo-ema-ok   { background: rgba(10,124,78,0.15); color: #0a7c4e; }
+  .sgo-ema-fail { background: rgba(200,40,40,0.10); color: #c82828; }
+  .sgo-card-sub {
+    display: flex;
+    justify-content: space-between;
+    padding: 0 8px 3px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    color: var(--text3);
+  }
+  .sgo-card-body { height: 120px; }
+
   /* INDUSTRY MAP TAB */
   .imap-page { height: 100%; display: flex; flex-direction: column; overflow: hidden; background: var(--bg); }
   .imap-toolbar {
@@ -4520,9 +4726,52 @@ const SECTORS = [
   { ticker: 'SPY',  name: 'S&P 500',                 group: 'benchmark' },
 ];
 
-let sectorSortCol = '1m';
-let sectorSortDir = -1;
-let sectorRows    = null;
+// S&P 500 constituents grouped by GICS sector ETF (approximate, current as of 2025)
+const SP500_CONSTITUENTS = {
+  XLK:  ['AAPL','MSFT','NVDA','AVGO','ORCL','AMD','QCOM','TXN','AMAT','CSCO','NOW','CRM','ADBE','INTU','MU',
+          'LRCX','KLAC','ADI','INTC','APH','SNPS','CDNS','PANW','FTNT','MSI','FICO','MPWR','KEYS','GLW','ANSS',
+          'IT','AKAM','CDW','GEN','SWKS','HPQ','NTAP','PTC','JNPR','TEL','TDY','ZBRA','LDOS','WDC','FFIV',
+          'STX','CTSH','ANET','TER','GDDY','SMCI','TRMB','ON','QRVO','VRSN','HPE','PAYC','NXPI','ENPH','FSLR',
+          'SEDG','PSTG','EPAM','MCHP'],
+  XLF:  ['BRK-B','JPM','V','MA','BAC','WFC','GS','MS','SPGI','BLK','AXP','C','CB','MMC','PGR',
+          'USB','TFC','SCHW','ICE','CME','AON','MCO','MET','PRU','AIG','ALL','AFL','COF','FIS','FISV',
+          'WTW','TRV','HIG','PNC','RF','KEY','FITB','CFG','HBAN','MTB','ZION','CMA','STT','BK','NTRS',
+          'AMP','RJF','CBOE','NDAQ','IVZ','RE','RNR','WRB','CINF','AIZ','PFG','UNM','MKTX','LPLA','GL',
+          'FNF','EG','ERIE','JXN','ALLY','SYF','DFS'],
+  XLV:  ['LLY','UNH','ABT','JNJ','MRK','ABBV','TMO','DHR','AMGN','BMY','MDT','ISRG','PFE','ELV','CI',
+          'CVS','HUM','SYK','BSX','REGN','VRTX','ZBH','BDX','BAX','EW','A','IQV','DXCM','MTD','WST',
+          'HOLX','PODD','TFX','GEHC','MRNA','BIIB','ALNY','INCY','JAZZ','TECH','PKI','WAT','CRL','VTRS',
+          'MCK','CAH','ABC','LH','DGX','HSIC','PDCO','COO','ALGN','STE','RMD','IDXX','NTRA','SOLV'],
+  XLE:  ['XOM','CVX','COP','EOG','SLB','PSX','MPC','VLO','OXY','KMI','WMB','HAL','BKR','DVN','FANG',
+          'APA','HES','CTRA','MRO','NOV','OKE','TRGP','EQT'],
+  XLI:  ['GE','RTX','CAT','HON','UNP','UPS','BA','DE','LMT','NOC','GD','ITW','EMR','ETN','ROK',
+          'PH','AME','FTV','SWK','TT','CARR','OTIS','CTAS','FAST','PCAR','NSC','CSX','WAB','JCI','XYL',
+          'IEX','RRX','GNRC','IDEX','VRSK','TDG','HWM','GWW','RSG','WCN','CPRT','JBHT','ODFL','DAL',
+          'UAL','LUV','AAL','UBER','EFX','ITT','AXON','SAIC','BAH','CACI','MSA','TREX','IR','FLR',
+          'J','PWR','AGCO','RBA','SPXC','HUBB','ROP','NDSN'],
+  XLC:  ['GOOGL','GOOG','META','NFLX','DIS','CMCSA','T','VZ','TMUS','CHTR','EA','TTWO','WBD',
+          'PARA','OMC','IPG','NYT','NWSA','NWS','FOXA','FOX','MTCH','LYV','ZG','IAC'],
+  XLY:  ['AMZN','TSLA','HD','MCD','NKE','SBUX','LOW','BKNG','TJX','CMG','ROST','GM','F','YUM',
+          'MAR','HLT','DHI','LEN','PHM','EXPE','ETSY','EBAY','BBY','DRI','LVS','WYNN','MGM','PENN',
+          'PVH','HAS','MAT','RL','TPR','GPC','AZO','ORLY','AN','KMX','AAP','APTV','BWA','GT','LEA',
+          'MHK','NVR','NCLH','RCL','CCL','DKNG','ABNB','LCID','RIVN','TGT','DLTR','DG','W'],
+  XLP:  ['WMT','PG','COST','KO','PEP','PM','MDLZ','MO','CL','EL','GIS','K','HSY','SJM','CAG',
+          'CPB','HRL','MKC','CHD','CLX','KHC','TAP','STZ','BF-B','ADM','BG','INGR','KR','SYY',
+          'TSN','COTY','SPB','WBA','MNST','KDP','CELH'],
+  XLB:  ['LIN','APD','SHW','FCX','NEM','NUE','VMC','MLM','PKG','IP','WRK','AVY','CF','MOS','IFF',
+          'ECL','ALB','FMC','PPG','EMN','RPM','CE','HUN','OLN','CC','SMG','SEE','BLL','ATI','AA','STLD'],
+  XLRE: ['PLD','AMT','EQIX','CCI','PSA','SPG','WELL','DLR','EXR','VTR','O','ARE','BXP','KIM','REG',
+          'HST','EQR','ESS','UDR','CPT','MAA','NNN','WPC','STAG','VICI','GLPI','REXR','IRM','SBAC',
+          'SBA','AVB'],
+  XLU:  ['NEE','SO','DUK','AEP','SRE','D','EXC','PCG','XEL','ES','WEC','PPL','DTE','ETR','FE',
+          'NI','AES','CNP','CMS','LNT','EVRG','ATO','OGE','NRG','VST','CEG','AWK','WTR','SJW','MSEX'],
+};
+
+let sectorSortCol      = '1m';
+let sectorSortDir      = -1;
+let sectorRows         = null;
+let sectorEMABreadth   = {};     // ETF ticker → { ema20, ema50, ema100, ema200 (%), total }
+let sectorBreadthLoading = false;
 
 async function loadSectors() {
   sectorsLoaded = true;
@@ -4562,7 +4811,10 @@ async function loadSectors() {
   updated.textContent = 'Updated ' + new Date().toLocaleTimeString();
 
   sectorRows = rows;
-  renderSectorTable(rows);
+  sectorBreadthLoading = false;
+  sectorEMABreadth = {};
+  loadSectorBreadth();       // sets sectorBreadthLoading=true synchronously before first await
+  renderSectorTable(rows);   // sees the loading flag → renders progress placeholder correctly
 }
 
 function sectorPctReturn(bars, tradingDaysBack) {
@@ -4593,6 +4845,83 @@ function pctCell(val) {
   else if (val >= -3) cls = 'pct-mild-down';
   else                cls = 'pct-strong-down';
   return `<span class="pct-cell ${cls}">${sign}${val.toFixed(2)}%</span>`;
+}
+
+function breadthCell(pct) {
+  if (pct == null) return '<span class="breadth-cell breadth-na">—</span>';
+  let cls;
+  if      (pct >= 70) cls = 'breadth-strong';
+  else if (pct >= 50) cls = 'breadth-mid';
+  else                cls = 'breadth-weak';
+  return `<span class="breadth-cell ${cls}">${pct}%</span>`;
+}
+
+async function loadSectorBreadth() {
+  if (sectorBreadthLoading) return;
+  sectorBreadthLoading = true;
+
+  const allStocks = [];
+  Object.entries(SP500_CONSTITUENTS).forEach(([etf, tickers]) => {
+    tickers.forEach(t => allStocks.push({ ticker: t, etf }));
+  });
+
+  const totals = {};
+  Object.keys(SP500_CONSTITUENTS).forEach(etf => {
+    totals[etf] = { ema20: 0, ema50: 0, ema100: 0, ema200: 0, total: 0 };
+  });
+
+  const BATCH = 20;
+  let done = 0;
+
+  function updateProgress() {
+    const el = document.getElementById('breadth-progress');
+    if (el) el.textContent = `Loading EMA breadth… ${done} / ${allStocks.length}`;
+  }
+  updateProgress();
+
+  for (let i = 0; i < allStocks.length; i += BATCH) {
+    const batch = allStocks.slice(i, i + BATCH);
+    await Promise.all(batch.map(async ({ ticker, etf }) => {
+      try {
+        const res    = await fetch(`/api/yf?ticker=${encodeURIComponent(ticker)}&range=1y&interval=1d`);
+        const json   = await res.json();
+        const result = json?.chart?.result?.[0];
+        if (!result) return;
+        const raw    = result.indicators.quote[0].close || [];
+        const closes = raw.filter(c => c != null);
+        if (closes.length < 21) return;
+        const price  = closes[closes.length - 1];
+        const ema20  = calcEMA(closes, 20);
+        const ema50  = calcEMA(closes, 50);
+        const ema100 = calcEMA(closes, Math.min(100, closes.length));
+        const ema200 = calcEMA(closes, Math.min(200, closes.length));
+        const b = totals[etf];
+        b.total++;
+        if (ema20  > 0 && price > ema20)  b.ema20++;
+        if (ema50  > 0 && price > ema50)  b.ema50++;
+        if (ema100 > 0 && price > ema100) b.ema100++;
+        if (ema200 > 0 && price > ema200) b.ema200++;
+      } catch {}
+    }));
+    done += batch.length;
+    updateProgress();
+  }
+
+  sectorEMABreadth = {};
+  Object.entries(totals).forEach(([etf, b]) => {
+    if (b.total > 0) {
+      sectorEMABreadth[etf] = {
+        ema20:  Math.round(b.ema20  / b.total * 100),
+        ema50:  Math.round(b.ema50  / b.total * 100),
+        ema100: Math.round(b.ema100 / b.total * 100),
+        ema200: Math.round(b.ema200 / b.total * 100),
+        total:  b.total,
+      };
+    }
+  });
+
+  sectorBreadthLoading = false;
+  if (sectorRows) renderSectorTable(sectorRows);
 }
 
 function renderSectorTable(rows) {
@@ -4657,8 +4986,43 @@ function renderSectorTable(rows) {
     </tr>`;
   }).join('');
 
+  // Build EMA breadth sub-table
+  let breadthHTML = `<div class="sectors-breadth-caption">EMA Breadth — % of S&amp;P 500 stocks above each daily moving average</div>`;
+
+  const hasBreadth = Object.keys(sectorEMABreadth).length > 0;
+
+  if (sectorBreadthLoading) {
+    breadthHTML += `<div class="breadth-loading-msg" id="breadth-progress">Loading EMA breadth… 0 / ${Object.values(SP500_CONSTITUENTS).reduce((s,a)=>s+a.length,0)}</div>`;
+  } else if (!hasBreadth) {
+    breadthHTML += `<div class="breadth-loading-msg">Click Refresh to load EMA breadth data</div>`;
+  } else {
+    const bRows = SECTORS.filter(s => s.group === 'sector').map(s => {
+      const b = sectorEMABreadth[s.ticker];
+      return `<tr class="sgo-row" onclick="openSectorGlance('${s.ticker}')">
+        <td>${s.name}</td>
+        <td>${b ? breadthCell(b.ema20)  : '<span class="breadth-cell breadth-na">—</span>'}</td>
+        <td>${b ? breadthCell(b.ema50)  : '<span class="breadth-cell breadth-na">—</span>'}</td>
+        <td>${b ? breadthCell(b.ema100) : '<span class="breadth-cell breadth-na">—</span>'}</td>
+        <td>${b ? breadthCell(b.ema200) : '<span class="breadth-cell breadth-na">—</span>'}</td>
+        <td style="color:var(--text3);font-size:10px">${b ? b.total : '—'}</td>
+      </tr>`;
+    }).join('');
+
+    breadthHTML += `<table class="sectors-breadth-table">
+      <thead><tr>
+        <th style="text-align:left;cursor:default">Sector</th>
+        <th>EMA 20</th>
+        <th>EMA 50</th>
+        <th>EMA 100</th>
+        <th>EMA 200</th>
+        <th style="color:var(--text3)">Stocks</th>
+      </tr></thead>
+      <tbody>${bRows}</tbody>
+    </table>`;
+  }
+
   document.getElementById('sectors-table-wrap').innerHTML =
-    `<table class="sectors-table"><thead>${thead}</thead><tbody>${tbody}</tbody></table>`;
+    `<table class="sectors-table"><thead>${thead}</thead><tbody>${tbody}</tbody></table>${breadthHTML}`;
 }
 
 // ============================================================
@@ -5500,6 +5864,232 @@ function _buildGlanceChart(container, r) {
 }
 
 // ============================================================
+//  SECTOR GLANCE OVERLAY
+// ============================================================
+
+let sgoTF        = 'W';
+let sgoCols      = 4;
+const _sgoCharts = {};
+let sgoStocks    = [];   // [{ticker, price, change, ema20ok, ema50ok, ema100ok, ema200ok, d:[], w:[]}]
+
+function resampleToWeekly(daily) {
+  const weeks = {};
+  for (const b of daily) {
+    const d   = new Date(b.t);
+    const day = d.getUTCDay();
+    const mon = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - (day === 0 ? 6 : day - 1)));
+    const key = mon.getTime();
+    if (!weeks[key]) {
+      weeks[key] = { t: key, o: b.o, h: b.h, l: b.l, c: b.c };
+    } else {
+      weeks[key].h = Math.max(weeks[key].h, b.h);
+      weeks[key].l = Math.min(weeks[key].l, b.l);
+      weeks[key].c = b.c;
+    }
+  }
+  return Object.keys(weeks).sort((a, b) => +a - +b).map(k => weeks[+k]);
+}
+
+async function openSectorGlance(etf) {
+  const sector  = SECTORS.find(s => s.ticker === etf);
+  const tickers = SP500_CONSTITUENTS[etf] || [];
+  if (!tickers.length) return;
+
+  const overlay = document.getElementById('sgo-overlay');
+  overlay.classList.add('open');
+  document.getElementById('sgo-title').textContent    = sector?.name || etf;
+  document.getElementById('sgo-subtitle').textContent = '';
+  document.getElementById('sgo-grid').innerHTML       = '';
+
+  const loading     = document.getElementById('sgo-loading');
+  const loadingText = document.getElementById('sgo-loading-text');
+  loading.classList.add('visible');
+  loadingText.textContent = `Fetching ${tickers.length} stocks…`;
+
+  Object.keys(_sgoCharts).forEach(t => { try { _sgoCharts[t].remove(); } catch {} delete _sgoCharts[t]; });
+  sgoStocks = [];
+
+  const BATCH = 20;
+  for (let i = 0; i < tickers.length; i += BATCH) {
+    const batch = tickers.slice(i, i + BATCH);
+    const got = await Promise.all(batch.map(async ticker => {
+      try {
+        const res    = await fetch(`/api/yf?ticker=${encodeURIComponent(ticker)}&range=1y&interval=1d`);
+        const json   = await res.json();
+        const result = json?.chart?.result?.[0];
+        if (!result) return null;
+        const q   = result.indicators.quote[0];
+        const ts  = result.timestamp || [];
+        const meta = result.meta || {};
+        const d = [];
+        for (let j = 0; j < ts.length; j++) {
+          if (q.close[j] != null) d.push({
+            t: ts[j] * 1000,
+            o: q.open[j]  ?? q.close[j],
+            h: q.high[j]  ?? q.close[j],
+            l: q.low[j]   ?? q.close[j],
+            c: q.close[j],
+          });
+        }
+        if (d.length < 21) return null;
+        const closes  = d.map(b => b.c);
+        const price   = meta.regularMarketPrice ?? closes[closes.length - 1];
+        const prev    = closes[closes.length - 2] ?? price;
+        const change  = prev ? Math.round(((price - prev) / prev) * 10000) / 100 : 0;
+        const ema20   = calcEMA(closes, 20);
+        const ema50   = calcEMA(closes, 50);
+        const ema100  = calcEMA(closes, Math.min(100, closes.length));
+        const ema200  = calcEMA(closes, Math.min(200, closes.length));
+        return {
+          ticker, price, change,
+          ema20ok:  ema20  > 0 && price > ema20,
+          ema50ok:  ema50  > 0 && price > ema50,
+          ema100ok: ema100 > 0 && price > ema100,
+          ema200ok: ema200 > 0 && price > ema200,
+          d,
+          w: resampleToWeekly(d),
+        };
+      } catch { return null; }
+    }));
+    got.forEach(r => { if (r) sgoStocks.push(r); });
+    loadingText.textContent = `Fetching ${tickers.length} stocks… ${Math.min(i + BATCH, tickers.length)} / ${tickers.length}`;
+  }
+
+  // Sort: most EMAs above → fewest at the bottom
+  sgoStocks.sort((a, b) => {
+    const sa = (a.ema20ok?1:0) + (a.ema50ok?1:0) + (a.ema100ok?1:0) + (a.ema200ok?1:0);
+    const sb = (b.ema20ok?1:0) + (b.ema50ok?1:0) + (b.ema100ok?1:0) + (b.ema200ok?1:0);
+    return sb - sa;
+  });
+
+  loading.classList.remove('visible');
+  document.getElementById('sgo-subtitle').textContent = `${sgoStocks.length} stocks`;
+  renderSgoGrid();
+}
+
+function renderSgoGrid() {
+  Object.keys(_sgoCharts).forEach(t => { try { _sgoCharts[t].remove(); } catch {} delete _sgoCharts[t]; });
+
+  const grid = document.getElementById('sgo-grid');
+  grid.innerHTML = '';
+  grid.style.gridTemplateColumns = `repeat(${sgoCols}, 1fr)`;
+
+  if (!sgoStocks.length) {
+    grid.innerHTML = '<div style="padding:40px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;font-size:11px">No data loaded</div>';
+    return;
+  }
+
+  const badge = (ok, label) =>
+    `<span class="sgo-ema-badge ${ok ? 'sgo-ema-ok' : 'sgo-ema-fail'}">${label}</span>`;
+
+  sgoStocks.forEach((r, idx) => {
+    const chgSign  = r.change >= 0 ? '+' : '';
+    const chgColor = r.change >= 0 ? 'var(--green)' : 'var(--red)';
+    const card = document.createElement('div');
+    card.className = 'sgo-card';
+    card.innerHTML = `
+      <div class="sgo-card-header">
+        <span class="sgo-card-ticker">${r.ticker}</span>
+        <div class="sgo-ema-badges">
+          ${badge(r.ema20ok,'20')}${badge(r.ema50ok,'50')}${badge(r.ema100ok,'100')}${badge(r.ema200ok,'200')}
+        </div>
+      </div>
+      <div class="sgo-card-sub">
+        <span>$${Number(r.price).toFixed(2)}</span>
+        <span style="color:${chgColor}">${chgSign}${r.change}%</span>
+      </div>
+      <div class="sgo-card-body" id="sgo-body-${idx}"></div>`;
+    grid.appendChild(card);
+  });
+
+  requestAnimationFrame(() => {
+    sgoStocks.forEach((r, idx) => {
+      const container = document.getElementById(`sgo-body-${idx}`);
+      if (container) _buildSgoChart(container, r.ticker, sgoTF === 'W' ? r.w : r.d);
+    });
+  });
+}
+
+function _buildSgoChart(container, ticker, bars) {
+  if (!bars || bars.length < 5) return;
+  const toSec  = t => Math.floor(t / 1000);
+  const maxBars = sgoTF === 'W' ? 52 : 126;
+
+  const seen = new Set();
+  const all  = bars
+    .map(b => ({ t: b.t, o: b.o ?? b.c, h: b.h ?? b.c, l: b.l ?? b.c, c: b.c }))
+    .filter(b => b.c > 0)
+    .sort((a, b) => a.t - b.t)
+    .filter(b => { const s = toSec(b.t); return seen.has(s) ? false : (seen.add(s), true); });
+
+  const visible = all.slice(-maxBars);
+  if (visible.length < 5) return;
+
+  const BB_PERIOD  = 20;
+  const allCloses  = all.map(b => b.c);
+  const visSet     = new Set(visible.map(b => toSec(b.t)));
+  const bbU = [], bbM = [], bbL = [];
+  for (let i = BB_PERIOD - 1; i < all.length; i++) {
+    const t = toSec(all[i].t);
+    if (!visSet.has(t)) continue;
+    const sl  = allCloses.slice(i - BB_PERIOD + 1, i + 1);
+    const sma = sl.reduce((a, b) => a + b, 0) / BB_PERIOD;
+    const std = Math.sqrt(sl.reduce((a, b) => a + (b - sma) ** 2, 0) / BB_PERIOD);
+    bbU.push({ time: t, value: sma + 2 * std });
+    bbM.push({ time: t, value: sma });
+    bbL.push({ time: t, value: sma - 2 * std });
+  }
+
+  try {
+    const chart = LightweightCharts.createChart(container, {
+      autoSize: true,
+      layout:          { background: { color: '#ffffff' }, textColor: '#6b7280' },
+      grid:            { vertLines: { color: '#f5f5f5' }, horzLines: { color: '#f5f5f5' } },
+      rightPriceScale: { visible: false, scaleMargins: { top: 0.03, bottom: 0.03 } },
+      leftPriceScale:  { visible: false },
+      timeScale:       { visible: false },
+      crosshair:       { mode: LightweightCharts.CrosshairMode.None },
+      handleScroll:    false,
+      handleScale:     false,
+    });
+    _sgoCharts[ticker] = chart;
+
+    chart.addCandlestickSeries({
+      upColor: '#0a7c4e', downColor: '#c82828',
+      borderUpColor: '#0a7c4e', borderDownColor: '#c82828',
+      wickUpColor: '#0a7c4e', wickDownColor: '#c82828',
+    }).setData(visible.map(b => ({ time: toSec(b.t), open: b.o, high: b.h, low: b.l, close: b.c })));
+
+    const bs = { lineWidth: 1, priceLineVisible: false, lastValueVisible: false };
+    chart.addLineSeries({ ...bs, color: 'rgba(99,132,199,0.55)' }).setData(bbU);
+    chart.addLineSeries({ ...bs, color: 'rgba(150,150,150,0.45)', lineStyle: 2 }).setData(bbM);
+    chart.addLineSeries({ ...bs, color: 'rgba(99,132,199,0.55)' }).setData(bbL);
+
+    chart.timeScale().fitContent();
+  } catch {}
+}
+
+function closeSectorGlance() {
+  Object.keys(_sgoCharts).forEach(t => { try { _sgoCharts[t].remove(); } catch {} delete _sgoCharts[t]; });
+  document.getElementById('sgo-overlay').classList.remove('open');
+}
+
+function setSgoTF(tf) {
+  sgoTF = tf;
+  document.getElementById('sgo-tf-d').classList.toggle('active', tf === 'D');
+  document.getElementById('sgo-tf-w').classList.toggle('active', tf === 'W');
+  renderSgoGrid();
+}
+
+function setSgoCols(n) {
+  sgoCols = n;
+  document.querySelectorAll('.sgo-col-btn').forEach(b => {
+    b.classList.toggle('active', b.textContent.trim() === String(n));
+  });
+  renderSgoGrid();
+}
+
+// ============================================================
 //  PANE RESIZER — drag the border between list and chart
 // ============================================================
 (function() {
@@ -5549,5 +6139,37 @@ function _buildGlanceChart(container, r) {
   resizer.addEventListener('pointercancel', stopDrag);
 })();
 </script>
+
+<!-- SECTOR GLANCE OVERLAY -->
+<div id="sgo-overlay" class="sgo-overlay">
+  <div class="sgo-panel">
+    <div class="sgo-header">
+      <div class="sgo-title-wrap">
+        <div class="sgo-title" id="sgo-title">Sector</div>
+        <div class="sgo-subtitle" id="sgo-subtitle"></div>
+      </div>
+      <div class="sgo-controls">
+        <div class="sgo-tf-btns">
+          <button class="sgo-tf-btn" id="sgo-tf-d" onclick="setSgoTF('D')">D</button>
+          <button class="sgo-tf-btn active" id="sgo-tf-w" onclick="setSgoTF('W')">W</button>
+        </div>
+        <div class="sgo-col-btns">
+          <button class="sgo-col-btn" onclick="setSgoCols(3)">3</button>
+          <button class="sgo-col-btn active" onclick="setSgoCols(4)">4</button>
+          <button class="sgo-col-btn" onclick="setSgoCols(5)">5</button>
+          <button class="sgo-col-btn" onclick="setSgoCols(6)">6</button>
+        </div>
+      </div>
+      <button class="sgo-close-btn" onclick="closeSectorGlance()">✕ Close</button>
+    </div>
+    <div class="sgo-body">
+      <div class="sgo-loading" id="sgo-loading">
+        <div class="sgo-spinner"></div>
+        <div id="sgo-loading-text">Loading…</div>
+      </div>
+      <div id="sgo-grid" class="sgo-grid"></div>
+    </div>
+  </div>
+</div>
 </body>
 </html>
