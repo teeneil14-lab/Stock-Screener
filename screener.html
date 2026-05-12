@@ -1825,6 +1825,7 @@
           <option value="ticker">Ticker A–Z</option>
           <option value="wk_high">Nearest Weekly High ↓</option>
           <option value="mo_high">Nearest Monthly High ↓</option>
+          <option value="52wk_high">Nearest 52-Wk High ↓</option>
         </select>
         <button class="view-btn" id="btn-flip-panes" onclick="flipPanes()" title="Swap chart and list position">↕ FLIP</button>
         <button class="view-btn danger" id="download-btn" onclick="downloadFiltered()" style="display:none">↓ EXPORT FILTERED .TXT</button>
@@ -3634,13 +3635,22 @@ function getPeriodHighProx(r, tf) {
   return high > 0 ? r.price / high : 0;
 }
 
+function get52WkHighProx(r) {
+  const bars = r.daily;
+  if (!bars || bars.length < 1) return 0;
+  const slice = bars.slice(-252);
+  const high52 = Math.max(...slice.map(b => b.h ?? b.c));
+  return high52 > 0 ? r.price / high52 : 0;
+}
+
 function getSortFn(by) {
   if (by==='score')   return (a,b) => (b.rankScore??b.score) - (a.rankScore??a.score);
   if (by==='taste')   return (a,b) => (b.prefSim??0) - (a.prefSim??0);
   if (by==='change')  return (a,b) => b.change - a.change;
   if (by==='ticker')  return (a,b) => a.ticker.localeCompare(b.ticker);
-  if (by==='wk_high') return (a,b) => getPeriodHighProx(b,'weekly') - getPeriodHighProx(a,'weekly');
-  if (by==='mo_high') return (a,b) => getPeriodHighProx(b,'monthly') - getPeriodHighProx(a,'monthly');
+  if (by==='wk_high')  return (a,b) => getPeriodHighProx(b,'weekly') - getPeriodHighProx(a,'weekly');
+  if (by==='mo_high')  return (a,b) => getPeriodHighProx(b,'monthly') - getPeriodHighProx(a,'monthly');
+  if (by==='52wk_high') return (a,b) => get52WkHighProx(b) - get52WkHighProx(a);
   return (a,b) => (b.rankScore??b.score) - (a.rankScore??a.score);
 }
 
