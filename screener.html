@@ -4324,11 +4324,9 @@ async function loadSectors() {
   wrap.innerHTML = '';
   updated.textContent = 'Loading…';
 
-  const rows = [];
-  for (let i = 0; i < SECTORS.length; i++) {
-    const s = SECTORS[i];
-    document.getElementById('sectors-loading-text').textContent =
-      `Loading ${s.name} (${i + 1}/${SECTORS.length})…`;
+  document.getElementById('sectors-loading-text').textContent = `Loading ${SECTORS.length} sectors…`;
+
+  const rows = await Promise.all(SECTORS.map(async s => {
     try {
       const res  = await fetch(`/api/yf?ticker=${encodeURIComponent(s.ticker)}&range=1y&interval=1d`);
       const json = await res.json();
@@ -4341,12 +4339,11 @@ async function loadSectors() {
         if (qc[j] != null) bars.push({ t: ts[j] * 1000, c: qc[j] });
       }
       if (bars.length < 2) throw new Error('insufficient bars');
-      rows.push({ ...s, bars });
+      return { ...s, bars };
     } catch (e) {
-      rows.push({ ...s, bars: null, error: e.message });
+      return { ...s, bars: null, error: e.message };
     }
-    if (i < SECTORS.length - 1) await sleep(120);
-  }
+  }));
 
   loading.style.display = 'none';
   btn.disabled = false;
@@ -4882,7 +4879,7 @@ async function loadIndustryMap(force) {
   const allItems   = [...benchItems, ...etfItems];
 
   const resultsMap = {};
-  const BATCH = 4;
+  const BATCH = 10;
   for (let i = 0; i < allItems.length; i += BATCH) {
     const batch = allItems.slice(i, i + BATCH);
     const pcts  = await Promise.all(batch.map(t => fetchImapWeekly(t.ticker)));
@@ -4890,7 +4887,7 @@ async function loadIndustryMap(force) {
       resultsMap[t.ticker] = pcts[j];
       updateImapTile(t.ticker, pcts[j]);
     });
-    if (i + BATCH < allItems.length) await new Promise(r => setTimeout(r, 250));
+    if (i + BATCH < allItems.length) await new Promise(r => setTimeout(r, 100));
   }
 
   renderImapSorted(resultsMap);
