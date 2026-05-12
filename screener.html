@@ -5282,7 +5282,7 @@ function _buildGlanceChart(container, r) {
       autoSize: true,
       layout:       { background: { color: '#ffffff' }, textColor: '#6b7280' },
       grid:         { vertLines: { color: '#f5f5f5' }, horzLines: { color: '#f5f5f5' } },
-      rightPriceScale: { visible: false },
+      rightPriceScale: { visible: false, scaleMargins: { top: 0.03, bottom: 0.03 } },
       leftPriceScale:  { visible: false },
       timeScale:    { visible: false },
       crosshair:    { mode: LightweightCharts.CrosshairMode.None },
