@@ -1392,6 +1392,38 @@
     padding: 12px;
   }
   .glance-pane.visible { display: block; }
+
+  /* SECTOR PIE VIEW */
+  .sector-pane { display: none; flex-direction: column; overflow-y: auto; background: var(--bg); flex: 1; }
+  .sector-pane.visible { display: flex; }
+  .sector-chart-area {
+    display: flex; align-items: flex-start; justify-content: center;
+    gap: 32px; padding: 28px 24px 16px; flex-wrap: wrap;
+  }
+  .sector-legend { display: flex; flex-direction: column; gap: 2px; min-width: 220px; max-width: 300px; padding-top: 4px; }
+  .sector-legend-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 5px 8px; border-radius: 5px; cursor: pointer;
+    border: 1px solid transparent; transition: background 0.1s;
+  }
+  .sector-legend-item:hover { background: var(--bg3); }
+  .sector-legend-item.selected { background: var(--green-dim); border-color: var(--accent); }
+  .sector-legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .sector-legend-name { font-size: 12px; color: var(--text2); flex: 1; }
+  .sector-legend-item.selected .sector-legend-name { color: var(--accent); font-weight: 600; }
+  .sector-legend-count { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--text3); min-width: 24px; text-align: right; }
+  .sector-legend-pct { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--text3); min-width: 38px; text-align: right; }
+  .sector-drill { border-top: 1px solid var(--border); }
+  .sector-drill-header {
+    font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.08em;
+    color: var(--text3); padding: 9px 16px; background: var(--bg3); border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 12px;
+  }
+  .sector-drill-title { color: var(--text); font-weight: 600; font-size: 11px; }
+  .sector-click-hint {
+    font-family: 'IBM Plex Sans', sans-serif; font-size: 11px; color: var(--text3);
+    text-align: center; padding: 16px 0 4px; letter-spacing: 0;
+  }
   .glance-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr); /* overridden by JS */
@@ -1652,6 +1684,8 @@
           <option value="score">Match Score ↓</option>
           <option value="change">% Change ↓</option>
           <option value="ticker">Ticker A–Z</option>
+          <option value="wk_high">Nearest Weekly High ↓</option>
+          <option value="mo_high">Nearest Monthly High ↓</option>
         </select>
         <button class="view-btn" id="btn-flip-panes" onclick="flipPanes()" title="Swap chart and list position">↕ FLIP</button>
         <button class="view-btn danger" id="download-btn" onclick="downloadFiltered()" style="display:none">↓ EXPORT FILTERED .TXT</button>
@@ -1680,8 +1714,9 @@
         <div class="pane-toolbar">
           <span class="pane-label">RANKED LIST — <span id="list-count-label">0 tickers</span></span>
           <div class="pane-controls">
-            <button class="view-btn" id="btn-view-list"   onclick="setListView('list')"   title="Ranked list">LIST</button>
-            <button class="view-btn" id="btn-view-glance" onclick="setListView('glance')" title="Candlestick glance view">GLANCE</button>
+            <button class="view-btn active" id="btn-view-list"   onclick="setListView('list')"   title="Ranked list">LIST</button>
+            <button class="view-btn"        id="btn-view-glance" onclick="setListView('glance')" title="Candlestick glance view">GLANCE</button>
+            <button class="view-btn"        id="btn-view-sector" onclick="setListView('sector')" title="Sector breakdown pie chart">SECTOR</button>
             <div class="glance-cols-btns" id="glance-cols-btns">
               <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);margin:0 4px 0 6px;letter-spacing:0.06em">TF</span>
               <button class="view-btn active" id="glance-tf-D" onclick="setGlanceTF('D')">D</button>
@@ -1713,6 +1748,7 @@
         <div class="glance-pane" id="glance-pane">
           <div class="glance-grid" id="glance-grid"></div>
         </div>
+        <div class="sector-pane" id="sector-pane"></div>
       </div>
 
       <!-- RESIZER -->
@@ -3353,10 +3389,20 @@ function setChartRange(range) {
 // ============================================================
 //  SORTING
 // ============================================================
+function getPeriodHighProx(r, tf) {
+  const bars = tf === 'weekly' ? r.weekly : r.monthly;
+  if (!bars || bars.length < 1) return 0;
+  const lastBar = bars[bars.length - 1];
+  const high = lastBar.h ?? lastBar.c;
+  return high > 0 ? r.price / high : 0;
+}
+
 function getSortFn(by) {
-  if (by==='score')  return (a,b) => (b.rankScore??b.score) - (a.rankScore??a.score);
-  if (by==='change') return (a,b) => b.change - a.change;
-  if (by==='ticker') return (a,b) => a.ticker.localeCompare(b.ticker);
+  if (by==='score')   return (a,b) => (b.rankScore??b.score) - (a.rankScore??a.score);
+  if (by==='change')  return (a,b) => b.change - a.change;
+  if (by==='ticker')  return (a,b) => a.ticker.localeCompare(b.ticker);
+  if (by==='wk_high') return (a,b) => getPeriodHighProx(b,'weekly') - getPeriodHighProx(a,'weekly');
+  if (by==='mo_high') return (a,b) => getPeriodHighProx(b,'monthly') - getPeriodHighProx(a,'monthly');
   return (a,b) => (b.rankScore??b.score) - (a.rankScore??a.score);
 }
 
@@ -4725,12 +4771,191 @@ const _glanceCharts   = {};      // ticker → LightweightCharts instance
 
 function setListView(mode) {
   glanceView = mode === 'glance';
-  document.getElementById('btn-view-list'  ).classList.toggle('active', !glanceView);
-  document.getElementById('btn-view-glance').classList.toggle('active',  glanceView);
-  document.getElementById('results-area').style.display = glanceView ? 'none' : '';
+  const sectorMode = mode === 'sector';
+  document.getElementById('btn-view-list'  ).classList.toggle('active', mode === 'list');
+  document.getElementById('btn-view-glance').classList.toggle('active', glanceView);
+  document.getElementById('btn-view-sector').classList.toggle('active', sectorMode);
+  document.getElementById('results-area').style.display = (glanceView || sectorMode) ? 'none' : '';
   document.getElementById('glance-pane' ).classList.toggle('visible', glanceView);
+  document.getElementById('sector-pane' ).classList.toggle('visible', sectorMode);
   document.getElementById('glance-cols-btns').classList.toggle('visible', glanceView);
   if (glanceView) renderGlanceView();
+  if (sectorMode) renderSectorView();
+}
+
+// ============================================================
+//  SECTOR PIE VIEW
+// ============================================================
+let activeSector    = null;
+let _sectorSlices   = [];
+const SECTOR_COLORS = [
+  '#2563eb','#db2777','#d97706','#7c3aed','#0891b2',
+  '#ea580c','#65a30d','#be123c','#0f766e','#6d28d9',
+  '#b45309','#6b7280',
+];
+
+function renderSectorView() {
+  const pane = document.getElementById('sector-pane');
+  if (!sortedResults.length) {
+    pane.innerHTML = `<div class="empty-state"><div class="empty-icon">⊡</div><div class="empty-title">NO DATA</div><div class="empty-desc">Run a scan first to see sector breakdown.</div></div>`;
+    return;
+  }
+
+  // Group by sector
+  const groups = {};
+  sortedResults.forEach(r => {
+    const s = r.sectorName || 'Other';
+    if (!groups[s]) groups[s] = [];
+    groups[s].push(r);
+  });
+  const sectors = Object.entries(groups).sort((a, b) => b[1].length - a[1].length);
+  const total   = sortedResults.length;
+
+  pane.innerHTML = `
+    <div class="sector-chart-area">
+      <div>
+        <canvas id="sector-pie-canvas" width="300" height="300" style="cursor:pointer;display:block"></canvas>
+        <div class="sector-click-hint">Click a slice or legend row to drill down</div>
+      </div>
+      <div class="sector-legend" id="sector-legend"></div>
+    </div>
+    <div class="sector-drill" id="sector-drill"></div>`;
+
+  // Build slices
+  let angle = -Math.PI / 2;
+  _sectorSlices = sectors.map(([name, stocks], i) => {
+    const span = (stocks.length / total) * 2 * Math.PI;
+    const s = { name, stocks, startAngle: angle, endAngle: angle + span, color: SECTOR_COLORS[i % SECTOR_COLORS.length] };
+    angle += span;
+    return s;
+  });
+
+  _drawSectorPie(total);
+  _buildSectorLegend(sectors, total);
+
+  document.getElementById('sector-pie-canvas').addEventListener('click', function(e) {
+    const rect = this.getBoundingClientRect();
+    const scaleX = 300 / rect.width;
+    const scaleY = 300 / rect.height;
+    const x = (e.clientX - rect.left) * scaleX - 150;
+    const y = (e.clientY - rect.top)  * scaleY - 150;
+    const dist = Math.sqrt(x * x + y * y);
+    if (dist < 42 || dist > 132) return;
+
+    let a = Math.atan2(y, x);
+    if (a < -Math.PI / 2) a += 2 * Math.PI;
+
+    const hit = _sectorSlices.find(s => a >= s.startAngle && a < s.endAngle);
+    if (hit) _selectSector(hit.name, sectors, total);
+  });
+
+  if (activeSector && groups[activeSector]) _renderSectorDrill(activeSector, groups[activeSector]);
+}
+
+function _drawSectorPie(total) {
+  const canvas = document.getElementById('sector-pie-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const cx = 150, cy = 150, r = 116, innerR = 42;
+
+  ctx.clearRect(0, 0, 300, 300);
+
+  _sectorSlices.forEach(s => {
+    const isActive = s.name === activeSector;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, isActive ? r + 10 : r, s.startAngle, s.endAngle);
+    ctx.closePath();
+    ctx.fillStyle = s.color;
+    ctx.globalAlpha = isActive ? 1.0 : (activeSector ? 0.55 : 0.88);
+    ctx.fill();
+    ctx.globalAlpha = 1.0;
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = isActive ? 2.5 : 1.5;
+    ctx.stroke();
+  });
+
+  // Donut hole
+  ctx.beginPath();
+  ctx.arc(cx, cy, innerR, 0, 2 * Math.PI);
+  ctx.fillStyle = '#f5f6f8';
+  ctx.fill();
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Center label
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  if (activeSector) {
+    const sl = _sectorSlices.find(s => s.name === activeSector);
+    ctx.fillStyle = sl ? sl.color : '#374151';
+    ctx.font = "bold 18px 'IBM Plex Mono', monospace";
+    ctx.fillText(sl ? sl.stocks.length : '', cx, cy - 7);
+    ctx.font = "9px 'IBM Plex Sans', sans-serif";
+    ctx.fillStyle = '#6b7280';
+    ctx.fillText('stocks', cx, cy + 9);
+  } else {
+    ctx.fillStyle = '#374151';
+    ctx.font = "bold 18px 'IBM Plex Mono', monospace";
+    ctx.fillText(total, cx, cy - 7);
+    ctx.font = "9px 'IBM Plex Sans', sans-serif";
+    ctx.fillStyle = '#6b7280';
+    ctx.fillText('total', cx, cy + 9);
+  }
+}
+
+function _buildSectorLegend(sectors, total) {
+  const legend = document.getElementById('sector-legend');
+  if (!legend) return;
+  legend.innerHTML = sectors.map(([name, stocks], i) => {
+    const pct   = Math.round(stocks.length / total * 100);
+    const color = SECTOR_COLORS[i % SECTOR_COLORS.length];
+    const isSelected = name === activeSector;
+    return `<div class="sector-legend-item${isSelected ? ' selected' : ''}" onclick="_selectSector('${name.replace(/'/g,"\\'")}')">
+      <div class="sector-legend-dot" style="background:${color}"></div>
+      <div class="sector-legend-name">${name}</div>
+      <div class="sector-legend-count">${stocks.length}</div>
+      <div class="sector-legend-pct">${pct}%</div>
+    </div>`;
+  }).join('');
+}
+
+function _selectSector(name, sectors, total) {
+  activeSector = activeSector === name ? null : name;
+  // Re-fetch groups from sortedResults if not passed
+  if (!sectors || !total) {
+    const groups = {};
+    sortedResults.forEach(r => { const s = r.sectorName || 'Other'; if (!groups[s]) groups[s] = []; groups[s].push(r); });
+    sectors = Object.entries(groups).sort((a, b) => b[1].length - a[1].length);
+    total   = sortedResults.length;
+  }
+  _drawSectorPie(total);
+  _buildSectorLegend(sectors, total);
+  const group = sectors.find(([n]) => n === activeSector);
+  _renderSectorDrill(activeSector, group ? group[1] : []);
+}
+
+function _renderSectorDrill(sectorName, stocks) {
+  const drill = document.getElementById('sector-drill');
+  if (!drill) return;
+  if (!sectorName || !stocks || !stocks.length) { drill.innerHTML = ''; return; }
+
+  const rows = stocks.map(r => {
+    const idx = sortedResults.indexOf(r);
+    return rankRow(r, idx + 1, idx);
+  }).join('');
+
+  drill.innerHTML = `
+    <div class="sector-drill-header">
+      <span class="sector-drill-title">${sectorName.toUpperCase()}</span>
+      <span>${stocks.length} stock${stocks.length !== 1 ? 's' : ''}</span>
+    </div>
+    <div class="rank-header">
+      <div>#</div><div></div><div>TICKER</div><div>SCORE</div><div>SIGNALS</div>
+      <div>MTH / WK / DAY / YR</div><div class="right">PRICE</div><div class="right">CHG%</div>
+    </div>
+    ${rows}`;
 }
 
 function setGlanceTF(tf) {
