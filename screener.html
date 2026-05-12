@@ -1952,6 +1952,7 @@ let panesFlipped   = false;
 let activeCriteriaFilters = new Set();
 let chartMode       = 'D';   // 'D' | 'W' | 'M' | '2x' | '3x'
 let chartRange      = '12M'; // '3M' | '6M' | '12M'
+let glanceRange     = '12M'; // independent range for glance view
 let scanSummaryHTML = '';    // saved after each scan, restored when criteria filters cleared
 
 const _originalWeights = {};  // { setupId: { criterion_id: weight } } — captured at init
@@ -3327,13 +3328,10 @@ function setChartMode(mode) {
 function setChartRange(range) {
   chartRange = range;
   ['3M','6M','12M'].forEach(r => {
-    const el1 = document.getElementById('btn-range-' + r.toLowerCase());
-    if (el1) el1.classList.toggle('active', r === range);
-    const el2 = document.getElementById('glance-range-' + r.toLowerCase());
-    if (el2) el2.classList.toggle('active', r === range);
+    const el = document.getElementById('btn-range-' + r.toLowerCase());
+    if (el) el.classList.toggle('active', r === range);
   });
   if (activeRow >= 0 && sortedResults[activeRow]) loadChart(sortedResults[activeRow]);
-  if (glanceView) _rebuildGlanceCharts();
 }
 
 // ============================================================
@@ -4733,7 +4731,14 @@ function setGlanceTF(tf) {
   _rebuildGlanceCharts();
 }
 
-function setGlanceRange(range) { setChartRange(range); }
+function setGlanceRange(range) {
+  glanceRange = range;
+  ['3M','6M','12M'].forEach(r => {
+    const el = document.getElementById('glance-range-' + r.toLowerCase());
+    if (el) el.classList.toggle('active', r === range);
+  });
+  if (glanceView) _rebuildGlanceCharts();
+}
 
 function setGlanceCols(n) {
   glanceCols = n;
@@ -4829,7 +4834,7 @@ function _buildGlanceChart(container, r) {
     W: { '3M': 13,  '6M': 26,  '12M': 52  },
     M: { '3M': 3,   '6M': 6,   '12M': 12  },
   };
-  const maxBars = GLANCE_BARS[glanceTF]?.[chartRange] ?? 252;
+  const maxBars = GLANCE_BARS[glanceTF]?.[glanceRange] ?? 252;
   const bars  = rawBars.slice(-maxBars)
     .map(b => ({ t: b.t, o: b.o ?? b.c, h: b.h ?? b.c, l: b.l ?? b.c, c: b.c }))
     .filter(b => b.c > 0)
