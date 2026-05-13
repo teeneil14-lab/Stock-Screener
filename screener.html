@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CTS Global Screener</title>
+<link rel="preload" href="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js" as="script">
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
@@ -2507,6 +2508,8 @@ let cachedSPXBars = null; // fetched once per scan; shared across all tickers
 let activeRow     = -1;   // index into sorted results array
 let listVisible   = true;
 let chartVisible  = true;
+let chartDebounceTimer = null;
+let lastChartKey = '';
 let sidebarVisible = true;
 let panesFlipped   = false;
 let activeCriteriaFilters = new Set();
@@ -4010,14 +4013,14 @@ function handleListKey(e) {
   if (!sortedResults.length) return;
   if (e.key === 'ArrowDown') {
     e.preventDefault();
-    setActiveRow(Math.min(activeRow + 1, sortedResults.length - 1), true);
+    setActiveRow(Math.min(activeRow + 1, sortedResults.length - 1), true, true);
   } else if (e.key === 'ArrowUp') {
     e.preventDefault();
-    setActiveRow(Math.max(activeRow - 1, 0), true);
+    setActiveRow(Math.max(activeRow - 1, 0), true, true);
   }
 }
 
-function setActiveRow(idx, loadChart_) {
+function setActiveRow(idx, loadChart_, debounce) {
   // Clear previous
   document.querySelectorAll('.rank-row.active').forEach(el => el.classList.remove('active'));
   activeRow = idx;
@@ -4026,7 +4029,13 @@ function setActiveRow(idx, loadChart_) {
     row.classList.add('active');
     row.scrollIntoView({ block: 'nearest' });
   }
-  if (loadChart_ && sortedResults[idx]) loadChart(sortedResults[idx]);
+  if (!loadChart_ || !sortedResults[idx]) return;
+  if (debounce) {
+    clearTimeout(chartDebounceTimer);
+    chartDebounceTimer = setTimeout(() => loadChart(sortedResults[idx]), 260);
+  } else {
+    loadChart(sortedResults[idx]);
+  }
 }
 
 // ============================================================
@@ -4051,6 +4060,10 @@ function loadChart(stock) {
   const defaultExch = marketMode === 'PH' ? 'PSE' : '';
   const exchange = (stock.exchange && stock.exchange !== '—') ? stock.exchange : defaultExch;
   const symbol   = exchange ? `${exchange}:${stock.ticker}` : stock.ticker;
+
+  const chartKey = `${symbol}|${chartMode}|${chartRange}`;
+  if (chartKey === lastChartKey) return;
+  lastChartKey = chartKey;
 
   document.getElementById('chart-symbol-label').textContent = symbol;
 
