@@ -3289,20 +3289,38 @@ function computeWTDTop(bars) {
   return 0.0;
 }
 
-// rs_spx: count how many of the last 5 days the stock's RS line (stock/SPX) rose
-// Each rising RS day = stock outperformed SPX that day. Score = days / 5 → 0.0–1.0
+// rs_spx: count how many of the last 10 days the stock outperformed SPX.
+// Score = days / 10 → 0.0–1.0; each pip in the 5-pip display represents 2 days.
+// Aligned by date so a partial "today" bar on one series doesn't skew results.
 function computeRSvsSPX(daily, spxDaily) {
-  if (!spxDaily || spxDaily.length < 7 || !daily || daily.length < 7) return 0.5;
-  const n = Math.min(daily.length, spxDaily.length);
-  const stock = daily.slice(-n);
-  const spx   = spxDaily.slice(-n);
+  if (!spxDaily || spxDaily.length < 12 || !daily || daily.length < 12) return 0.5;
+
+  // Build date → close map for SPX (key = YYYY-MM-DD)
+  const spxByDate = {};
+  for (const bar of spxDaily) {
+    const key = new Date(bar.t).toISOString().slice(0, 10);
+    spxByDate[key] = bar.c;
+  }
+
+  // Collect last 11 date-matched pairs (oldest first)
+  const matched = [];
+  for (let i = daily.length - 1; i >= 0 && matched.length < 11; i--) {
+    const key = new Date(daily[i].t).toISOString().slice(0, 10);
+    if (spxByDate[key] != null) {
+      matched.unshift({ s: daily[i].c, x: spxByDate[key] });
+    }
+  }
+
+  if (matched.length < 2) return 0.5;
+
   let days = 0;
-  for (let i = n - 1; i >= n - 5 && i >= 1; i--) {
-    const rsToday = stock[i].c / spx[i].c;
-    const rsYest  = stock[i-1].c / spx[i-1].c;
+  const limit = Math.min(matched.length - 1, 10);
+  for (let i = matched.length - 1; i >= matched.length - limit; i--) {
+    const rsToday = matched[i].s / matched[i].x;
+    const rsYest  = matched[i-1].s / matched[i-1].x;
     if (rsToday > rsYest) days++;
   }
-  return days / 5;
+  return days / 10;
 }
 
 // ============================================================
