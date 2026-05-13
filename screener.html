@@ -2237,8 +2237,8 @@
               <span style="width:1px;height:14px;background:var(--border2);display:inline-block;margin:0 4px"></span>
               <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);margin-right:4px;letter-spacing:0.06em">RANGE</span>
               <button class="view-btn"        id="glance-range-3m"  onclick="setGlanceRange('3M')">3M</button>
-              <button class="view-btn active" id="glance-range-6m"  onclick="setGlanceRange('6M')">6M</button>
-              <button class="view-btn"        id="glance-range-12m" onclick="setGlanceRange('12M')">1Y</button>
+              <button class="view-btn"        id="glance-range-6m"  onclick="setGlanceRange('6M')">6M</button>
+              <button class="view-btn active" id="glance-range-12m" onclick="setGlanceRange('12M')">1Y</button>
               <span style="width:1px;height:14px;background:var(--border2);display:inline-block;margin:0 4px"></span>
               <span style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);margin-right:4px;letter-spacing:0.06em">COLS</span>
               <button class="view-btn" id="glance-col-2" onclick="setGlanceCols(2)">2</button>
@@ -2512,7 +2512,7 @@ let panesFlipped   = false;
 let activeCriteriaFilters = new Set();
 let chartMode       = 'D';   // 'D' | 'W' | 'M' | '2x' | '3x'
 let chartRange      = '12M'; // '3M' | '6M' | '12M'
-let glanceRange     = '6M'; // independent range for glance view
+let glanceRange     = '12M'; // independent range for glance view
 let scanSummaryHTML = '';    // saved after each scan, restored when criteria filters cleared
 
 const _originalWeights = {};  // { setupId: { criterion_id: weight } } — captured at init
@@ -3459,6 +3459,9 @@ async function runScan() {
       if (!aboveEma50) {
         filteredOut.push({ ...t, ...stockData, reason: 'Below daily EMA50' });
         if (statusEl) { statusEl.textContent='✗'; statusEl.className='t-status'; statusEl.style.cssText='font-size:9px;padding:1px 5px;color:var(--red);border:1px solid rgba(200,41,58,0.3);background:var(--red-dim);border-radius:2px'; }
+      } else if (marketMode !== 'PH' && (stockData.avg_vol_30 || 0) < 500000) {
+        filteredOut.push({ ...t, ...stockData, reason: 'Avg vol < 500K' });
+        if (statusEl) { statusEl.textContent='✗'; statusEl.className='t-status'; statusEl.style.cssText='font-size:9px;padding:1px 5px;color:var(--red);border:1px solid rgba(200,41,58,0.3);background:var(--red-dim);border-radius:2px'; }
       } else if (earningsSoon) {
         const dLabel = earningsDays < 1 ? 'today' : `in ${Math.ceil(earningsDays)}d`;
         filteredOut.push({ ...t, ...stockData, reason: `Earnings ${dLabel}` });
@@ -3523,6 +3526,7 @@ async function runScan() {
   renderResults();
 
   const ema50Removed    = filteredOut.filter(f => f.reason === 'Below daily EMA50').length;
+  const lowVolRemoved   = filteredOut.filter(f => f.reason === 'Avg vol < 500K').length;
   const earningsRemoved = filteredOut.filter(f => f.reason?.startsWith('Earnings')).length;
   const crashRemoved    = filteredOut.filter(f => f.reason === 'Weekly crash (−20%+)').length;
   const upperBBRemoved  = filteredOut.filter(f => f.reason === 'Extended above upper BB').length;
@@ -3531,6 +3535,7 @@ async function runScan() {
   const belowMidRemoved = filteredOut.filter(f => f.reason === 'Close below BB midline').length;
   const removedParts    = [];
   if (ema50Removed)    removedParts.push(`<span class="flist-chip" onclick="showFList('Below daily EMA50')"><span style="color:var(--red)">${ema50Removed}</span> below EMA50</span>`);
+  if (lowVolRemoved)   removedParts.push(`<span class="flist-chip" onclick="showFList('Avg vol < 500K')"><span style="color:var(--red)">${lowVolRemoved}</span> low volume</span>`);
   if (earningsRemoved) removedParts.push(`<span class="flist-chip" onclick="showFList('Earnings')"><span style="color:var(--amber)">${earningsRemoved}</span> earnings ≤5d</span>`);
   if (crashRemoved)    removedParts.push(`<span class="flist-chip" onclick="showFList('Weekly crash (−20%+)')"><span style="color:var(--red)">${crashRemoved}</span> weekly crash</span>`);
   if (upperBBRemoved)  removedParts.push(`<span class="flist-chip" onclick="showFList('Extended above upper BB')"><span style="color:var(--red)">${upperBBRemoved}</span> above upper BB</span>`);
@@ -3824,6 +3829,11 @@ async function fetchStockData(ticker) {
     ? Math.round((volumes[volumes.length - 1] / avgVol20) * 100) / 100
     : 1.0;
 
+  // Hard filter: 30-day average volume (excludes today's potentially incomplete bar)
+  const avgVol30 = volumes.length >= 30
+    ? volumes.slice(-31, -1).reduce(function(a, b) { return a + b; }, 0) / 30
+    : (volumes.length > 1 ? volumes.slice(0, -1).reduce(function(a, b) { return a + b; }, 0) / (volumes.length - 1) : 0);
+
   // PH filter: average value traded (price × volume) over the last 20 daily bars
   const last20     = dailyBars.slice(-20);
   const avg_value_traded = last20.length
@@ -3835,6 +3845,7 @@ async function fetchStockData(ticker) {
     price:        currentPrice,
     change,
     vol_ratio,
+    avg_vol_30: avgVol30,
     avg_value_traded,
     above_ema50,
     above_upper_bb,
@@ -6187,6 +6198,22 @@ function _buildGlanceChart(container, r) {
     .filter(b => b.c > 0)
     .sort((a, bv) => a.t - bv.t)
     .filter(b => { const s = toSec(b.t); return seenAll.has(s) ? false : (seenAll.add(s), true); });
+
+  // Strip the current incomplete period — Yahoo Finance always includes the
+  // in-progress week/month as the last bar, which shows partial data as a candle.
+  if (allBars.length > 0) {
+    const now = new Date();
+    const last = allBars[allBars.length - 1];
+    if (glanceTF === 'W') {
+      const dow = now.getUTCDay(); // 0=Sun … 6=Sat
+      const daysToMon = (dow + 6) % 7;
+      const weekStart = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - daysToMon);
+      if (last.t >= weekStart) allBars.pop();
+    } else if (glanceTF === 'M') {
+      const monthStart = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1);
+      if (last.t >= monthStart) allBars.pop();
+    }
+  }
 
   // Candles shown = last maxBars from the full history
   const bars = allBars.slice(-maxBars);
