@@ -1876,6 +1876,10 @@
   .sector-legend-item.selected .sector-legend-name { color: var(--accent); font-weight: 600; }
   .sector-legend-count { font-family: 'Inter', sans-serif; font-size: 11px; color: var(--text3); min-width: 24px; text-align: right; }
   .sector-legend-pct { font-family: 'Inter', sans-serif; font-size: 10px; color: var(--text3); min-width: 38px; text-align: right; }
+  .sector-legend-avg { font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600; min-width: 42px; text-align: right; padding-left: 6px; }
+  .sector-legend-avg.avg-green { color: var(--green); }
+  .sector-legend-avg.avg-amber { color: var(--amber); }
+  .sector-legend-avg.avg-red  { color: var(--red); }
   .sector-drill { border-top: 1px solid var(--border); }
   .sector-drill-header {
     font-family: 'Inter', sans-serif; font-size: 10px; letter-spacing: 0.08em;
@@ -6058,11 +6062,14 @@ function _buildSectorLegend(sectors, total) {
     const pct   = Math.round(stocks.length / total * 100);
     const color = SECTOR_COLORS[i % SECTOR_COLORS.length];
     const isSelected = name === activeSector;
+    const avgScore = Math.round(stocks.reduce((sum, r) => sum + (r.score || 0), 0) / stocks.length);
+    const avgCls = avgScore >= 70 ? 'avg-green' : avgScore >= 40 ? 'avg-amber' : 'avg-red';
     return `<div class="sector-legend-item${isSelected ? ' selected' : ''}" onclick="_selectSector('${name.replace(/'/g,"\\'")}')">
       <div class="sector-legend-dot" style="background:${color}"></div>
       <div class="sector-legend-name">${name}</div>
       <div class="sector-legend-count">${stocks.length}</div>
       <div class="sector-legend-pct">${pct}%</div>
+      <div class="sector-legend-avg ${avgCls}">${avgScore}%</div>
     </div>`;
   }).join('');
 }
