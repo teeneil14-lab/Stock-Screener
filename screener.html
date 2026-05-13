@@ -907,6 +907,144 @@
     border-radius: 2px;
     cursor: pointer;
   }
+  /* PORTFOLIO DROPDOWN */
+  .portfolio-wrap {
+    position: relative;
+  }
+  #portfolio-count {
+    display: inline-block;
+    margin-left: 5px;
+    min-width: 16px;
+    height: 16px;
+    line-height: 16px;
+    text-align: center;
+    background: var(--accent);
+    color: #fff;
+    font-size: 9px;
+    border-radius: 8px;
+    padding: 0 4px;
+    vertical-align: middle;
+    display: none;
+  }
+  #portfolio-count.has-items { display: inline-block; }
+  .portfolio-panel {
+    display: none;
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    width: 240px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    z-index: 150;
+    padding: 12px;
+  }
+  .portfolio-panel.open { display: block; }
+  .pp-title {
+    font-family: 'Inter', sans-serif;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text3);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 8px;
+  }
+  .pp-input-row {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+  .pp-input {
+    flex: 1;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    padding: 4px 8px;
+    border-radius: 2px;
+    outline: none;
+    text-transform: uppercase;
+  }
+  .pp-input:focus { border-color: var(--accent); }
+  .pp-add-btn {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 2px;
+    font-family: 'Inter', sans-serif;
+    font-size: 10px;
+    padding: 4px 10px;
+    cursor: pointer;
+  }
+  .pp-add-btn:hover { opacity: 0.85; }
+  .pp-list {
+    max-height: 200px;
+    overflow-y: auto;
+    margin-bottom: 8px;
+  }
+  .pp-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 0;
+    border-bottom: 1px solid var(--border);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--text);
+  }
+  .pp-item:last-child { border-bottom: none; }
+  .pp-remove {
+    background: none;
+    border: none;
+    color: var(--text3);
+    cursor: pointer;
+    font-size: 13px;
+    line-height: 1;
+    padding: 0 2px;
+  }
+  .pp-remove:hover { color: var(--red); }
+  .pp-empty {
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    color: var(--text3);
+    text-align: center;
+    padding: 8px 0;
+  }
+  .pp-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .pp-clear {
+    font-family: 'Inter', sans-serif;
+    font-size: 10px;
+    color: var(--text3);
+    cursor: pointer;
+    text-decoration: underline;
+  }
+  .pp-clear:hover { color: var(--red); }
+  .pp-hint {
+    font-family: 'Inter', sans-serif;
+    font-size: 9px;
+    color: var(--text3);
+    font-style: italic;
+  }
+
+  /* CORR COLUMN */
+  .col-corr {
+    width: 54px;
+    text-align: center;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+  }
+  .corr-high { color: #c0392b; font-weight: 600; }
+  .corr-med  { color: #e67e22; }
+  .corr-low  { color: #0a7c4e; }
+  .corr-neg  { color: #2980b9; }
+  .corr-none { color: var(--text3); }
+
   .progress-bar-wrap {
     display: none;
     align-items: center;
@@ -1050,7 +1188,7 @@
   /* RANK ROW */
   .rank-row {
     display: grid;
-    grid-template-columns: 32px 32px 130px 90px 80px 90px 1fr 54px 110px 100px 100px;
+    grid-template-columns: 32px 32px 130px 90px 80px 90px 1fr 54px 54px 110px 100px 100px;
     align-items: center;
     padding: 0 16px;
     height: 52px;
@@ -1318,7 +1456,7 @@
   /* TABLE HEADER */
   .rank-header {
     display: grid;
-    grid-template-columns: 32px 32px 130px 90px 80px 90px 1fr 54px 110px 100px 100px;
+    grid-template-columns: 32px 32px 130px 90px 80px 90px 1fr 54px 54px 110px 100px 100px;
     align-items: center;
     padding: 0 16px;
     height: 32px;
@@ -1887,6 +2025,24 @@
 <div class="header">
   <div class="logo">CTS<span> / </span>GLOBAL SCREENER</div>
   <div class="header-right">
+    <!-- Portfolio holdings dropdown -->
+    <div class="portfolio-wrap" id="portfolio-wrap">
+      <button class="view-btn" id="portfolio-btn" onclick="togglePortfolioPanel()">
+        PORTFOLIO<span id="portfolio-count"></span>
+      </button>
+      <div class="portfolio-panel" id="portfolio-panel">
+        <div class="pp-title">Holdings for Correlation</div>
+        <div class="pp-input-row">
+          <input type="text" id="pp-input" class="pp-input" placeholder="Add ticker (e.g. AAPL)" onkeydown="if(event.key==='Enter')addPortfolioTicker()" />
+          <button class="pp-add-btn" onclick="addPortfolioTicker()">Add</button>
+        </div>
+        <div class="pp-list" id="pp-list"></div>
+        <div class="pp-footer">
+          <span class="pp-clear" onclick="clearPortfolio()">Clear all</span>
+          <span class="pp-hint">Correlation updates on next scan</span>
+        </div>
+      </div>
+    </div>
     <!-- US / PH market toggle -->
     <div class="market-toggle-wrap">
       <span class="market-toggle-lbl active" id="mkt-lbl-us">US</span>
@@ -2040,6 +2196,8 @@
           <option value="mo_high">Nearest Monthly High ↓</option>
           <option value="52wk_high">Nearest 52-Wk High ↓</option>
           <option value="rs_spx">RS vs SPX ↓</option>
+          <option value="corr_asc">Correlation ↑ (Low → High)</option>
+          <option value="corr_desc">Correlation ↓ (High → Low)</option>
         </select>
         <button class="view-btn" id="btn-flip-panes" onclick="flipPanes()" title="Swap chart and list position">↕ FLIP</button>
         <button class="view-btn danger" id="download-btn" onclick="downloadFiltered()" style="display:none">↓ EXPORT FILTERED .TXT</button>
@@ -2322,6 +2480,10 @@ let tickers       = [];
 let results       = [];
 let filteredOut   = [];   // tickers removed by EMA50 filter
 
+// Portfolio holdings for correlation analysis
+let portfolioHoldings = JSON.parse(localStorage.getItem('cts-portfolio-holdings') || '[]');
+let portfolioReturns  = null; // 20-element array of avg daily returns across all holdings
+
 // Sector bonus — populated before each scan
 // Maps Yahoo Finance sector name → bonus points (0–10)
 const SECTOR_BONUS_ETFS = [
@@ -2371,6 +2533,7 @@ window.addEventListener('DOMContentLoaded', () => {
   setupDragDrop();
   loadSavedWatchlists();
   applyPaneState();
+  renderPortfolioList();
 });
 
 function startClock() {
@@ -3237,6 +3400,13 @@ async function runScan() {
     scanMeta.innerHTML = 'Preparing PH scan…';
   }
 
+  if (portfolioHoldings.length > 0) {
+    scanMeta.innerHTML = 'Fetching portfolio correlation data…';
+    await fetchPortfolioReturns();
+  } else {
+    portfolioReturns = null;
+  }
+
   const total     = tickers.length;
   const scanStart = Date.now();
 
@@ -3319,7 +3489,9 @@ async function runScan() {
         const sectorBonus = sectorRankMap[sectorName]  || 0;
         const rankScore   = scored.score + sectorBonus;
         if (sectorBonus > 0) scored.tags.unshift({ label: `+${sectorBonus} SECTOR`, cls: 'sector-bonus' });
-        results.push({ ...t, ...stockData, ...scored, sectorBonus, sectorName, rankScore });
+        const tickerRets  = portfolioReturns ? getTickerReturns(stockData.daily) : null;
+        const corrCoeff   = (portfolioReturns && tickerRets) ? pearsonCorr(tickerRets, portfolioReturns.slice(0, tickerRets.length)) : null;
+        results.push({ ...t, ...stockData, ...scored, sectorBonus, sectorName, rankScore, corrCoeff });
         if (statusEl) { statusEl.textContent='✓'; statusEl.className='t-status done'; }
       }
     }
@@ -3385,6 +3557,75 @@ async function runScan() {
 
 // ============================================================
 //  FETCH STOCK DATA  (real — via /api/yf proxy → Yahoo Finance)
+// ============================================================
+//  CORRELATION HELPERS
+// ============================================================
+
+// Pearson correlation coefficient between two equal-length arrays.
+// Returns null if inputs are invalid or variance is zero.
+function pearsonCorr(xs, ys) {
+  if (!xs || !ys || xs.length !== ys.length || xs.length < 2) return null;
+  const n  = xs.length;
+  const mx = xs.reduce((a, b) => a + b, 0) / n;
+  const my = ys.reduce((a, b) => a + b, 0) / n;
+  let num = 0, dx2 = 0, dy2 = 0;
+  for (let i = 0; i < n; i++) {
+    const dx = xs[i] - mx;
+    const dy = ys[i] - my;
+    num += dx * dy;
+    dx2 += dx * dx;
+    dy2 += dy * dy;
+  }
+  const denom = Math.sqrt(dx2 * dy2);
+  return denom === 0 ? null : num / denom;
+}
+
+// Fetch ~21 daily closes for each portfolio holding, compute 20 daily returns
+// for each, then average element-wise across all holdings → portfolioReturns[0..19].
+async function fetchPortfolioReturns() {
+  if (portfolioHoldings.length === 0) {
+    portfolioReturns = null;
+    return;
+  }
+  try {
+    const allBars = await Promise.all(
+      portfolioHoldings.map(t => fetchYF(t, '2mo', '1d').catch(() => null))
+    );
+    // For each holding: extract last 21 closes → 20 daily returns
+    const allReturns = allBars.map(bars => {
+      if (!bars || bars.length < 22) return null;
+      const closes = bars.slice(-21).map(b => b.c);
+      const rets = [];
+      for (let i = 1; i < closes.length; i++) {
+        rets.push((closes[i] - closes[i - 1]) / closes[i - 1]);
+      }
+      return rets; // length 20
+    }).filter(Boolean);
+
+    if (allReturns.length === 0) { portfolioReturns = null; return; }
+
+    // Average across all holdings element-wise
+    const len = Math.min(...allReturns.map(r => r.length));
+    portfolioReturns = Array.from({ length: len }, (_, i) => {
+      const vals = allReturns.map(r => r[i]);
+      return vals.reduce((a, b) => a + b, 0) / vals.length;
+    });
+  } catch (e) {
+    portfolioReturns = null;
+  }
+}
+
+// Extract 20-day return series from a stock's daily bars (already fetched during scan).
+function getTickerReturns(dailyBars) {
+  if (!dailyBars || dailyBars.length < 22) return null;
+  const closes = dailyBars.slice(-21).map(b => b.c);
+  const rets = [];
+  for (let i = 1; i < closes.length; i++) {
+    rets.push((closes[i] - closes[i - 1]) / closes[i - 1]);
+  }
+  return rets;
+}
+
 // ============================================================
 // Fetches daily (1y), weekly (2y), and monthly (max) data in parallel.
 // All three are passed into the scoring engine so every criterion uses
@@ -3664,7 +3905,7 @@ function renderResults() {
 
   let html = `<div class="rank-header">
     <div>#</div><div></div><div>TICKER</div><div>SCORE</div><div></div><div>SECTOR</div><div>SIGNALS</div>
-    <div style="text-align:center">RS</div><div>MTH / WK / DAY / YR</div><div class="right">PRICE</div><div class="right">CHG%</div>
+    <div style="text-align:center">RS</div><div class="col-corr" title="20-day Pearson correlation to your portfolio holdings">CORR</div><div>MTH / WK / DAY / YR</div><div class="right">PRICE</div><div class="right">CHG%</div>
   </div>`;
 
   html += sortedResults.map((r, i) => rankRow(r, i+1, i)).join('');
@@ -3688,6 +3929,14 @@ function rankRow(r, rankNum, idx) {
   const isTop = rankNum <= 3;
   const chgClass = r.change >= 0 ? 'up' : 'down';
   const chgSign  = r.change >= 0 ? '+' : '';
+
+  const cv = r.corrCoeff;
+  const corrDisplay = (cv == null || isNaN(cv)) ? '—' : (cv >= 0 ? '+' : '') + cv.toFixed(2);
+  const corrCls = (cv == null || isNaN(cv)) ? 'corr-none'
+    : cv >= 0.7 ? 'corr-high'
+    : cv >= 0.3 ? 'corr-med'
+    : cv >= -0.3 ? 'corr-low'
+    : 'corr-neg';
 
   const tagsHtml = r.tags.slice(0,3).map(t =>
     `<span class="tag ${t.cls}">${t.label}</span>`
@@ -3734,6 +3983,7 @@ function rankRow(r, rankNum, idx) {
       <span class="pip${(r.rsDays??0)>=4?' on':''}"></span>
       <span class="pip${(r.rsDays??0)>=5?' on':''}"></span>
     </div>
+    <div class="col-corr ${corrCls}">${corrDisplay}</div>
     <div class="rank-tf-scores">${tfHtml}</div>
     <div class="rank-price">$${Number(r.price).toFixed(2)}</div>
     <div class="rank-change ${chgClass}">${chgSign}${r.change}%</div>
@@ -3912,8 +4162,81 @@ function getSortFn(by) {
   if (by==='mo_high')  return (a,b) => getPeriodHighProx(b,'monthly') - getPeriodHighProx(a,'monthly');
   if (by==='52wk_high') return (a,b) => get52WkHighProx(b) - get52WkHighProx(a);
   if (by==='rs_spx')   return (a,b) => (b.rsDays??0) - (a.rsDays??0);
+  if (by==='corr_asc') return (a,b) => {
+    const av = a.corrCoeff ?? 2, bv = b.corrCoeff ?? 2;
+    return av - bv;
+  };
+  if (by==='corr_desc') return (a,b) => {
+    const av = a.corrCoeff ?? -2, bv = b.corrCoeff ?? -2;
+    return bv - av;
+  };
   return (a,b) => (b.rankScore??b.score) - (a.rankScore??a.score);
 }
+
+// ============================================================
+//  PORTFOLIO HOLDINGS
+// ============================================================
+function togglePortfolioPanel() {
+  const panel = document.getElementById('portfolio-panel');
+  panel.classList.toggle('open');
+}
+
+function addPortfolioTicker() {
+  const input = document.getElementById('pp-input');
+  const raw   = input.value.trim().toUpperCase();
+  if (!raw) return;
+  const tickers = raw.split(/[\s,]+/).filter(Boolean);
+  tickers.forEach(tk => {
+    if (!portfolioHoldings.includes(tk)) portfolioHoldings.push(tk);
+  });
+  input.value = '';
+  saveAndRenderPortfolio();
+}
+
+function removePortfolioTicker(ticker) {
+  portfolioHoldings = portfolioHoldings.filter(t => t !== ticker);
+  saveAndRenderPortfolio();
+}
+
+function clearPortfolio() {
+  portfolioHoldings = [];
+  saveAndRenderPortfolio();
+}
+
+function saveAndRenderPortfolio() {
+  localStorage.setItem('cts-portfolio-holdings', JSON.stringify(portfolioHoldings));
+  renderPortfolioList();
+}
+
+function renderPortfolioList() {
+  const list  = document.getElementById('pp-list');
+  const count = document.getElementById('portfolio-count');
+  if (!list) return;
+
+  if (portfolioHoldings.length === 0) {
+    list.innerHTML = '<div class="pp-empty">No holdings added yet</div>';
+    count.textContent = '';
+    count.classList.remove('has-items');
+  } else {
+    list.innerHTML = portfolioHoldings.map(t =>
+      `<div class="pp-item">
+        <span>${t}</span>
+        <button class="pp-remove" onclick="removePortfolioTicker('${t}')" title="Remove">×</button>
+      </div>`
+    ).join('');
+    count.textContent = portfolioHoldings.length;
+    count.classList.add('has-items');
+  }
+}
+
+// Close portfolio panel when clicking outside it
+document.addEventListener('click', function(e) {
+  const wrap = document.getElementById('portfolio-wrap');
+  if (wrap && !wrap.contains(e.target)) {
+    const panel = document.getElementById('portfolio-panel');
+    if (panel) panel.classList.remove('open');
+  }
+});
 
 function applySortToResults() { lastSort = document.getElementById('sort-select').value; }
 
@@ -4677,10 +5000,9 @@ async function loadPickPerformance(entry) {
     const refPrice = bars[starIdx].c;
     if (!refPrice) { perfIds.forEach(p => setCell(p, null)); return; }
 
-    // If a bar N trading days after the star exists in the dataset, that date has already passed
     const getReturn = (tradingDays) => {
       const idx = starIdx + tradingDays;
-      if (idx >= bars.length) return null; // not enough data yet — period not reached
+      if (idx >= bars.length) return null;
       return (bars[idx].c / refPrice - 1) * 100;
     };
 
