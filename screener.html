@@ -5016,7 +5016,6 @@ function renderSectorTable(rows) {
     <tr>
       <th${thCls('')} style="cursor:default">Sector</th>
       <th${thCls('')} style="cursor:default">ETF</th>
-      <th${thCls('')} style="text-align:right;cursor:default">Price</th>
       <th${thCls('1d')} onclick="sortSectors('1d')">1D${thArrow('1d')}</th>
       <th${thCls('1w')} onclick="sortSectors('1w')">1W${thArrow('1w')}</th>
       <th${thCls('1m')} onclick="sortSectors('1m')">1M${thArrow('1m')}</th>
@@ -5027,11 +5026,9 @@ function renderSectorTable(rows) {
 
   const tbody = allRows.map(r => {
     const isBench = r.group === 'benchmark';
-    const priceStr = r.price != null ? '$' + r.price.toFixed(2) : '—';
     return `<tr class="${isBench ? 'benchmark-row' : ''}">
       <td>${r.name}</td>
       <td>${r.ticker}</td>
-      <td>${priceStr}</td>
       <td>${pctCell(r.d1)}</td>
       <td>${pctCell(r.w1)}</td>
       <td>${pctCell(r.m1)}</td>
