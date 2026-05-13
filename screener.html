@@ -3588,9 +3588,11 @@ async function fetchPortfolioReturns() {
     return;
   }
   try {
-    const allBars = await Promise.all(
+    const allResults = await Promise.all(
       portfolioHoldings.map(t => fetchYF(t, '2mo', '1d').catch(() => null))
     );
+    // fetchYF returns { meta, bars } — extract the bars array
+    const allBars = allResults.map(r => r?.bars ?? null);
     // For each holding: extract last 21 closes → 20 daily returns
     const allReturns = allBars.map(bars => {
       if (!bars || bars.length < 22) return null;
