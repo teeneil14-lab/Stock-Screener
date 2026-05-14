@@ -128,6 +128,21 @@
   .tab-search-input:focus { border-color: var(--accent); background: #fff; }
   .tab-search-input.found  { border-color: var(--green); background: var(--green-dim); }
   .tab-search-input.not-found { border-color: var(--red); background: var(--red-dim); }
+  .tab-search-input.loading { border-color: var(--amber); background: var(--amber-dim); }
+  .manual-remove-btn {
+    font-size: 11px;
+    line-height: 1;
+    color: var(--text3);
+    background: none;
+    border: 1px solid var(--border2);
+    border-radius: 3px;
+    padding: 2px 5px;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
+    margin-left: 2px;
+  }
+  .manual-remove-btn:hover { color: var(--red); border-color: var(--red); }
+  .rank-row.manual-entry { border-left: 2px solid var(--blue) !important; }
   .tab-search-btn {
     font-family: 'Inter', sans-serif;
     font-size: 10px;
@@ -4071,7 +4086,7 @@ function rankRow(r, rankNum, idx) {
     </div>`;
   }).join('');
 
-  return `<div class="rank-row" id="row-${idx}" tabindex="-1"
+  return `<div class="rank-row${r._manual ? ' manual-entry' : ''}" id="row-${idx}" tabindex="-1"
       onclick="setActiveRow(${idx}, true)"
       data-idx="${idx}">
     <div class="rank-num ${isTop?'top':''}">${rankNum}</div>
@@ -4082,6 +4097,7 @@ function rankRow(r, rankNum, idx) {
               title="${r.isStarred ? 'Add again as new entry (remove via My Picks tab)' : 'Add to My Picks'}">
         ${r.isStarred ? '★' : '☆'}
       </button>
+      ${r._manual ? `<button class="manual-remove-btn" onclick="event.stopPropagation(); removeManualResult('${r.ticker}')" title="Remove from list">×</button>` : ''}
     </div>
     <div>
       <div class="rank-ticker">${r.ticker}</div>
@@ -4137,23 +4153,99 @@ function tabSearchOnInput() {
   tabSearchTimer = setTimeout(tabSearchGo, 600);
 }
 
-function tabSearchGo() {
+async function tabSearchGo() {
   clearTimeout(tabSearchTimer);
   const input = document.getElementById('tab-search-input');
+  const btn   = document.querySelector('.tab-search-btn');
   const query = input.value.trim().toUpperCase();
-  input.classList.remove('found', 'not-found');
-  if (!query || !sortedResults.length) return;
+  input.classList.remove('found', 'not-found', 'loading');
+  if (!query) return;
 
   // Switch to the Screener tab so the list is visible
   switchTab('screener');
 
+  // If already in the list, just jump to it
   const idx = sortedResults.findIndex(r => r.ticker.toUpperCase() === query);
-  if (idx === -1) {
-    input.classList.add('not-found');
+  if (idx !== -1) {
+    input.classList.add('found');
+    setActiveRow(idx, true, false);
     return;
   }
-  input.classList.add('found');
-  setActiveRow(idx, true, false);
+
+  // Not found — fetch, score, and insert as a manual entry
+  input.classList.add('loading');
+  if (btn) { btn.textContent = '…'; btn.disabled = true; }
+  try {
+    const stockData = await fetchStockData(query);
+    if (!stockData || stockData.price == null) {
+      input.classList.remove('loading');
+      input.classList.add('not-found');
+      if (btn) { btn.textContent = 'Find'; btn.disabled = false; }
+      return;
+    }
+
+    // Score it exactly like runScan does
+    const scored = scoreStock(stockData, currentSetup);
+
+    // Fetch sector name, portfolio returns, and sector rank map all in parallel
+    const [sectorMap] = await Promise.all([
+      fetchAllTickerSectors([query]),
+      (portfolioHoldings.length > 0 && !portfolioReturns)
+        ? fetchPortfolioReturns() : Promise.resolve(),
+      Object.keys(sectorRankMap).length === 0
+        ? buildSectorRankMap().then(m => { sectorRankMap = m; }) : Promise.resolve(),
+    ]);
+
+    const sectorName  = sectorMap[query] || '';
+    const sectorBonus = sectorRankMap[sectorName] || 0;
+    const rankScore   = scored.score + sectorBonus;
+    if (sectorBonus > 0) scored.tags.unshift({ label: `+${sectorBonus} SECTOR`, cls: 'sector-bonus' });
+
+    const tickerRets = portfolioReturns ? getTickerReturns(stockData.daily) : null;
+    const corrCoeff  = (portfolioReturns && tickerRets)
+      ? pearsonCorr(tickerRets, portfolioReturns.slice(0, tickerRets.length)) : null;
+
+    const manualResult = {
+      ticker: query, exchange: '—', name: stockData.name || query,
+      ...stockData, ...scored, sectorBonus, sectorName, rankScore, corrCoeff,
+      _manual: true
+    };
+
+    // Remove any previous manual entry for the same ticker before adding
+    const existingManual = results.findIndex(r => r.ticker === query && r._manual);
+    if (existingManual !== -1) results.splice(existingManual, 1);
+    results.push(manualResult);
+
+    // Apply starred status and taste-match bonus to all results including the new one
+    autoRestoreStars();
+    computeAllSimilarityBonuses();
+
+    renderResults();
+    const newIdx = sortedResults.findIndex(r => r.ticker === query);
+    if (newIdx !== -1) {
+      input.classList.remove('loading');
+      input.classList.add('found');
+      setActiveRow(newIdx, true, false);
+    }
+  } catch (err) {
+    console.error('Tab search fetch error:', err);
+    input.classList.remove('loading');
+    input.classList.add('not-found');
+  } finally {
+    if (btn) { btn.textContent = 'Find'; btn.disabled = false; }
+  }
+}
+
+function removeManualResult(ticker) {
+  const i = results.findIndex(r => r.ticker === ticker && r._manual);
+  if (i !== -1) results.splice(i, 1);
+  renderResults();
+  // Clear the search box feedback if it was for this ticker
+  const input = document.getElementById('tab-search-input');
+  if (input && input.value.trim().toUpperCase() === ticker) {
+    input.value = '';
+    input.classList.remove('found', 'not-found', 'loading');
+  }
 }
 
 function setActiveRow(idx, loadChart_, debounce) {
