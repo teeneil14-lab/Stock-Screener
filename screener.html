@@ -3435,7 +3435,7 @@ async function runScan() {
   const total     = tickers.length;
   const scanStart = Date.now();
 
-  const SCAN_CONCURRENCY = 3; // fetch this many stocks at once
+  const SCAN_CONCURRENCY = 5; // fetch this many stocks at once (5 × 3 YF calls = 15 concurrent — safe ceiling)
 
   for (let i = 0; i < total; i += SCAN_CONCURRENCY) {
     const batch = tickers.slice(i, Math.min(i + SCAN_CONCURRENCY, total));
@@ -3530,7 +3530,7 @@ async function runScan() {
     progressLabel.textContent = completedCount + ' / ' + total;
 
     // Brief pause between batches (not between every single stock)
-    if (i + SCAN_CONCURRENCY < total) await sleep(150);
+    if (i + SCAN_CONCURRENCY < total) await sleep(30);
   }
 
   // Finish progress bar at 100%
@@ -3900,9 +3900,12 @@ function calcEMA(closes, period) {
 }
 
 // ============================================================
-//  RENDER RESULTS
+//  RENDER RESULTS  (virtual scrolling)
 // ============================================================
 let sortedResults = [];
+const VS_ROW_H   = 53;  // px per row (52px height + 1px border)
+const VS_BUFFER  = 20;  // extra rows rendered above and below viewport
+let   vsScrollRaf = null;
 
 function renderResults() {
   const area = document.getElementById('results-area');
@@ -3941,22 +3944,51 @@ function renderResults() {
     }
   }
 
-  let html = `<div class="rank-header">
+  area.innerHTML = `<div class="rank-header">
     <div>#</div><div></div><div>TICKER</div><div>SCORE</div><div></div><div>SECTOR</div><div>SIGNALS</div>
     <div style="text-align:center">RS</div><div class="col-corr" title="20-day Pearson correlation to your portfolio holdings">CORR</div><div>MTH / WK / DAY / YR</div><div class="right">PRICE</div><div class="right">CHG%</div>
-  </div>`;
+  </div>
+  <div id="vs-top" style="will-change:transform"></div>
+  <div id="vs-rows"></div>
+  <div id="vs-bot" style="will-change:transform"></div>`;
 
-  html += sortedResults.map((r, i) => rankRow(r, i+1, i)).join('');
+  area.removeEventListener('scroll', _vsOnScroll);
+  area.addEventListener('scroll', _vsOnScroll, { passive: true });
 
-  area.innerHTML = html;
+  renderVsRows();
   area.focus();
-
-  if (activeRow >= 0 && activeRow < sortedResults.length) {
-    setActiveRow(activeRow, false);
-  }
 
   if (glanceView) renderGlanceView();
   if (sectorView) renderSectorView();
+}
+
+function _vsOnScroll() {
+  if (vsScrollRaf) return;
+  vsScrollRaf = requestAnimationFrame(() => { vsScrollRaf = null; renderVsRows(); });
+}
+
+function renderVsRows() {
+  const area = document.getElementById('results-area');
+  const vsTop = document.getElementById('vs-top');
+  const vsBot = document.getElementById('vs-bot');
+  const vsRows = document.getElementById('vs-rows');
+  if (!vsRows || !sortedResults.length) return;
+
+  const scrollTop  = area.scrollTop;
+  const viewHeight = area.clientHeight;
+  const total      = sortedResults.length;
+
+  const firstVis  = Math.max(0, Math.floor(scrollTop / VS_ROW_H) - VS_BUFFER);
+  const lastVis   = Math.min(total, Math.ceil((scrollTop + viewHeight) / VS_ROW_H) + VS_BUFFER);
+
+  vsTop.style.height = (firstVis * VS_ROW_H) + 'px';
+  vsBot.style.height = ((total - lastVis) * VS_ROW_H) + 'px';
+  vsRows.innerHTML   = sortedResults.slice(firstVis, lastVis).map((r, j) => rankRow(r, firstVis + j + 1, firstVis + j)).join('');
+
+  if (activeRow >= firstVis && activeRow < lastVis) {
+    const el = document.getElementById('row-' + activeRow);
+    if (el) el.classList.add('active');
+  }
 }
 
 function rankRow(r, rankNum, idx) {
@@ -4043,10 +4075,25 @@ function handleListKey(e) {
 }
 
 function setActiveRow(idx, loadChart_, debounce) {
-  // Clear previous
   document.querySelectorAll('.rank-row.active').forEach(el => el.classList.remove('active'));
   activeRow = idx;
-  const row = document.getElementById('row-'+idx);
+
+  const area = document.getElementById('results-area');
+  if (area && document.getElementById('vs-rows')) {
+    // Virtual scroll: scroll the container so the row is visible, then re-render
+    const rowTop    = idx * VS_ROW_H;
+    const scrollTop = area.scrollTop;
+    const viewH     = area.clientHeight;
+    if (rowTop < scrollTop) {
+      area.scrollTop = rowTop;
+      renderVsRows();
+    } else if (rowTop + VS_ROW_H > scrollTop + viewH) {
+      area.scrollTop = rowTop + VS_ROW_H - viewH;
+      renderVsRows();
+    }
+  }
+
+  const row = document.getElementById('row-' + idx);
   if (row) {
     row.classList.add('active');
     row.scrollIntoView({ block: 'nearest' });
@@ -6144,28 +6191,36 @@ function setGlanceCols(n) {
   _rebuildGlanceCharts();
 }
 
-function _rebuildGlanceCharts() {
+let _glanceObserver = null;
+
+function _destroyAllGlanceCharts() {
   Object.keys(_glanceCharts).forEach(t => {
     try { _glanceCharts[t].remove(); } catch {}
     delete _glanceCharts[t];
-  });
-  requestAnimationFrame(() => {
-    sortedResults.forEach((r, idx) => {
-      const container = document.getElementById(`glance-body-${idx}`);
-      if (container) _buildGlanceChart(container, r);
-    });
   });
 }
 
-function renderGlanceView() {
-  // Destroy any existing instances first
-  Object.keys(_glanceCharts).forEach(t => {
-    try { _glanceCharts[t].remove(); } catch {}
-    delete _glanceCharts[t];
+function _rebuildGlanceCharts() {
+  // TF or range changed — wipe charts so observer re-builds them as cards come into view
+  _destroyAllGlanceCharts();
+  sortedResults.forEach((r, idx) => {
+    const body = document.getElementById(`glance-body-${idx}`);
+    if (body) body.innerHTML = '';
   });
+  // Re-trigger the observer by briefly unobserving + re-observing (forces intersection re-check)
+  if (_glanceObserver) {
+    sortedResults.forEach((_, idx) => {
+      const body = document.getElementById(`glance-body-${idx}`);
+      if (body) { _glanceObserver.unobserve(body); _glanceObserver.observe(body); }
+    });
+  }
+}
+
+function renderGlanceView() {
+  _destroyAllGlanceCharts();
+  if (_glanceObserver) { _glanceObserver.disconnect(); _glanceObserver = null; }
 
   const grid = document.getElementById('glance-grid');
-  grid.innerHTML = '';
   grid.style.gridTemplateColumns = `repeat(${glanceCols}, 1fr)`;
 
   if (!sortedResults.length) {
@@ -6173,47 +6228,46 @@ function renderGlanceView() {
     return;
   }
 
-  sortedResults.forEach((r, idx) => {
-    const sc          = r.rankScore ?? r.score;
-    const colorClass  = sc >= 70 ? 'score-high' : sc >= 40 ? 'score-mid' : 'score-low';
-    const chgSign     = r.change >= 0 ? '+' : '';
-    const chgColor    = r.change >= 0 ? 'var(--green)' : 'var(--red)';
-
-    const card = document.createElement('div');
-    card.className = 'glance-card' + (idx === activeRow ? ' active' : '');
-    card.id        = `glance-card-${idx}`;
-    card.innerHTML = `
+  // Build all card shells as one HTML string — fast, no chart canvases yet
+  grid.innerHTML = sortedResults.map((r, idx) => {
+    const sc         = r.rankScore ?? r.score;
+    const colorClass = sc >= 70 ? 'score-high' : sc >= 40 ? 'score-mid' : 'score-low';
+    const chgSign    = r.change >= 0 ? '+' : '';
+    const chgColor   = r.change >= 0 ? 'var(--green)' : 'var(--red)';
+    return `<div class="glance-card${idx === activeRow ? ' active' : ''}" id="glance-card-${idx}"
+                 onclick="setActiveRow(${idx},true);document.querySelectorAll('.glance-card').forEach(c=>c.classList.remove('active'));this.classList.add('active')">
       <div class="glance-card-header">
         <span class="glance-card-ticker">${r.ticker}</span>
         <button class="star-btn${r.isStarred ? ' star-active' : ''}"
                 id="glance-star-${r.ticker}"
-                onclick="event.stopPropagation(); toggleStar('${r.ticker}')"
+                onclick="event.stopPropagation();toggleStar('${r.ticker}')"
                 title="${r.isStarred ? 'Add again as new entry (remove via My Picks tab)' : 'Add to My Picks'}"
-                style="font-size:11px;padding:0 3px;margin:0 2px;">
-          ${r.isStarred ? '★' : '☆'}
-        </button>
+                style="font-size:11px;padding:0 3px;margin:0 2px">${r.isStarred ? '★' : '☆'}</button>
         <span class="glance-card-score ${colorClass}">${sc}%</span>
       </div>
       <div style="display:flex;align-items:center;justify-content:space-between;padding:2px 8px 2px;font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3)">
         <span>$${Number(r.price).toFixed(2)}</span>
         <span style="color:${chgColor}">${chgSign}${r.change}%</span>
       </div>
-      <div class="glance-card-body" id="glance-body-${idx}"></div>`;
-    card.addEventListener('click', () => {
-      setActiveRow(idx, true);
-      // Update active state on all cards
-      document.querySelectorAll('.glance-card').forEach(c => c.classList.remove('active'));
-      card.classList.add('active');
-    });
-    grid.appendChild(card);
-  });
+      <div class="glance-card-body" id="glance-body-${idx}" data-idx="${idx}"></div>
+    </div>`;
+  }).join('');
 
-  // Render charts after all cards are in the DOM so dimensions are available
-  requestAnimationFrame(() => {
-    sortedResults.forEach((r, idx) => {
-      const container = document.getElementById(`glance-body-${idx}`);
-      if (container) _buildGlanceChart(container, r);
+  // IntersectionObserver: draw chart only when a card body scrolls into view
+  const pane = document.getElementById('glance-pane');
+  _glanceObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (!entry.isIntersecting) return;
+      const idx = parseInt(entry.target.dataset.idx, 10);
+      const r   = sortedResults[idx];
+      if (!r || _glanceCharts[r.ticker]) return;  // already built
+      _buildGlanceChart(entry.target, r);
     });
+  }, { root: pane, rootMargin: '300px 0px', threshold: 0 });
+
+  sortedResults.forEach((_, idx) => {
+    const body = document.getElementById(`glance-body-${idx}`);
+    if (body) _glanceObserver.observe(body);
   });
 }
 
