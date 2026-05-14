@@ -100,6 +100,51 @@
   .tab-btn:hover { color: var(--text2); }
   .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
 
+  /* TICKER SEARCH (tab bar) */
+  .tab-search-wrap {
+    display: flex;
+    align-items: center;
+    margin-left: auto;
+    gap: 6px;
+    padding-right: 4px;
+  }
+  .tab-search-input {
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text);
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: 5px;
+    padding: 3px 10px;
+    width: 110px;
+    height: 24px;
+    outline: none;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .tab-search-input::placeholder { color: var(--text3); font-weight: 400; text-transform: none; letter-spacing: 0; }
+  .tab-search-input:focus { border-color: var(--accent); background: #fff; }
+  .tab-search-input.found  { border-color: var(--green); background: var(--green-dim); }
+  .tab-search-input.not-found { border-color: var(--red); background: var(--red-dim); }
+  .tab-search-btn {
+    font-family: 'Inter', sans-serif;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    color: #fff;
+    background: var(--accent);
+    border: none;
+    border-radius: 5px;
+    padding: 0 10px;
+    height: 24px;
+    cursor: pointer;
+    transition: opacity 0.15s;
+    white-space: nowrap;
+  }
+  .tab-search-btn:hover { opacity: 0.85; }
+
   /* MARKET TOGGLE (US / PH) */
   .market-toggle-wrap {
     display: flex;
@@ -2074,6 +2119,11 @@
   <button class="tab-btn" id="tab-btn-sectors" onclick="switchTab('sectors')">Sector Performance</button>
   <button class="tab-btn" id="tab-btn-imap"    onclick="switchTab('imap')">Industry Map</button>
   <button class="tab-btn" id="tab-btn-picks"   onclick="switchTab('picks')">★ My Picks</button>
+  <div class="tab-search-wrap">
+    <input type="text" id="tab-search-input" class="tab-search-input" placeholder="Find ticker…"
+      oninput="tabSearchOnInput()" onkeydown="if(event.key==='Enter')tabSearchGo()" />
+    <button class="tab-search-btn" onclick="tabSearchGo()">Find</button>
+  </div>
 </div>
 
 <!-- SCREENER TAB -->
@@ -4072,6 +4122,38 @@ function handleListKey(e) {
     e.preventDefault();
     setActiveRow(Math.max(activeRow - 1, 0), true, true);
   }
+}
+
+// ============================================================
+//  TAB-BAR TICKER SEARCH
+// ============================================================
+let tabSearchTimer = null;
+
+function tabSearchOnInput() {
+  const input = document.getElementById('tab-search-input');
+  input.classList.remove('found', 'not-found');
+  clearTimeout(tabSearchTimer);
+  if (!input.value.trim()) return;
+  tabSearchTimer = setTimeout(tabSearchGo, 600);
+}
+
+function tabSearchGo() {
+  clearTimeout(tabSearchTimer);
+  const input = document.getElementById('tab-search-input');
+  const query = input.value.trim().toUpperCase();
+  input.classList.remove('found', 'not-found');
+  if (!query || !sortedResults.length) return;
+
+  // Switch to the Screener tab so the list is visible
+  switchTab('screener');
+
+  const idx = sortedResults.findIndex(r => r.ticker.toUpperCase() === query);
+  if (idx === -1) {
+    input.classList.add('not-found');
+    return;
+  }
+  input.classList.add('found');
+  setActiveRow(idx, true, false);
 }
 
 function setActiveRow(idx, loadChart_, debounce) {
