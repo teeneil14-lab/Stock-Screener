@@ -1460,6 +1460,11 @@
   .picks-perf-loading { color:var(--text3); font-size:10px; font-weight:400; text-align:right; }
   .picks-list-remove { background:none; border:none; cursor:pointer; color:var(--text3); font-size:14px; padding:2px 6px; border-radius:3px; transition:color 0.12s,background 0.12s; }
   .picks-list-remove:hover { color:var(--red); background:var(--red-dim); }
+  .picks-summary-tbody tr { background:var(--bg2); border-bottom:1px solid var(--border); }
+  .picks-summary-tbody tr:hover { background:var(--bg2); }
+  .picks-summary-tbody tr:last-child { border-bottom:2px solid var(--border); }
+  .picks-summary-label { font-size:9px; color:var(--text3); letter-spacing:0.08em; font-weight:600; vertical-align:middle; padding:6px 12px; }
+  .picks-summary-hit { font-size:10px; color:var(--text3); font-weight:400; }
 
   .rank-tf-scores {
     display: flex;
@@ -5179,6 +5184,33 @@ function renderStarredCharts() {
   });
 }
 
+// Tracks loaded perf values for the summary row: { ticker: { '5d': val|null, ... } }
+let _picksPerf = {};
+
+function updatePicksSummary() {
+  const periods = ['5d','1m','3m','1y'];
+  const allVals = Object.values(_picksPerf);
+  periods.forEach(p => {
+    const vals = allVals.map(v => v[p]).filter(v => v !== null && v !== undefined);
+    const avgEl = document.getElementById(`summary-avg-${p}`);
+    const hitEl = document.getElementById(`summary-hit-${p}`);
+    if (!avgEl || !hitEl) return;
+    if (!vals.length) {
+      avgEl.textContent = '—'; avgEl.className = 'picks-perf-na';
+      hitEl.textContent = '—'; hitEl.className = 'picks-summary-hit picks-perf-na';
+      return;
+    }
+    const avg = vals.reduce((s, v) => s + v, 0) / vals.length;
+    const hitCount = vals.filter(v => v >= 0).length;
+    const hitPct = Math.round((hitCount / vals.length) * 100);
+    const sign = avg >= 0 ? '+' : '';
+    avgEl.textContent = `${sign}${avg.toFixed(1)}%`;
+    avgEl.className = `picks-perf-cell ${avg >= 0 ? 'picks-perf-pos' : 'picks-perf-neg'}`;
+    hitEl.textContent = `${hitCount}/${vals.length} (${hitPct}%)`;
+    hitEl.className = `picks-summary-hit picks-perf-cell ${hitPct >= 50 ? 'picks-perf-pos' : 'picks-perf-neg'}`;
+  });
+}
+
 function renderPicksList() {
   Object.keys(_lwCharts).forEach(t => { try { _lwCharts[t].remove(); } catch {} delete _lwCharts[t]; });
 
@@ -5186,6 +5218,7 @@ function renderPicksList() {
   const liked = loadLiked(currentSetup);
   if (!grid) return;
   grid.innerHTML = '';
+  _picksPerf = {};
 
   if (!liked.length) { renderPicksEmpty(); return; }
 
@@ -5206,6 +5239,24 @@ function renderPicksList() {
             <th></th>
           </tr>
         </thead>
+        <tbody class="picks-summary-tbody">
+          <tr>
+            <td colspan="3" class="picks-summary-label">AVG RETURN</td>
+            <td class="picks-perf-loading" id="summary-avg-5d">…</td>
+            <td class="picks-perf-loading" id="summary-avg-1m">…</td>
+            <td class="picks-perf-loading" id="summary-avg-3m">…</td>
+            <td class="picks-perf-loading" id="summary-avg-1y">…</td>
+            <td></td>
+          </tr>
+          <tr>
+            <td colspan="3" class="picks-summary-label">HIT RATIO</td>
+            <td class="picks-perf-loading" id="summary-hit-5d">…</td>
+            <td class="picks-perf-loading" id="summary-hit-1m">…</td>
+            <td class="picks-perf-loading" id="summary-hit-3m">…</td>
+            <td class="picks-perf-loading" id="summary-hit-1y">…</td>
+            <td></td>
+          </tr>
+        </tbody>
         <tbody id="picks-list-body">
           ${sorted.map(entry => {
             const dateStr = new Date(entry.starredAt).toLocaleDateString('en-US', { day:'numeric', month:'short', year:'numeric' });
@@ -5256,7 +5307,12 @@ async function loadPickPerformance(entry) {
   try {
     const yTicker = toYFTicker(ticker);
     const { bars } = await fetchYF(yTicker, '2y', '1d');
-    if (!bars || !bars.length) { perfIds.forEach(p => setCell(p, null)); return; }
+    if (!bars || !bars.length) {
+      perfIds.forEach(p => setCell(p, null));
+      _picksPerf[ticker] = { '5d': null, '1m': null, '3m': null, '1y': null };
+      updatePicksSummary();
+      return;
+    }
 
     // Find the bar whose date is closest to the star date
     let starIdx = 0, bestDiff = Infinity;
@@ -5267,7 +5323,12 @@ async function loadPickPerformance(entry) {
 
     // Use the actual closing price of the star-date bar as the reference
     const refPrice = bars[starIdx].c;
-    if (!refPrice) { perfIds.forEach(p => setCell(p, null)); return; }
+    if (!refPrice) {
+      perfIds.forEach(p => setCell(p, null));
+      _picksPerf[ticker] = { '5d': null, '1m': null, '3m': null, '1y': null };
+      updatePicksSummary();
+      return;
+    }
 
     const getReturn = (tradingDays) => {
       const idx = starIdx + tradingDays;
@@ -5275,12 +5336,18 @@ async function loadPickPerformance(entry) {
       return (bars[idx].c / refPrice - 1) * 100;
     };
 
-    setCell('5d', getReturn(5));
-    setCell('1m', getReturn(21));
-    setCell('3m', getReturn(63));
-    setCell('1y', getReturn(252));
+    const r5d = getReturn(5), r1m = getReturn(21), r3m = getReturn(63), r1y = getReturn(252);
+    setCell('5d', r5d);
+    setCell('1m', r1m);
+    setCell('3m', r3m);
+    setCell('1y', r1y);
+
+    _picksPerf[ticker] = { '5d': r5d, '1m': r1m, '3m': r3m, '1y': r1y };
+    updatePicksSummary();
   } catch(err) {
     perfIds.forEach(p => setCell(p, null));
+    _picksPerf[ticker] = { '5d': null, '1m': null, '3m': null, '1y': null };
+    updatePicksSummary();
   }
 }
 
