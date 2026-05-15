@@ -2141,7 +2141,7 @@
   <button class="tab-btn" id="tab-btn-imap"    onclick="switchTab('imap')">Industry Map</button>
   <button class="tab-btn" id="tab-btn-picks"   onclick="switchTab('picks')">★ My Picks</button>
   <div class="tab-search-wrap">
-    <input type="text" id="tab-search-input" class="tab-search-input" placeholder="Find ticker…"
+    <input type="text" id="tab-search-input" class="tab-search-input" placeholder="AAPL or AVGO, AAPL, SMCI…"
       oninput="tabSearchOnInput()" onkeydown="if(event.key==='Enter')tabSearchGo()" />
     <button class="tab-search-btn" onclick="tabSearchGo()">Find</button>
   </div>
@@ -4155,86 +4155,106 @@ function tabSearchOnInput() {
   const input = document.getElementById('tab-search-input');
   input.classList.remove('found', 'not-found');
   clearTimeout(tabSearchTimer);
-  if (!input.value.trim()) return;
-  tabSearchTimer = setTimeout(tabSearchGo, 600);
+  const val = input.value.trim();
+  if (!val) return;
+  // Only auto-fire for single tickers; comma input waits for Enter or button click
+  if (!val.includes(',')) tabSearchTimer = setTimeout(tabSearchGo, 600);
 }
 
 async function tabSearchGo() {
   clearTimeout(tabSearchTimer);
   const input = document.getElementById('tab-search-input');
   const btn   = document.querySelector('.tab-search-btn');
-  const query = input.value.trim().toUpperCase();
+  const raw   = input.value.trim().toUpperCase();
   input.classList.remove('found', 'not-found', 'loading');
-  if (!query) return;
+  if (!raw) return;
+
+  // Split on commas, clean up each ticker, drop blanks
+  const queries = raw.split(',').map(t => t.trim()).filter(Boolean);
 
   // Switch to the Screener tab so the list is visible
   switchTab('screener');
 
-  // If already in the list, just jump to it
-  const idx = sortedResults.findIndex(r => r.ticker.toUpperCase() === query);
-  if (idx !== -1) {
-    input.classList.add('found');
-    setActiveRow(idx, true, false);
-    return;
-  }
-
-  // Not found — fetch, score, and insert as a manual entry
-  input.classList.add('loading');
-  if (btn) { btn.textContent = '…'; btn.disabled = true; }
-  try {
-    const stockData = await fetchStockData(query);
-    if (!stockData || stockData.price == null) {
-      input.classList.remove('loading');
-      input.classList.add('not-found');
-      if (btn) { btn.textContent = 'Find'; btn.disabled = false; }
+  // Single ticker already in the list → instant jump, no fetch needed
+  if (queries.length === 1) {
+    const idx = sortedResults.findIndex(r => r.ticker.toUpperCase() === queries[0]);
+    if (idx !== -1) {
+      input.classList.add('found');
+      setActiveRow(idx, true, false);
       return;
     }
+  }
 
-    // Score it exactly like runScan does
-    const scored = scoreStock(stockData, currentSetup);
+  input.classList.add('loading');
+  if (btn) { btn.textContent = '…'; btn.disabled = true; }
 
-    // Fetch sector name, portfolio returns, and sector rank map all in parallel
-    const [sectorMap] = await Promise.all([
-      fetchAllTickerSectors([query]),
-      (portfolioHoldings.length > 0 && !portfolioReturns)
-        ? fetchPortfolioReturns() : Promise.resolve(),
-      Object.keys(sectorRankMap).length === 0
-        ? buildSectorRankMap().then(m => { sectorRankMap = m; }) : Promise.resolve(),
-    ]);
+  // Track which tickers were successfully added/found (in input order)
+  const succeeded = [];
 
-    const sectorName  = sectorMap[query] || '';
-    const sectorBonus = sectorRankMap[sectorName] || 0;
-    const rankScore   = scored.score + sectorBonus;
-    if (sectorBonus > 0) scored.tags.unshift({ label: `+${sectorBonus} SECTOR`, cls: 'sector-bonus' });
+  try {
+    // Fetch and score all tickers in parallel
+    await Promise.all(queries.map(async (query) => {
+      // Already in the list — count it as a hit
+      if (sortedResults.findIndex(r => r.ticker.toUpperCase() === query) !== -1) {
+        succeeded.push(query);
+        return;
+      }
 
-    const tickerRets = portfolioReturns ? getTickerReturns(stockData.daily) : null;
-    const corrCoeff  = (portfolioReturns && tickerRets)
-      ? pearsonCorr(tickerRets, portfolioReturns.slice(0, tickerRets.length)) : null;
+      const stockData = await fetchStockData(query).catch(() => null);
+      if (!stockData || stockData.price == null) return;
 
-    const manualResult = {
-      ticker: query, exchange: '—', name: stockData.name || query,
-      ...stockData, ...scored, sectorBonus, sectorName, rankScore, corrCoeff,
-      _manual: true
-    };
+      const scored = scoreStock(stockData, currentSetup);
 
-    // Remove any previous manual entry for the same ticker before adding
-    const existingManual = results.findIndex(r => r.ticker === query && r._manual);
-    if (existingManual !== -1) results.splice(existingManual, 1);
-    results.push(manualResult);
+      const [sectorMap] = await Promise.all([
+        fetchAllTickerSectors([query]),
+        (portfolioHoldings.length > 0 && !portfolioReturns)
+          ? fetchPortfolioReturns() : Promise.resolve(),
+        Object.keys(sectorRankMap).length === 0
+          ? buildSectorRankMap().then(m => { sectorRankMap = m; }) : Promise.resolve(),
+      ]);
 
-    // Apply starred status and taste-match bonus to all results including the new one
-    autoRestoreStars();
-    computeAllSimilarityBonuses();
+      const sectorName  = sectorMap[query] || '';
+      const sectorBonus = sectorRankMap[sectorName] || 0;
+      const rankScore   = scored.score + sectorBonus;
+      if (sectorBonus > 0) scored.tags.unshift({ label: `+${sectorBonus} SECTOR`, cls: 'sector-bonus' });
 
-    renderResults();
-    const newIdx = sortedResults.findIndex(r => r.ticker === query);
-    if (newIdx !== -1) {
+      const tickerRets = portfolioReturns ? getTickerReturns(stockData.daily) : null;
+      const corrCoeff  = (portfolioReturns && tickerRets)
+        ? pearsonCorr(tickerRets, portfolioReturns.slice(0, tickerRets.length)) : null;
+
+      const manualResult = {
+        ticker: query, exchange: '—', name: stockData.name || query,
+        ...stockData, ...scored, sectorBonus, sectorName, rankScore, corrCoeff,
+        _manual: true
+      };
+
+      // Replace any existing manual entry for this ticker
+      const existingIdx = results.findIndex(r => r.ticker === query && r._manual);
+      if (existingIdx !== -1) results.splice(existingIdx, 1);
+      results.push(manualResult);
+      succeeded.push(query);
+    }));
+
+    if (succeeded.length > 0) {
+      autoRestoreStars();
+      computeAllSimilarityBonuses();
+      renderResults();
+
       input.classList.remove('loading');
       input.classList.add('found');
-      setActiveRow(newIdx, true, false);
+
+      // Jump to the first ticker that succeeded, preserving input order
+      const firstHit = queries.find(q => succeeded.includes(q));
+      if (firstHit) {
+        const newIdx = sortedResults.findIndex(r => r.ticker === firstHit);
+        if (newIdx !== -1) setActiveRow(newIdx, true, false);
+      }
+    } else {
+      input.classList.remove('loading');
+      input.classList.add('not-found');
     }
   } catch (err) {
-    console.error('Tab search fetch error:', err);
+    console.error('Tab search error:', err);
     input.classList.remove('loading');
     input.classList.add('not-found');
   } finally {
@@ -4352,11 +4372,12 @@ function loadChart(stock) {
     script.type  = 'text/javascript';
     script.src   = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
     script.async = true;
-    script.innerHTML = JSON.stringify({
+    // TradingView's "range" param overrides "interval" and forces daily bars.
+    // Only pass it for daily charts; weekly/monthly use TradingView's own defaults.
+    const tvConfig = {
       autosize:           true,
       symbol,
       interval:           iv,
-      range:              chartRange,
       theme:              "light",
       style:              "1",
       locale:             "en",
@@ -4376,7 +4397,9 @@ function loadChart(stock) {
       watchlist:          [],
       compareSymbols:     [],
       studies:            DEFAULT_STUDIES,
-    });
+    };
+    if (iv === 'D') tvConfig.range = chartRange;
+    script.innerHTML = JSON.stringify(tvConfig);
     body.querySelector('.tradingview-widget-container').appendChild(script);
   });
 }
