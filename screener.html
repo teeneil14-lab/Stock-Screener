@@ -4049,7 +4049,8 @@ function renderResults() {
     );
   }
 
-  const lowScoreHidden = filtered.filter(r => !r._manual && r.score <= 50).length;
+  lowScoreResults = filtered.filter(r => !r._manual && r.score <= 50);
+  const lowScoreHidden = lowScoreResults.length;
   filtered = filtered.filter(r => r._manual || r.score > 50);
 
   if (!filtered.length) {
@@ -4068,7 +4069,7 @@ function renderResults() {
     if (activeCriteriaFilters.size > 0) {
       countLabel.innerHTML = `<span>${sortedResults.length}</span> of <span>${results.length}</span> match selected criteria`;
     } else if (scanSummaryHTML) {
-      const lowNote = lowScoreHidden > 0 ? ` &nbsp;·&nbsp; <span style="color:var(--text3)">${lowScoreHidden} below 50% hidden</span>` : '';
+      const lowNote = lowScoreHidden > 0 ? ` &nbsp;·&nbsp; <span class="flist-chip" onclick="showLowScoreList()" style="cursor:pointer">${lowScoreHidden} below 50% hidden</span>` : '';
       countLabel.innerHTML = scanSummaryHTML + lowNote;
     }
   }
@@ -4713,6 +4714,15 @@ function showFList(reason) {
   document.getElementById('flist-title').textContent    = label;
   document.getElementById('flist-subtitle').textContent =
     `${flistItems.length} ticker${flistItems.length !== 1 ? 's' : ''} removed by this filter`;
+  document.getElementById('flist-overlay').classList.add('open');
+  _renderFList();
+}
+
+function showLowScoreList() {
+  flistItems = lowScoreResults.slice().sort((a, b) => b.score - a.score);
+  document.getElementById('flist-title').textContent    = 'SCORE BELOW 50%';
+  document.getElementById('flist-subtitle').textContent =
+    `${flistItems.length} ticker${flistItems.length !== 1 ? 's' : ''} hidden — scored below 50%`;
   document.getElementById('flist-overlay').classList.add('open');
   _renderFList();
 }
@@ -6327,6 +6337,7 @@ let glanceTF          = 'W';     // 'D' | 'W' | 'M'
 let flistView         = 'list';  // 'list' | 'glance'
 let flistTF           = 'D';
 let flistItems        = [];
+let lowScoreResults   = [];
 const _flistCharts    = {};
 const _glanceCharts   = {};      // ticker → LightweightCharts instance
 
