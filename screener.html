@@ -5371,13 +5371,24 @@ async function loadPickPerformance(entry) {
       return;
     }
 
-    const getReturn = (tradingDays) => {
-      const idx = starIdx + tradingDays;
-      if (idx >= bars.length) return null;
-      return (bars[idx].c / refPrice - 1) * 100;
+    // Map each period to approximate calendar days so we can find the nearest
+    // actual trading bar to the target date, rather than counting bars by index.
+    // Counting by index fails when stars are made on weekends/holidays (starIdx
+    // snaps to the last bar, making every forward offset fall outside the array).
+    const periodCalDays = { '5d': 7, '2w': 14, '1m': 31, '3m': 91, '6m': 182, '1y': 365 };
+    const getReturn = (periodKey) => {
+      const targetTs = starTs + periodCalDays[periodKey] * 86400000;
+      if (targetTs > Date.now()) return null; // period not yet matured
+      let bestIdx = -1, bestDiff = Infinity;
+      for (let i = starIdx + 1; i < bars.length; i++) {
+        const diff = Math.abs(bars[i].t - targetTs);
+        if (diff < bestDiff) { bestDiff = diff; bestIdx = i; }
+      }
+      if (bestIdx === -1) return null;
+      return (bars[bestIdx].c / refPrice - 1) * 100;
     };
 
-    const r5d = getReturn(5), r2w = getReturn(10), r1m = getReturn(21), r3m = getReturn(63), r6m = getReturn(126), r1y = getReturn(252);
+    const r5d = getReturn('5d'), r2w = getReturn('2w'), r1m = getReturn('1m'), r3m = getReturn('3m'), r6m = getReturn('6m'), r1y = getReturn('1y');
     setCell('5d', r5d);
     setCell('2w', r2w);
     setCell('1m', r1m);
