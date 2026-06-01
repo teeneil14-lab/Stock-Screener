@@ -4856,10 +4856,11 @@ function calcBollingerBands(bars, period = 20, mult = 2) {
   return { upper, middle, lower };
 }
 
-function removeStarredFromTab(ticker) {
-  // Remove from all active setup pools
+function removeStarredFromTab(ticker, starredAt) {
+  // Remove from all active setup pools — match by ticker + starredAt so duplicate
+  // entries for the same ticker are removed individually, not all at once.
   getActiveSetupIds().forEach(sid => {
-    saveLiked(sid, loadLiked(sid).filter(l => l.ticker !== ticker));
+    saveLiked(sid, loadLiked(sid).filter(l => !(l.ticker === ticker && l.starredAt === starredAt)));
   });
 
   // Destroy chart instance
@@ -4871,7 +4872,7 @@ function removeStarredFromTab(ticker) {
   // Remove card/row from DOM (works in both chart grid and list view)
   const card = document.getElementById(`picks-card-${ticker}`);
   if (card) card.remove();
-  const row = document.getElementById(`picks-list-row-${ticker}`);
+  const row = document.getElementById(`picks-list-row-${ticker}-${starredAt}`);
   if (row) row.remove();
 
   // Un-star in results list if currently showing
@@ -5299,7 +5300,7 @@ function renderPicksList() {
         <tbody id="picks-list-body">
           ${sorted.map(entry => {
             const dateStr = new Date(entry.starredAt).toLocaleDateString('en-US', { day:'numeric', month:'short', year:'numeric' });
-            return `<tr id="picks-list-row-${entry.ticker}">
+            return `<tr id="picks-list-row-${entry.ticker}-${entry.starredAt}">
               <td>
                 <div class="picks-list-ticker">${entry.ticker}</div>
                 <div class="picks-list-name">${entry.name}</div>
@@ -5309,13 +5310,13 @@ function renderPicksList() {
                 <div class="picks-list-star-price">$${Number(entry.price).toFixed(2)}</div>
               </td>
               <td class="picks-list-score">${entry.score}%</td>
-              <td class="picks-perf-loading" id="perf-5d-${entry.ticker}">…</td>
-              <td class="picks-perf-loading" id="perf-2w-${entry.ticker}">…</td>
-              <td class="picks-perf-loading" id="perf-1m-${entry.ticker}">…</td>
-              <td class="picks-perf-loading" id="perf-3m-${entry.ticker}">…</td>
-              <td class="picks-perf-loading" id="perf-6m-${entry.ticker}">…</td>
-              <td class="picks-perf-loading" id="perf-1y-${entry.ticker}">…</td>
-              <td><button class="picks-list-remove" onclick="removeStarredFromTab('${entry.ticker}')" title="Remove">×</button></td>
+              <td class="picks-perf-loading" id="perf-5d-${entry.ticker}-${entry.starredAt}">…</td>
+              <td class="picks-perf-loading" id="perf-2w-${entry.ticker}-${entry.starredAt}">…</td>
+              <td class="picks-perf-loading" id="perf-1m-${entry.ticker}-${entry.starredAt}">…</td>
+              <td class="picks-perf-loading" id="perf-3m-${entry.ticker}-${entry.starredAt}">…</td>
+              <td class="picks-perf-loading" id="perf-6m-${entry.ticker}-${entry.starredAt}">…</td>
+              <td class="picks-perf-loading" id="perf-1y-${entry.ticker}-${entry.starredAt}">…</td>
+              <td><button class="picks-list-remove" onclick="removeStarredFromTab('${entry.ticker}',${entry.starredAt})" title="Remove">×</button></td>
             </tr>`;
           }).join('')}
         </tbody>
@@ -5333,7 +5334,7 @@ async function loadPickPerformance(entry) {
 
   const perfIds = ['5d','2w','1m','3m','6m','1y'];
   const setCell = (period, value) => {
-    const el = document.getElementById(`perf-${period}-${ticker}`);
+    const el = document.getElementById(`perf-${period}-${ticker}-${starTs}`);
     if (!el) return;
     if (value === null) {
       el.textContent = '—';
