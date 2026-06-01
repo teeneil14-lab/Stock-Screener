@@ -4896,6 +4896,8 @@ function removeStarredFromTab(ticker) {
 function renderPicksEmpty() {
   const grid = document.getElementById('picks-grid');
   if (!grid) return;
+  const sub = document.getElementById('picks-subtitle');
+  if (sub) sub.textContent = 'Charts frozen at the moment you starred them';
   grid.innerHTML = `<div class="picks-empty">
     <div class="picks-empty-icon">☆</div>
     <div class="picks-empty-title">NO STARRED PICKS YET</div>
@@ -5157,6 +5159,9 @@ function renderStarredCharts() {
 
   if (!liked.length) { renderPicksEmpty(); return; }
 
+  const sub = document.getElementById('picks-subtitle');
+  if (sub) sub.textContent = `${liked.length} pick${liked.length === 1 ? '' : 's'} — charts frozen at the moment you starred them`;
+
   // Newest first
   const sorted = [...liked].sort((a, b) => b.starredAt - a.starredAt);
 
@@ -5246,6 +5251,9 @@ function renderPicksList() {
   _picksPerf = {};
 
   if (!liked.length) { renderPicksEmpty(); return; }
+
+  const sub = document.getElementById('picks-subtitle');
+  if (sub) sub.textContent = `${liked.length} pick${liked.length === 1 ? '' : 's'} — charts frozen at the moment you starred them`;
 
   const sorted = [...liked].sort((a, b) => b.starredAt - a.starredAt);
 
@@ -5771,9 +5779,7 @@ function loadLiked(setupId) {
 }
 
 function saveLiked(setupId, arr) {
-  // Enforce 50-item cap — drop oldest
-  const trimmed = arr.slice(-50);
-  try { localStorage.setItem(`cts_liked_setup_${setupId}`, JSON.stringify(trimmed)); } catch {}
+  try { localStorage.setItem(`cts_liked_setup_${setupId}`, JSON.stringify(arr)); } catch {}
 }
 
 function getStarredProfile(setupId) {
