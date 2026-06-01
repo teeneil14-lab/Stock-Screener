@@ -2287,6 +2287,7 @@
           <option value="52wk_high">Nearest 52-Wk High ↓</option>
           <option value="rs_spx">RS vs SPX ↓</option>
           <option value="ytd_pct">YTD% ↓</option>
+          <option value="sector">Sector Score ↓</option>
           <option value="corr_asc">Correlation ↑ (Low → High)</option>
           <option value="corr_desc">Correlation ↓ (High → Low)</option>
         </select>
@@ -4519,6 +4520,11 @@ function getSortFn(by) {
   if (by==='52wk_high') return (a,b) => get52WkHighProx(b) - get52WkHighProx(a);
   if (by==='rs_spx')   return (a,b) => (b.rsDays??0) - (a.rsDays??0);
   if (by==='ytd_pct')  return (a,b) => (b.ytdPct ?? -Infinity) - (a.ytdPct ?? -Infinity);
+  if (by==='sector') return (a,b) => {
+    const sd = (b.sectorBonus||0) - (a.sectorBonus||0);
+    if (sd !== 0) return sd;
+    return (b.rankScore??b.score) - (a.rankScore??a.score);
+  };
   if (by==='corr_asc') return (a,b) => {
     const av = a.corrCoeff ?? 2, bv = b.corrCoeff ?? 2;
     return av - bv;
