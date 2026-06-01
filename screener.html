@@ -6524,15 +6524,9 @@ function _renderSectorDrill(sectorName, stocks) {
 
 function setGlanceTF(tf) {
   glanceTF = tf;
-  chartMode = tf;
   ['D','W','M'].forEach(t => {
     document.getElementById(`glance-tf-${t}`).classList.toggle('active', t === tf);
   });
-  ['D','W','M','2x','3x'].forEach(m => {
-    const el = document.getElementById('btn-mode-' + m.toLowerCase());
-    if (el) el.classList.toggle('active', m === tf);
-  });
-  if (activeRow >= 0 && sortedResults[activeRow]) loadChart(sortedResults[activeRow]);
   _rebuildGlanceCharts();
 }
 
