@@ -3507,25 +3507,28 @@ async function runScan() {
   // Reset glance view — switch back to list so stale charts aren't shown
   if (glanceView) setListView('list');
 
-  // Fetch sector rankings and sector classifications before the main loop (US only)
+  // Fetch all pre-scan data in parallel
   if (marketMode !== 'PH') {
-    scanMeta.innerHTML = 'Fetching S&P 500 benchmark data…';
-    await ensureSPXBars();
-    scanMeta.innerHTML = 'Fetching sector ETF rankings…';
-    sectorRankMap = await buildSectorRankMap();
-    scanMeta.innerHTML = 'Fetching ticker sector data…';
-    tickerSectorMap = await fetchAllTickerSectors(tickers.map(t => t.ticker));
-    scanMeta.innerHTML = 'Fetching earnings calendar…';
-    earningsMap = await fetchAllEarningsDates(tickers.map(t => t.ticker));
+    scanMeta.innerHTML = 'Preparing scan data…';
+    const tickerSymbols = tickers.map(t => t.ticker);
+    const [_spx, sectorRank, tickerSectors, earnings, portRet] = await Promise.all([
+      ensureSPXBars(),
+      buildSectorRankMap(),
+      fetchAllTickerSectors(tickerSymbols),
+      fetchAllEarningsDates(tickerSymbols),
+      portfolioHoldings.length > 0 ? fetchPortfolioReturns() : Promise.resolve(null),
+    ]);
+    sectorRankMap   = sectorRank;
+    tickerSectorMap = tickerSectors;
+    earningsMap     = earnings;
+    if (portRet !== null) portfolioReturns = portRet;
   } else {
     scanMeta.innerHTML = 'Preparing PH scan…';
-  }
-
-  if (portfolioHoldings.length > 0) {
-    scanMeta.innerHTML = 'Fetching portfolio correlation data…';
-    await fetchPortfolioReturns();
-  } else {
-    portfolioReturns = null;
+    if (portfolioHoldings.length > 0) {
+      await fetchPortfolioReturns();
+    } else {
+      portfolioReturns = null;
+    }
   }
 
   const total     = tickers.length;
@@ -3626,7 +3629,7 @@ async function runScan() {
     progressFill.style.width  = Math.round((completedCount / total) * 100) + '%';
     progressLabel.textContent = completedCount + ' / ' + total;
 
-    // Brief pause between batches (not between every single stock)
+    // Brief pause between batches to stay within Yahoo Finance rate limits
     if (i + SCAN_CONCURRENCY < total) await sleep(30);
   }
 
@@ -3761,13 +3764,22 @@ function getTickerReturns(dailyBars) {
 // real OHLCV bars. Falls back to mock data only if daily fetch fails.
 
 // Fetch one Yahoo Finance endpoint and return parsed bars
+const _yfCache    = new Map();
+const _YF_CACHE_TTL = 3 * 60 * 1000; // 3 minutes — avoids redundant hits on re-scans
+
 async function fetchYF(ticker, range, interval) {
+  const key    = `${ticker}|${range}|${interval}`;
+  const cached = _yfCache.get(key);
+  if (cached && (Date.now() - cached.ts) < _YF_CACHE_TTL) return cached.data;
+
   const res = await fetch(`/api/yf?ticker=${encodeURIComponent(ticker)}&range=${range}&interval=${interval}`);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const json = await res.json();
   const result = json?.chart?.result?.[0];
   if (!result) throw new Error('No chart data');
-  return parseYFResult(result);
+  const data = parseYFResult(result);
+  _yfCache.set(key, { data, ts: Date.now() });
+  return data;
 }
 
 // Convert Yahoo Finance chart result into an array of { t, o, h, l, c, v } bars
@@ -3832,10 +3844,15 @@ async function fetchStockData(ticker) {
       weekly  = { bars: w, meta: null };
       monthly = { bars: m, meta: null };
     } catch (err) {
-      console.warn(`[${ticker}] Stooq parallel error (${err.message}), retrying individually`);
-      try { daily   = { bars: await fetchStooq(ticker, 'd', 400),  meta: null }; } catch (e) { console.warn(`[${ticker}] Stooq daily failed: ${e.message}`); }
-      try { weekly  = { bars: await fetchStooq(ticker, 'w', 800),  meta: null }; } catch (e) { console.warn(`[${ticker}] Stooq weekly failed: ${e.message}`); }
-      try { monthly = { bars: await fetchStooq(ticker, 'm', 2000), meta: null }; } catch (e) { console.warn(`[${ticker}] Stooq monthly failed: ${e.message}`); }
+      console.warn(`[${ticker}] Stooq parallel error (${err.message}), retrying in parallel`);
+      const [rd, rw, rm] = await Promise.all([
+        fetchStooq(ticker, 'd', 400).catch(e  => { console.warn(`[${ticker}] Stooq daily failed: ${e.message}`);   return null; }),
+        fetchStooq(ticker, 'w', 800).catch(e  => { console.warn(`[${ticker}] Stooq weekly failed: ${e.message}`);  return null; }),
+        fetchStooq(ticker, 'm', 2000).catch(e => { console.warn(`[${ticker}] Stooq monthly failed: ${e.message}`); return null; }),
+      ]);
+      if (rd) daily   = { bars: rd, meta: null };
+      if (rw) weekly  = { bars: rw, meta: null };
+      if (rm) monthly = { bars: rm, meta: null };
     }
   } else {
     // US mode — Yahoo Finance
@@ -3847,10 +3864,15 @@ async function fetchStockData(ticker) {
       ]);
       daily = d; weekly = w; monthly = m;
     } catch (err) {
-      console.warn(`[${ticker}] Parallel fetch error (${err.message}), retrying individually`);
-      try { daily   = await fetchYF(yTicker, '1y',  '1d');  } catch (e) { console.warn(`[${ticker}] daily failed: ${e.message}`); }
-      try { weekly  = await fetchYF(yTicker, '2y',  '1wk'); } catch (e) { console.warn(`[${ticker}] weekly failed: ${e.message}`); }
-      try { monthly = await fetchYF(yTicker, 'max', '1mo'); } catch (e) { console.warn(`[${ticker}] monthly failed: ${e.message}`); }
+      console.warn(`[${ticker}] Parallel fetch error (${err.message}), retrying in parallel`);
+      const [rd, rw, rm] = await Promise.all([
+        fetchYF(yTicker, '1y',  '1d').catch(e  => { console.warn(`[${ticker}] daily failed: ${e.message}`);   return null; }),
+        fetchYF(yTicker, '2y',  '1wk').catch(e => { console.warn(`[${ticker}] weekly failed: ${e.message}`);  return null; }),
+        fetchYF(yTicker, 'max', '1mo').catch(e => { console.warn(`[${ticker}] monthly failed: ${e.message}`); return null; }),
+      ]);
+      if (rd) daily   = rd;
+      if (rw) weekly  = rw;
+      if (rm) monthly = rm;
     }
   }
 
