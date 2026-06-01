@@ -5355,12 +5355,17 @@ async function loadPickPerformance(entry) {
       return;
     }
 
-    // Find the bar whose date is closest to the star date
-    let starIdx = 0, bestDiff = Infinity;
-    bars.forEach((bar, i) => {
-      const diff = Math.abs(bar.t - starTs);
-      if (diff < bestDiff) { bestDiff = diff; starIdx = i; }
-    });
+    // Find the last bar whose timestamp is on or before the star date.
+    // "Last bar before star" is the correct reference: it's the most recent closing
+    // price the user saw when they clicked star. The old "nearest bar" approach broke
+    // because Yahoo Finance bar timestamps sit at midnight UTC, so a star made at
+    // 2 PM EST (19:00 UTC) is only 5 hours from the NEXT midnight — it snapped
+    // forward one day, shifting every period count off by one trading day.
+    let starIdx = 0;
+    for (let i = 0; i < bars.length; i++) {
+      if (bars[i].t <= starTs) starIdx = i;
+      else break;
+    }
 
     // Use the actual closing price of the star-date bar as the reference
     const refPrice = bars[starIdx].c;
@@ -5371,24 +5376,13 @@ async function loadPickPerformance(entry) {
       return;
     }
 
-    // Map each period to approximate calendar days so we can find the nearest
-    // actual trading bar to the target date, rather than counting bars by index.
-    // Counting by index fails when stars are made on weekends/holidays (starIdx
-    // snaps to the last bar, making every forward offset fall outside the array).
-    const periodCalDays = { '5d': 7, '2w': 14, '1m': 31, '3m': 91, '6m': 182, '1y': 365 };
-    const getReturn = (periodKey) => {
-      const targetTs = starTs + periodCalDays[periodKey] * 86400000;
-      if (targetTs > Date.now()) return null; // period not yet matured
-      let bestIdx = -1, bestDiff = Infinity;
-      for (let i = starIdx + 1; i < bars.length; i++) {
-        const diff = Math.abs(bars[i].t - targetTs);
-        if (diff < bestDiff) { bestDiff = diff; bestIdx = i; }
-      }
-      if (bestIdx === -1) return null;
-      return (bars[bestIdx].c / refPrice - 1) * 100;
+    const getReturn = (tradingDays) => {
+      const targetIdx = starIdx + tradingDays;
+      if (targetIdx >= bars.length) return null;
+      return (bars[targetIdx].c / refPrice - 1) * 100;
     };
 
-    const r5d = getReturn('5d'), r2w = getReturn('2w'), r1m = getReturn('1m'), r3m = getReturn('3m'), r6m = getReturn('6m'), r1y = getReturn('1y');
+    const r5d = getReturn(5), r2w = getReturn(10), r1m = getReturn(21), r3m = getReturn(63), r6m = getReturn(126), r1y = getReturn(252);
     setCell('5d', r5d);
     setCell('2w', r2w);
     setCell('1m', r1m);
