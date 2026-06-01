@@ -4161,8 +4161,8 @@ function tabSearchOnInput() {
   clearTimeout(tabSearchTimer);
   const val = input.value.trim();
   if (!val) return;
-  // Only auto-fire for single tickers; comma input waits for Enter or button click
-  if (!val.includes(',')) tabSearchTimer = setTimeout(tabSearchGo, 600);
+  // Only auto-fire for single tickers; multi-ticker input waits for Enter or button click
+  if (!/[\s,]/.test(val)) tabSearchTimer = setTimeout(tabSearchGo, 600);
 }
 
 async function tabSearchGo() {
@@ -4173,8 +4173,8 @@ async function tabSearchGo() {
   input.classList.remove('found', 'not-found', 'loading');
   if (!raw) return;
 
-  // Split on commas, clean up each ticker, drop blanks
-  const queries = raw.split(',').map(t => t.trim()).filter(Boolean);
+  // Split on commas and/or spaces, clean up each ticker, drop blanks
+  const queries = raw.split(/[\s,]+/).filter(Boolean);
 
   // Switch to the Screener tab so the list is visible
   switchTab('screener');
