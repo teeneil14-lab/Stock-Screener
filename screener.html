@@ -1371,13 +1371,19 @@
   }
   .picks-title { font-family:'IBM Plex Mono',monospace; font-size:11px; font-weight:600; letter-spacing:0.08em; color:var(--text); }
   .picks-body { flex:1; overflow-y:auto; padding:20px; }
-  .picks-add-form { display:flex; align-items:center; gap:6px; }
+  .picks-add-form { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
   .picks-add-input {
     font-family:'IBM Plex Mono',monospace; font-size:12px; font-weight:600; text-transform:uppercase;
     border:1px solid var(--border); border-radius:4px; padding:5px 9px; width:90px;
     background:var(--bg); color:var(--text); outline:none; letter-spacing:0.06em;
   }
   .picks-add-input:focus { border-color:var(--green); }
+  .picks-add-date {
+    font-family:'IBM Plex Mono',monospace; font-size:11px; font-weight:600;
+    border:1px solid var(--border); border-radius:4px; padding:5px 8px;
+    background:var(--bg); color:var(--text); outline:none;
+  }
+  .picks-add-date:focus { border-color:var(--green); }
   .picks-add-btn {
     font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:600; letter-spacing:0.08em;
     background:var(--green); color:#fff; border:none; border-radius:4px; padding:5px 10px;
@@ -2443,8 +2449,9 @@
       </div>
       <div class="picks-add-form">
         <input id="picks-add-input" class="picks-add-input" type="text" placeholder="TICKER"
-          onkeydown="if(event.key==='Enter')addPickByTicker(this.value)" maxlength="10" autocomplete="off" spellcheck="false"/>
-        <button id="picks-add-btn" class="picks-add-btn" onclick="addPickByTicker(document.getElementById('picks-add-input').value)">ADD ★</button>
+          onkeydown="if(event.key==='Enter')addPickByTicker(this.value,document.getElementById('picks-add-date').value)" maxlength="10" autocomplete="off" spellcheck="false"/>
+        <input id="picks-add-date" class="picks-add-date" type="date" title="Pick date (leave as today for a current pick)"/>
+        <button id="picks-add-btn" class="picks-add-btn" onclick="addPickByTicker(document.getElementById('picks-add-input').value,document.getElementById('picks-add-date').value)">ADD ★</button>
       </div>
     </div>
     <div class="picks-body">
@@ -2612,6 +2619,9 @@ window.addEventListener('DOMContentLoaded', () => {
   loadSavedWatchlists();
   applyPaneState();
   renderPortfolioList();
+  // Default the historical-pick date field to today
+  const dateEl = document.getElementById('picks-add-date');
+  if (dateEl) dateEl.value = new Date().toISOString().slice(0, 10);
 });
 
 function startClock() {
@@ -4906,7 +4916,7 @@ function renderPicksEmpty() {
   </div>`;
 }
 
-async function addPickByTicker(rawTicker) {
+async function addPickByTicker(rawTicker, dateStr) {
   const ticker = rawTicker.trim().toUpperCase();
   if (!ticker) return;
 
@@ -4915,6 +4925,15 @@ async function addPickByTicker(rawTicker) {
 
   btn.disabled    = true;
   btn.textContent = '...';
+
+  // If the user supplied a date, convert "YYYY-MM-DD" to a ms timestamp at noon UTC
+  // (noon avoids timezone edge cases where midnight rolls back to the previous day).
+  // If no date supplied, use the current moment.
+  let starredAt = Date.now();
+  if (dateStr) {
+    const parsed = new Date(dateStr + 'T12:00:00Z');
+    if (!isNaN(parsed)) starredAt = parsed.getTime();
+  }
 
   try {
     const data = await fetchStockData(ticker);
@@ -4935,7 +4954,7 @@ async function addPickByTicker(rawTicker) {
     const sharedBase = {
       ticker:     r.ticker,
       name:       r.name,
-      starredAt:  Date.now(),
+      starredAt,
       sectorBonus: 0,
       sectorName:  '',
       price:      r.price,
