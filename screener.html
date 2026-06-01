@@ -1250,7 +1250,7 @@
   /* RANK ROW */
   .rank-row {
     display: grid;
-    grid-template-columns: 32px 32px 130px 90px 80px 90px 1fr 54px 54px 110px 100px 100px;
+    grid-template-columns: 32px 32px 130px 90px 80px 90px 1fr 54px 54px 110px 100px 100px 72px;
     align-items: center;
     padding: 0 16px;
     height: 52px;
@@ -1508,6 +1508,14 @@
   }
   .rank-change.up { color: var(--green); }
   .rank-change.down { color: var(--red); }
+  .rank-ytd {
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    text-align: right;
+    color: var(--text3);
+  }
+  .rank-ytd.up { color: var(--green); }
+  .rank-ytd.down { color: var(--red); }
 
   .rank-action {
     text-align: right;
@@ -1529,7 +1537,7 @@
   /* TABLE HEADER */
   .rank-header {
     display: grid;
-    grid-template-columns: 32px 32px 130px 90px 80px 90px 1fr 54px 54px 110px 100px 100px;
+    grid-template-columns: 32px 32px 130px 90px 80px 90px 1fr 54px 54px 110px 100px 100px 72px;
     align-items: center;
     padding: 0 16px;
     height: 32px;
@@ -2278,6 +2286,7 @@
           <option value="mo_high">Nearest Monthly High ↓</option>
           <option value="52wk_high">Nearest 52-Wk High ↓</option>
           <option value="rs_spx">RS vs SPX ↓</option>
+          <option value="ytd_pct">YTD% ↓</option>
           <option value="corr_asc">Correlation ↑ (Low → High)</option>
           <option value="corr_desc">Correlation ↓ (High → Low)</option>
         </select>
@@ -3600,7 +3609,8 @@ async function runScan() {
         if (sectorBonus > 0) scored.tags.unshift({ label: `+${sectorBonus} SECTOR`, cls: 'sector-bonus' });
         const tickerRets  = portfolioReturns ? getTickerReturns(stockData.daily) : null;
         const corrCoeff   = (portfolioReturns && tickerRets) ? pearsonCorr(tickerRets, portfolioReturns.slice(0, tickerRets.length)) : null;
-        results.push({ ...t, ...stockData, ...scored, sectorBonus, sectorName, rankScore, corrCoeff });
+        const ytdPct = calcStockYtd(stockData.daily);
+        results.push({ ...t, ...stockData, ...scored, sectorBonus, sectorName, rankScore, corrCoeff, ytdPct });
         if (statusEl) { statusEl.textContent='✓'; statusEl.className='t-status done'; }
       }
     }
@@ -4037,7 +4047,7 @@ function renderResults() {
 
   area.innerHTML = `<div class="rank-header">
     <div>#</div><div></div><div>TICKER</div><div>SCORE</div><div></div><div>SECTOR</div><div>SIGNALS</div>
-    <div style="text-align:center">RS</div><div class="col-corr" title="20-day Pearson correlation to your portfolio holdings">CORR</div><div>MTH / WK / DAY / YR</div><div class="right">PRICE</div><div class="right">CHG%</div>
+    <div style="text-align:center">RS</div><div class="col-corr" title="20-day Pearson correlation to your portfolio holdings">CORR</div><div>MTH / WK / DAY / YR</div><div class="right">PRICE</div><div class="right">CHG%</div><div class="right">YTD%</div>
   </div>
   <div id="vs-top" style="will-change:transform"></div>
   <div id="vs-rows"></div>
@@ -4149,6 +4159,7 @@ function rankRow(r, rankNum, idx) {
     <div class="rank-tf-scores">${tfHtml}</div>
     <div class="rank-price">$${Number(r.price).toFixed(2)}</div>
     <div class="rank-change ${chgClass}">${chgSign}${r.change}%</div>
+    <div class="rank-ytd ${r.ytdPct == null ? '' : r.ytdPct >= 0 ? 'up' : 'down'}">${r.ytdPct == null ? '—' : (r.ytdPct >= 0 ? '+' : '') + r.ytdPct + '%'}</div>
   </div>`;
 }
 
@@ -4242,9 +4253,10 @@ async function tabSearchGo() {
       const corrCoeff  = (portfolioReturns && tickerRets)
         ? pearsonCorr(tickerRets, portfolioReturns.slice(0, tickerRets.length)) : null;
 
+      const ytdPct = calcStockYtd(stockData.daily);
       const manualResult = {
         ticker: query, exchange: '—', name: stockData.name || query,
-        ...stockData, ...scored, sectorBonus, sectorName, rankScore, corrCoeff,
+        ...stockData, ...scored, sectorBonus, sectorName, rankScore, corrCoeff, ytdPct,
         _manual: true
       };
 
@@ -4477,6 +4489,7 @@ function getSortFn(by) {
   if (by==='mo_high')  return (a,b) => getPeriodHighProx(b,'monthly') - getPeriodHighProx(a,'monthly');
   if (by==='52wk_high') return (a,b) => get52WkHighProx(b) - get52WkHighProx(a);
   if (by==='rs_spx')   return (a,b) => (b.rsDays??0) - (a.rsDays??0);
+  if (by==='ytd_pct')  return (a,b) => (b.ytdPct ?? -Infinity) - (a.ytdPct ?? -Infinity);
   if (by==='corr_asc') return (a,b) => {
     const av = a.corrCoeff ?? 2, bv = b.corrCoeff ?? 2;
     return av - bv;
@@ -5620,6 +5633,16 @@ function sectorYTD(bars) {
   const ytdBar   = bars.find(b => b.t >= yearStart);
   if (!ytdBar) return null;
   return ((current - ytdBar.c) / ytdBar.c) * 100;
+}
+
+function calcStockYtd(dailyBars) {
+  if (!dailyBars || dailyBars.length < 2) return null;
+  const current   = dailyBars[dailyBars.length - 1].c;
+  const now       = new Date();
+  const yearStart = new Date(Date.UTC(now.getUTCFullYear(), 0, 1)).getTime();
+  const ytdBar    = dailyBars.find(b => b.t >= yearStart);
+  if (!ytdBar || ytdBar.c === 0) return null;
+  return Math.round(((current - ytdBar.c) / ytdBar.c) * 1000) / 10;
 }
 
 function pctCell(val) {
