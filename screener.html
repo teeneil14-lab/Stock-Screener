@@ -3873,10 +3873,16 @@ async function fetchStockData(ticker) {
   const above_ema50 = ema50 > 0 && currentPrice > ema50;
 
   // Hard filter: last daily candle open AND close both above upper BB (parabolic/extended)
+  // AND last weekly close also above the weekly upper BB — both must be true to remove the stock.
   const dailyBB = calcBB(closes);
   const lastBar = dailyBars[dailyBars.length - 1];
-  const above_upper_bb = !!(dailyBB && lastBar && lastBar.o != null &&
+  const dailyAboveUpperBB = !!(dailyBB && lastBar && lastBar.o != null &&
     lastBar.o > dailyBB.upper && lastBar.c > dailyBB.upper);
+  const weeklyCloses = weekly ? weekly.bars.map(function(b) { return b.c; }) : [];
+  const weeklyBB = weeklyCloses.length >= 20 ? calcBB(weeklyCloses) : null;
+  const lastWeeklyBar = weekly && weekly.bars.length ? weekly.bars[weekly.bars.length - 1] : null;
+  const weeklyAboveUpperBB = !!(weeklyBB && lastWeeklyBar && lastWeeklyBar.c > weeklyBB.upper);
+  const above_upper_bb = dailyAboveUpperBB && weeklyAboveUpperBB;
 
   // Hard filter: last daily candle low touches or breaks below lower BB (selling/breakdown)
   const touching_lower_bb = !!(dailyBB && lastBar && lastBar.l != null &&
