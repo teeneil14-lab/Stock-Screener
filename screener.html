@@ -5218,7 +5218,7 @@ function renderStarredCharts() {
 let _picksPerf = {};
 
 function updatePicksSummary() {
-  const periods = ['5d','1m','3m','1y'];
+  const periods = ['5d','2w','1m','3m','6m','1y'];
   const allVals = Object.values(_picksPerf);
   periods.forEach(p => {
     const vals = allVals.map(v => v[p]).filter(v => v !== null && v !== undefined);
@@ -5266,8 +5266,10 @@ function renderPicksList() {
             <th>STARRED AT</th>
             <th>SCORE</th>
             <th class="perf-col">5D</th>
+            <th class="perf-col">2W</th>
             <th class="perf-col">1M</th>
             <th class="perf-col">3M</th>
+            <th class="perf-col">6M</th>
             <th class="perf-col">1Y</th>
             <th></th>
           </tr>
@@ -5276,16 +5278,20 @@ function renderPicksList() {
           <tr>
             <td colspan="3" class="picks-summary-label">AVG RETURN</td>
             <td class="picks-perf-loading" id="summary-avg-5d">…</td>
+            <td class="picks-perf-loading" id="summary-avg-2w">…</td>
             <td class="picks-perf-loading" id="summary-avg-1m">…</td>
             <td class="picks-perf-loading" id="summary-avg-3m">…</td>
+            <td class="picks-perf-loading" id="summary-avg-6m">…</td>
             <td class="picks-perf-loading" id="summary-avg-1y">…</td>
             <td></td>
           </tr>
           <tr>
             <td colspan="3" class="picks-summary-label">HIT RATIO</td>
             <td class="picks-perf-loading" id="summary-hit-5d">…</td>
+            <td class="picks-perf-loading" id="summary-hit-2w">…</td>
             <td class="picks-perf-loading" id="summary-hit-1m">…</td>
             <td class="picks-perf-loading" id="summary-hit-3m">…</td>
+            <td class="picks-perf-loading" id="summary-hit-6m">…</td>
             <td class="picks-perf-loading" id="summary-hit-1y">…</td>
             <td></td>
           </tr>
@@ -5304,8 +5310,10 @@ function renderPicksList() {
               </td>
               <td class="picks-list-score">${entry.score}%</td>
               <td class="picks-perf-loading" id="perf-5d-${entry.ticker}">…</td>
+              <td class="picks-perf-loading" id="perf-2w-${entry.ticker}">…</td>
               <td class="picks-perf-loading" id="perf-1m-${entry.ticker}">…</td>
               <td class="picks-perf-loading" id="perf-3m-${entry.ticker}">…</td>
+              <td class="picks-perf-loading" id="perf-6m-${entry.ticker}">…</td>
               <td class="picks-perf-loading" id="perf-1y-${entry.ticker}">…</td>
               <td><button class="picks-list-remove" onclick="removeStarredFromTab('${entry.ticker}')" title="Remove">×</button></td>
             </tr>`;
@@ -5323,7 +5331,7 @@ async function loadPickPerformance(entry) {
   const ticker = entry.ticker;
   const starTs = entry.starredAt; // ms
 
-  const perfIds = ['5d','1m','3m','1y'];
+  const perfIds = ['5d','2w','1m','3m','6m','1y'];
   const setCell = (period, value) => {
     const el = document.getElementById(`perf-${period}-${ticker}`);
     if (!el) return;
@@ -5342,7 +5350,7 @@ async function loadPickPerformance(entry) {
     const { bars } = await fetchYF(yTicker, '2y', '1d');
     if (!bars || !bars.length) {
       perfIds.forEach(p => setCell(p, null));
-      _picksPerf[ticker] = { '5d': null, '1m': null, '3m': null, '1y': null };
+      _picksPerf[ticker] = { '5d': null, '2w': null, '1m': null, '3m': null, '6m': null, '1y': null };
       updatePicksSummary();
       return;
     }
@@ -5358,7 +5366,7 @@ async function loadPickPerformance(entry) {
     const refPrice = bars[starIdx].c;
     if (!refPrice) {
       perfIds.forEach(p => setCell(p, null));
-      _picksPerf[ticker] = { '5d': null, '1m': null, '3m': null, '1y': null };
+      _picksPerf[ticker] = { '5d': null, '2w': null, '1m': null, '3m': null, '6m': null, '1y': null };
       updatePicksSummary();
       return;
     }
@@ -5369,13 +5377,15 @@ async function loadPickPerformance(entry) {
       return (bars[idx].c / refPrice - 1) * 100;
     };
 
-    const r5d = getReturn(5), r1m = getReturn(21), r3m = getReturn(63), r1y = getReturn(252);
+    const r5d = getReturn(5), r2w = getReturn(10), r1m = getReturn(21), r3m = getReturn(63), r6m = getReturn(126), r1y = getReturn(252);
     setCell('5d', r5d);
+    setCell('2w', r2w);
     setCell('1m', r1m);
     setCell('3m', r3m);
+    setCell('6m', r6m);
     setCell('1y', r1y);
 
-    _picksPerf[ticker] = { '5d': r5d, '1m': r1m, '3m': r3m, '1y': r1y };
+    _picksPerf[ticker] = { '5d': r5d, '2w': r2w, '1m': r1m, '3m': r3m, '6m': r6m, '1y': r1y };
     updatePicksSummary();
   } catch(err) {
     perfIds.forEach(p => setCell(p, null));
