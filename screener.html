@@ -3995,8 +3995,8 @@ function renderResults() {
     );
   }
 
-  const lowScoreHidden = filtered.filter(r => r.score <= 50).length;
-  filtered = filtered.filter(r => r.score > 50);
+  const lowScoreHidden = filtered.filter(r => !r._manual && r.score <= 50).length;
+  filtered = filtered.filter(r => r._manual || r.score > 50);
 
   if (!filtered.length) {
     area.innerHTML = `<div class="empty-state">
