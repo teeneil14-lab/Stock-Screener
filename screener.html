@@ -1564,6 +1564,35 @@
   .pa-tt-pick   { display:flex; justify-content:space-between; gap:14px; font-family:'IBM Plex Mono',monospace; font-size:10px; margin-bottom:2px; }
   .pa-tt-more   { font-family:'IBM Plex Sans',sans-serif; font-size:9px; color:#9ca3af; margin-top:3px; }
 
+  /* ── Calendar View ──────────────────────────────────────────── */
+  .picks-calendar-wrap { padding:16px 20px 24px; width:100%; box-sizing:border-box; }
+  .cal-nav-row { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; flex-wrap:wrap; gap:8px; }
+  .cal-nav-center { display:flex; align-items:center; gap:10px; }
+  .cal-month-label { font-family:'IBM Plex Mono',monospace; font-size:13px; font-weight:700; color:var(--text); min-width:160px; text-align:center; letter-spacing:0.04em; }
+  .cal-nav-btn { background:none; border:1px solid var(--border); border-radius:4px; padding:4px 12px; font-family:'IBM Plex Mono',monospace; font-size:13px; cursor:pointer; color:var(--text2); transition:background 0.1s; line-height:1.4; }
+  .cal-nav-btn:hover { background:var(--hover); }
+  .cal-ret-row { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+  .cal-show-picks-btn { background:none; border:1px solid var(--border); border-radius:4px; padding:3px 10px; font-family:'IBM Plex Mono',monospace; font-size:10px; cursor:pointer; color:var(--text2); letter-spacing:0.05em; transition:all 0.1s; margin-left:6px; }
+  .cal-show-picks-btn.active { background:var(--accent); border-color:var(--accent); color:#fff; }
+  .cal-weekdays { display:grid; grid-template-columns:repeat(7,1fr); gap:4px; margin-bottom:4px; }
+  .cal-weekday { font-family:'IBM Plex Mono',monospace; font-size:9px; font-weight:600; color:var(--text3); text-align:center; letter-spacing:0.06em; padding:4px 0; }
+  .cal-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:4px; }
+  .cal-cell { min-height:72px; border:1px solid var(--border); border-radius:6px; padding:6px 7px; box-sizing:border-box; background:#fff; position:relative; display:flex; flex-direction:column; }
+  .cal-cell.other-month { background:#fafafa; opacity:0.4; }
+  .cal-cell.has-picks { border-color:transparent; }
+  .cal-date-num { font-family:'IBM Plex Mono',monospace; font-size:11px; font-weight:700; line-height:1; margin-bottom:4px; }
+  .cal-cell.has-picks .cal-date-num { color:rgba(255,255,255,0.9); }
+  .cal-cell:not(.has-picks) .cal-date-num { color:var(--text3); }
+  .cal-badge { font-family:'IBM Plex Mono',monospace; font-size:9px; font-weight:600; color:rgba(255,255,255,0.95); margin-top:auto; letter-spacing:0.02em; padding-top:3px; }
+  .cal-picks-list { display:flex; flex-direction:column; gap:2px; margin-top:2px; flex:1; }
+  .cal-pick-row { display:flex; justify-content:space-between; align-items:center; gap:4px; }
+  .cal-pick-ticker { font-family:'IBM Plex Mono',monospace; font-size:9px; font-weight:700; color:rgba(255,255,255,0.95); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:55%; }
+  .cal-pick-ret { font-family:'IBM Plex Mono',monospace; font-size:9px; font-weight:600; white-space:nowrap; }
+  .cal-pick-ret.win    { color:rgba(255,255,255,0.95); }
+  .cal-pick-ret.loss   { color:rgba(255,210,210,0.95); }
+  .cal-pick-ret.pending { color:rgba(255,255,255,0.55); font-style:italic; }
+  .cal-empty { font-family:'IBM Plex Sans',sans-serif; font-size:12px; color:var(--text3); text-align:center; padding:40px 20px; }
+
   .rank-tf-scores {
     display: flex;
     gap: 10px;
@@ -2548,6 +2577,7 @@
         </div>
         <button class="picks-view-btn" id="picks-view-toggle" onclick="togglePicksView()">LIST VIEW</button>
         <button class="picks-view-btn" id="picks-analytics-btn" onclick="toggleAnalyticsView()">ANALYTICS</button>
+        <button class="picks-view-btn" id="picks-calendar-btn" onclick="toggleCalendarView()">CALENDAR</button>
       </div>
       <div class="picks-add-form">
         <input id="picks-add-input" class="picks-add-input" type="text" placeholder="TICKER"
@@ -2638,6 +2668,7 @@
           <div class="pa-chart-container" id="pa-chart-day"></div>
         </div>
       </div>
+      <div id="picks-calendar-wrap" class="picks-calendar-wrap" style="display:none"></div>
     </div>
   </div>
 </div><!-- /tab-picks -->
@@ -5379,32 +5410,50 @@ function calcEMAAt(closes, period, idx) {
   return ema;
 }
 
-let picksGlobalTF  = 'D';
-let picksViewMode  = 'grid'; // 'grid' | 'list' | 'analytics'
+let picksGlobalTF        = 'D';
+let picksViewMode        = 'grid'; // 'grid' | 'list' | 'analytics' | 'calendar'
+let calendarCurrentDate  = new Date();
+let calendarShowPicks    = false;
 
 function _syncPicksToolbar() {
   const tfGroup      = document.getElementById('picks-tf-controls');
   const viewToggle   = document.getElementById('picks-view-toggle');
   const analyticsBtn = document.getElementById('picks-analytics-btn');
+  const calendarBtn  = document.getElementById('picks-calendar-btn');
   const analyticsEl  = document.getElementById('picks-analytics');
+  const calendarEl   = document.getElementById('picks-calendar-wrap');
   const gridEl       = document.getElementById('picks-grid');
   if (picksViewMode === 'analytics') {
     if (tfGroup)      tfGroup.style.display    = 'none';
     if (viewToggle) { viewToggle.style.display = ''; viewToggle.textContent = 'CHART VIEW'; }
     if (analyticsBtn) analyticsBtn.classList.add('active');
+    if (calendarBtn)  calendarBtn.classList.remove('active');
     if (analyticsEl)  analyticsEl.style.display = '';
+    if (calendarEl)   calendarEl.style.display  = 'none';
+    if (gridEl)       gridEl.style.display      = 'none';
+  } else if (picksViewMode === 'calendar') {
+    if (tfGroup)      tfGroup.style.display    = 'none';
+    if (viewToggle) { viewToggle.style.display = ''; viewToggle.textContent = 'CHART VIEW'; }
+    if (analyticsBtn) analyticsBtn.classList.remove('active');
+    if (calendarBtn)  calendarBtn.classList.add('active');
+    if (analyticsEl)  analyticsEl.style.display = 'none';
+    if (calendarEl)   calendarEl.style.display  = '';
     if (gridEl)       gridEl.style.display      = 'none';
   } else if (picksViewMode === 'list') {
     if (tfGroup)      tfGroup.style.display    = 'none';
     if (viewToggle) { viewToggle.style.display = ''; viewToggle.textContent = 'CHART VIEW'; }
     if (analyticsBtn) analyticsBtn.classList.remove('active');
+    if (calendarBtn)  calendarBtn.classList.remove('active');
     if (analyticsEl)  analyticsEl.style.display = 'none';
+    if (calendarEl)   calendarEl.style.display  = 'none';
     if (gridEl)       gridEl.style.display      = '';
   } else {
     if (tfGroup)      tfGroup.style.display    = '';
     if (viewToggle) { viewToggle.style.display = ''; viewToggle.textContent = 'LIST VIEW'; }
     if (analyticsBtn) analyticsBtn.classList.remove('active');
+    if (calendarBtn)  calendarBtn.classList.remove('active');
     if (analyticsEl)  analyticsEl.style.display = 'none';
+    if (calendarEl)   calendarEl.style.display  = 'none';
     if (gridEl)       gridEl.style.display      = '';
   }
 }
@@ -5423,6 +5472,14 @@ function toggleAnalyticsView() {
   _syncPicksToolbar();
   if (picksViewMode === 'analytics') renderPicksAnalytics();
   else                               renderStarredCharts();
+}
+
+function toggleCalendarView() {
+  _destroyAnalyticsCharts();
+  picksViewMode = picksViewMode === 'calendar' ? 'grid' : 'calendar';
+  _syncPicksToolbar();
+  if (picksViewMode === 'calendar') renderPicksCalendar();
+  else                              renderStarredCharts();
 }
 
 function switchAllPicksCharts(tf) {
@@ -5532,7 +5589,8 @@ function setAnalyticsReturnPeriod(p) {
   ['5d','2w','1m','3m','6m','1y'].forEach(k => {
     document.getElementById(`pa-ret-${k}`)?.classList.toggle('active', k === p);
   });
-  renderPicksAnalytics();
+  if (picksViewMode === 'calendar') renderPicksCalendar();
+  else                              renderPicksAnalytics();
 }
 
 function setAnalyticsMA() {
@@ -5598,6 +5656,176 @@ function resolvePickReturn(perf, rp) {
     return hasPeriod ? periodVal : (perf.live ?? null);
   }
   return periodVal ?? null;
+}
+
+// ── Calendar helpers ─────────────────────────────────────────────────────────
+
+function buildPicksDayMap(rp) {
+  const liked = loadLiked(currentSetup);
+  const byDay = {};
+  liked.forEach(e => {
+    const perf = _picksPerf[`${e.ticker}_${e.starredAt}`];
+    const ret  = resolvePickReturn(perf, rp);
+    const d    = new Date(e.starredAt);
+    const key  = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    if (!byDay[key]) byDay[key] = { wins: 0, losses: 0, picks: [] };
+    if (ret !== null && ret !== undefined) {
+      if (ret > 0) byDay[key].wins++;
+      else         byDay[key].losses++;
+      byDay[key].picks.push({ ticker: e.ticker, ret, pending: false });
+    } else {
+      byDay[key].picks.push({ ticker: e.ticker, ret: null, pending: true });
+    }
+  });
+  Object.values(byDay).forEach(d => {
+    const total = d.wins + d.losses;
+    d.dayHitRatio = total > 0 ? Math.round((d.wins / total) * 100) : null;
+  });
+  return byDay;
+}
+
+function _calHitRatioColor(pct) {
+  const r = pct / 100;
+  let red, green, blue;
+  if (r < 0.5) {
+    const t = r * 2;
+    red   = Math.round(220 + (217 - 220) * t);
+    green = Math.round(38  + (119 - 38)  * t);
+    blue  = Math.round(38  + (6   - 38)  * t);
+  } else {
+    const t = (r - 0.5) * 2;
+    red   = Math.round(217 + (10  - 217) * t);
+    green = Math.round(119 + (124 - 119) * t);
+    blue  = Math.round(6   + (78  - 6)   * t);
+  }
+  return `rgb(${red},${green},${blue})`;
+}
+
+function prevCalendarMonth() {
+  calendarCurrentDate = new Date(calendarCurrentDate.getFullYear(), calendarCurrentDate.getMonth() - 1, 1);
+  renderPicksCalendar();
+}
+
+function nextCalendarMonth() {
+  calendarCurrentDate = new Date(calendarCurrentDate.getFullYear(), calendarCurrentDate.getMonth() + 1, 1);
+  renderPicksCalendar();
+}
+
+function toggleCalendarShowPicks() {
+  calendarShowPicks = !calendarShowPicks;
+  renderPicksCalendar();
+}
+
+async function renderPicksCalendar() {
+  const wrap = document.getElementById('picks-calendar-wrap');
+  if (!wrap) return;
+
+  const liked = loadLiked(currentSetup);
+  if (liked.length > 0) {
+    const needsFetch = liked.filter(e => !_picksPerf[`${e.ticker}_${e.starredAt}`]);
+    if (needsFetch.length > 0) {
+      wrap.innerHTML = '<div class="cal-empty">Loading performance data…</div>';
+      await Promise.all(needsFetch.map(e => loadPickPerformance(e)));
+    }
+  }
+
+  if (picksViewMode !== 'calendar') return;
+
+  const byDay = buildPicksDayMap(analyticsReturnPeriod);
+
+  const yr  = calendarCurrentDate.getFullYear();
+  const mo  = calendarCurrentDate.getMonth();
+  const monthNames = ['JANUARY','FEBRUARY','MARCH','APRIL','MAY','JUNE',
+                      'JULY','AUGUST','SEPTEMBER','OCTOBER','NOVEMBER','DECEMBER'];
+
+  const retPeriods = ['5d','2w','1m','3m','6m','1y'];
+  const retBtns = retPeriods.map(p =>
+    `<button class="pa-ret-btn${analyticsReturnPeriod === p ? ' active' : ''}" onclick="setAnalyticsReturnPeriod('${p}')">${p.toUpperCase()}</button>`
+  ).join('');
+
+  const showPicksLabel = calendarShowPicks ? 'HIDE PICKS' : 'SHOW PICKS';
+
+  const firstDay  = new Date(yr, mo, 1);
+  const lastDay   = new Date(yr, mo + 1, 0);
+  const startPad  = (firstDay.getDay() + 6) % 7;
+  const totalDays = lastDay.getDate();
+
+  let cellsHTML = '';
+
+  for (let i = 0; i < startPad; i++) {
+    const prevLastDay = new Date(yr, mo, 0).getDate();
+    const dayNum = prevLastDay - startPad + 1 + i;
+    cellsHTML += `<div class="cal-cell other-month"><span class="cal-date-num">${dayNum}</span></div>`;
+  }
+
+  for (let d = 1; d <= totalDays; d++) {
+    const key  = `${yr}-${String(mo+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const data = byDay[key];
+    const total = data ? data.wins + data.losses : 0;
+
+    if (!data || (total === 0 && data.picks.every(p => p.pending))) {
+      const pendingPicks = data ? data.picks.filter(p => p.pending) : [];
+      let pendingInner = '';
+      if (calendarShowPicks && pendingPicks.length > 0) {
+        pendingInner = `<div class="cal-picks-list">${pendingPicks.map(p =>
+          `<div class="cal-pick-row"><span class="cal-pick-ticker">${p.ticker}</span><span class="cal-pick-ret pending">—</span></div>`
+        ).join('')}</div>`;
+      }
+      cellsHTML += `<div class="cal-cell"><span class="cal-date-num">${d}</span>${pendingInner}</div>`;
+    } else {
+      const bg    = data.dayHitRatio !== null ? _calHitRatioColor(data.dayHitRatio) : '#9ca3af';
+      const badge = `${data.wins}W / ${data.losses}L`;
+      let picksInner = '';
+      if (calendarShowPicks) {
+        const sorted = [...data.picks].sort((a, b) => {
+          if (a.pending && !b.pending) return 1;
+          if (!a.pending && b.pending) return -1;
+          return (b.ret ?? -999) - (a.ret ?? -999);
+        });
+        picksInner = `<div class="cal-picks-list">${sorted.map(p => {
+          if (p.pending) return `<div class="cal-pick-row"><span class="cal-pick-ticker">${p.ticker}</span><span class="cal-pick-ret pending">—</span></div>`;
+          const sign = p.ret > 0 ? '+' : '';
+          const cls  = p.ret > 0 ? 'win' : 'loss';
+          return `<div class="cal-pick-row"><span class="cal-pick-ticker">${p.ticker}</span><span class="cal-pick-ret ${cls}">${sign}${p.ret.toFixed(1)}%</span></div>`;
+        }).join('')}</div>`;
+      }
+      cellsHTML += `<div class="cal-cell has-picks" style="background:${bg}">
+        <span class="cal-date-num">${d}</span>
+        ${picksInner}
+        <span class="cal-badge">${badge}</span>
+      </div>`;
+    }
+  }
+
+  const totalCells  = startPad + totalDays;
+  const trailCells  = totalCells % 7 === 0 ? 0 : 7 - (totalCells % 7);
+  for (let i = 1; i <= trailCells; i++) {
+    cellsHTML += `<div class="cal-cell other-month"><span class="cal-date-num">${i}</span></div>`;
+  }
+
+  wrap.innerHTML = `
+    <div class="cal-nav-row">
+      <div class="cal-nav-center">
+        <button class="cal-nav-btn" onclick="prevCalendarMonth()">&#8592;</button>
+        <span class="cal-month-label">${monthNames[mo]} ${yr}</span>
+        <button class="cal-nav-btn" onclick="nextCalendarMonth()">&#8594;</button>
+      </div>
+      <div class="cal-ret-row">
+        ${retBtns}
+        <button class="cal-show-picks-btn${calendarShowPicks ? ' active' : ''}" onclick="toggleCalendarShowPicks()">${showPicksLabel}</button>
+      </div>
+    </div>
+    <div class="cal-weekdays">
+      <div class="cal-weekday">MON</div>
+      <div class="cal-weekday">TUE</div>
+      <div class="cal-weekday">WED</div>
+      <div class="cal-weekday">THU</div>
+      <div class="cal-weekday">FRI</div>
+      <div class="cal-weekday">SAT</div>
+      <div class="cal-weekday">SUN</div>
+    </div>
+    <div class="cal-grid">${cellsHTML}</div>
+  `;
 }
 
 async function renderPicksAnalytics() {
