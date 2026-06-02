@@ -3788,74 +3788,79 @@ async function runScan() {
     const etaSec     = i > 0 ? Math.round((elapsedSec / i) * (total - i)) : '–';
     scanMeta.innerHTML = `<span class="scan-progress-ticker">${batch.map(b => b.ticker).join(' · ')}</span> &nbsp;·&nbsp; ${i+1}${batch.length > 1 ? '–'+(i+batch.length) : ''} / ${total} &nbsp;·&nbsp; ${Math.round(elapsedSec)}s elapsed${etaSec !== '–' ? ' &nbsp;·&nbsp; ~' + etaSec + 's left' : ''}`;
 
-    // Fetch all stocks in the batch simultaneously
-    const fetched = await Promise.all(
-      batch.map(t => fetchStockData(t.ticker).then(sd => ({ t, stockData: sd })))
+    // Phase 1 — fetch DAILY data only for the whole batch in parallel
+    const dailyFetched = await Promise.all(
+      batch.map(t => fetchDailyOnly(t.ticker).then(dr => ({ t, dailyResult: dr })))
     );
 
-    // Process each result and update the UI
-    for (const { t, stockData } of fetched) {
+    // Apply daily-only hard filters; survivors go to phase 2
+    const needsFullFetch = [];
+    for (const { t, dailyResult } of dailyFetched) {
       const statusEl = document.getElementById('status-' + t.ticker);
-      if (stockData._noData) noDataCount++;
+      if (dailyResult._noData) noDataCount++;
 
-      // Hard filter 1 — price must be above daily EMA50
-      const aboveEma50 = stockData.above_ema50;
-      // Hard filter 2 — no earnings within the next 5 calendar days (US only)
       const earningsTs   = marketMode !== 'PH' ? earningsMap[t.ticker] : null;
       const earningsDays = earningsTs ? (earningsTs - Date.now() / 1000) / 86400 : Infinity;
       const earningsSoon = earningsDays >= 0 && earningsDays <= 5;
-      // Hard filter 3 — no 20%+ single-week drop in the last 3 completed weeks
-      const hadWeeklyCrash  = stockData.had_weekly_crash;
-      // Hard filter 4 — last daily candle open AND close both above upper BB (parabolic)
-      const aboveUpperBB    = stockData.above_upper_bb;
-      // Hard filter 5 — last daily candle low touches or breaks lower BB (breakdown)
-      const touchingLowerBB = stockData.touching_lower_bb;
-      // Hard filter 6 — BB width is at its widest point in the last 6 months (bands fully expanded)
-      const bbWidest6m      = stockData.bb_widest_6m;
-      // Hard filter 7 — today's close is below the BB midline (20-period SMA)
-      const belowBBMidline  = stockData.below_bb_midline;
 
-      if (!aboveEma50) {
-        filteredOut.push({ ...t, ...stockData, reason: 'Below daily EMA50' });
+      if (!dailyResult.above_ema50) {
+        filteredOut.push({ ...t, ...dailyResult, reason: 'Below daily EMA50' });
         if (statusEl) { statusEl.textContent='✗'; statusEl.className='t-status'; statusEl.style.cssText='font-size:9px;padding:1px 5px;color:var(--red);border:1px solid rgba(200,41,58,0.3);background:var(--red-dim);border-radius:2px'; }
-      } else if (marketMode !== 'PH' && (stockData.avg_vol_30 || 0) < 500000) {
-        filteredOut.push({ ...t, ...stockData, reason: 'Avg vol < 500K' });
+      } else if (marketMode !== 'PH' && (dailyResult.avg_vol_30 || 0) < 500000) {
+        filteredOut.push({ ...t, ...dailyResult, reason: 'Avg vol < 500K' });
         if (statusEl) { statusEl.textContent='✗'; statusEl.className='t-status'; statusEl.style.cssText='font-size:9px;padding:1px 5px;color:var(--red);border:1px solid rgba(200,41,58,0.3);background:var(--red-dim);border-radius:2px'; }
       } else if (earningsSoon) {
         const dLabel = earningsDays < 1 ? 'today' : `in ${Math.ceil(earningsDays)}d`;
-        filteredOut.push({ ...t, ...stockData, reason: `Earnings ${dLabel}` });
+        filteredOut.push({ ...t, ...dailyResult, reason: `Earnings ${dLabel}` });
         if (statusEl) { statusEl.textContent='⚡'; statusEl.className='t-status'; statusEl.style.cssText='font-size:9px;padding:1px 5px;color:var(--amber);border:1px solid rgba(160,92,0,0.3);background:var(--amber-dim);border-radius:2px'; }
-      } else if (marketMode !== 'PH' && hadWeeklyCrash) {
-        filteredOut.push({ ...t, ...stockData, reason: 'Weekly crash (−20%+)' });
+      } else if (marketMode !== 'PH' && dailyResult.touching_lower_bb) {
+        filteredOut.push({ ...t, ...dailyResult, reason: 'Touching lower BB' });
         if (statusEl) { statusEl.textContent='✗'; statusEl.className='t-status'; statusEl.style.cssText='font-size:9px;padding:1px 5px;color:var(--red);border:1px solid rgba(200,41,58,0.3);background:var(--red-dim);border-radius:2px'; }
-      } else if (marketMode !== 'PH' && aboveUpperBB) {
-        filteredOut.push({ ...t, ...stockData, reason: 'Extended above upper BB' });
+      } else if (marketMode !== 'PH' && dailyResult.bb_widest_6m) {
+        filteredOut.push({ ...t, ...dailyResult, reason: 'BB widest in 6 months' });
         if (statusEl) { statusEl.textContent='✗'; statusEl.className='t-status'; statusEl.style.cssText='font-size:9px;padding:1px 5px;color:var(--red);border:1px solid rgba(200,41,58,0.3);background:var(--red-dim);border-radius:2px'; }
-      } else if (marketMode !== 'PH' && touchingLowerBB) {
-        filteredOut.push({ ...t, ...stockData, reason: 'Touching lower BB' });
+      } else if (marketMode !== 'PH' && dailyResult.below_bb_midline) {
+        filteredOut.push({ ...t, ...dailyResult, reason: 'Close below BB midline' });
         if (statusEl) { statusEl.textContent='✗'; statusEl.className='t-status'; statusEl.style.cssText='font-size:9px;padding:1px 5px;color:var(--red);border:1px solid rgba(200,41,58,0.3);background:var(--red-dim);border-radius:2px'; }
-      } else if (marketMode !== 'PH' && bbWidest6m) {
-        filteredOut.push({ ...t, ...stockData, reason: 'BB widest in 6 months' });
-        if (statusEl) { statusEl.textContent='✗'; statusEl.className='t-status'; statusEl.style.cssText='font-size:9px;padding:1px 5px;color:var(--red);border:1px solid rgba(200,41,58,0.3);background:var(--red-dim);border-radius:2px'; }
-      } else if (marketMode !== 'PH' && belowBBMidline) {
-        filteredOut.push({ ...t, ...stockData, reason: 'Close below BB midline' });
-        if (statusEl) { statusEl.textContent='✗'; statusEl.className='t-status'; statusEl.style.cssText='font-size:9px;padding:1px 5px;color:var(--red);border:1px solid rgba(200,41,58,0.3);background:var(--red-dim);border-radius:2px'; }
-      } else if (marketMode === 'PH' && (stockData.avg_value_traded || 0) < 100000) {
-        const v = stockData.avg_value_traded || 0;
+      } else if (marketMode === 'PH' && (dailyResult.avg_value_traded || 0) < 100000) {
+        const v = dailyResult.avg_value_traded || 0;
         const vLabel = v >= 1000 ? `PHP ${Math.round(v/1000)}K` : `PHP ${Math.round(v)}`;
-        filteredOut.push({ ...t, ...stockData, reason: `Avg value ${vLabel} < 100K` });
+        filteredOut.push({ ...t, ...dailyResult, reason: `Avg value ${vLabel} < 100K` });
         if (statusEl) { statusEl.textContent='✗'; statusEl.className='t-status'; statusEl.style.cssText='font-size:9px;padding:1px 5px;color:var(--red);border:1px solid rgba(200,41,58,0.3);background:var(--red-dim);border-radius:2px'; }
       } else {
-        const scored      = scoreStock(stockData, currentSetup);
-        const sectorName  = tickerSectorMap[t.ticker] || '';
-        const sectorBonus = sectorRankMap[sectorName]  || 0;
-        const rankScore   = scored.score + sectorBonus;
-        if (sectorBonus > 0) scored.tags.unshift({ label: `+${sectorBonus} SECTOR`, cls: 'sector-bonus' });
-        const tickerRets  = portfolioReturns ? getTickerReturns(stockData.daily) : null;
-        const corrCoeff   = (portfolioReturns && tickerRets) ? pearsonCorr(tickerRets, portfolioReturns.slice(0, tickerRets.length)) : null;
-        const ytdPct = calcStockYtd(stockData.daily);
-        results.push({ ...t, ...stockData, ...scored, sectorBonus, sectorName, rankScore, corrCoeff, ytdPct });
-        if (statusEl) { statusEl.textContent='✓'; statusEl.className='t-status done'; }
+        needsFullFetch.push({ t, dailyResult });
+      }
+    }
+
+    // Phase 2 — fetch weekly+monthly ONLY for survivors, then check remaining filters
+    if (needsFullFetch.length > 0) {
+      const fullFetched = await Promise.all(
+        needsFullFetch.map(({ t, dailyResult }) =>
+          fetchWeeklyMonthlyData(t.ticker, dailyResult).then(sd => ({ t, stockData: sd }))
+        )
+      );
+
+      for (const { t, stockData } of fullFetched) {
+        const statusEl = document.getElementById('status-' + t.ticker);
+
+        if (marketMode !== 'PH' && stockData.had_weekly_crash) {
+          filteredOut.push({ ...t, ...stockData, reason: 'Weekly crash (−20%+)' });
+          if (statusEl) { statusEl.textContent='✗'; statusEl.className='t-status'; statusEl.style.cssText='font-size:9px;padding:1px 5px;color:var(--red);border:1px solid rgba(200,41,58,0.3);background:var(--red-dim);border-radius:2px'; }
+        } else if (marketMode !== 'PH' && stockData.above_upper_bb) {
+          filteredOut.push({ ...t, ...stockData, reason: 'Extended above upper BB' });
+          if (statusEl) { statusEl.textContent='✗'; statusEl.className='t-status'; statusEl.style.cssText='font-size:9px;padding:1px 5px;color:var(--red);border:1px solid rgba(200,41,58,0.3);background:var(--red-dim);border-radius:2px'; }
+        } else {
+          const scored      = scoreStock(stockData, currentSetup);
+          const sectorName  = tickerSectorMap[t.ticker] || '';
+          const sectorBonus = sectorRankMap[sectorName]  || 0;
+          const rankScore   = scored.score + sectorBonus;
+          if (sectorBonus > 0) scored.tags.unshift({ label: `+${sectorBonus} SECTOR`, cls: 'sector-bonus' });
+          const tickerRets  = portfolioReturns ? getTickerReturns(stockData.daily) : null;
+          const corrCoeff   = (portfolioReturns && tickerRets) ? pearsonCorr(tickerRets, portfolioReturns.slice(0, tickerRets.length)) : null;
+          const ytdPct = calcStockYtd(stockData.daily);
+          results.push({ ...t, ...stockData, ...scored, sectorBonus, sectorName, rankScore, corrCoeff, ytdPct });
+          if (statusEl) { statusEl.textContent='✓'; statusEl.className='t-status done'; }
+        }
       }
     }
 
@@ -4243,6 +4248,174 @@ async function fetchStockData(ticker) {
     weekly:       weekly  ? weekly.bars  : null,
     monthly:      monthly ? monthly.bars : null,
     spxDaily:     cachedSPXBars,
+  };
+}
+
+// Fetch only daily bars for a single ticker — used in scan phase 1.
+// Returns all daily-computable filter fields plus internal markers used by fetchWeeklyMonthlyData.
+async function fetchDailyOnly(ticker) {
+  const yTicker = toYFTicker(ticker);
+  let daily = null;
+
+  if (marketMode === 'PH') {
+    try {
+      const d = await fetchStooq(ticker, 'd', 400);
+      daily = { bars: d, meta: null };
+    } catch (err) {
+      console.warn(`[${ticker}] Stooq daily failed (${err.message})`);
+      const d = await fetchStooq(ticker, 'd', 400).catch(() => null);
+      if (d) daily = { bars: d, meta: null };
+    }
+  } else {
+    daily = await fetchYF(yTicker, '1y', '1d').catch(() => null);
+  }
+
+  if (!daily) {
+    console.warn(`[${ticker}] No daily data — using mock fallback`);
+    const seed = hashStr(ticker);
+    return {
+      _noData: true, _daily: null, _dailyAboveUpperBB: false,
+      name: ticker,
+      price:            Math.round(pseudoRand(seed) * 200 + 5),
+      change:           Math.round((pseudoRand(seed+1)*12-4)*100)/100,
+      vol_ratio:        Math.round(pseudoRand(seed+2)*2.5*100)/100,
+      avg_vol_30:       600000,
+      avg_value_traded: 200000,
+      above_ema50:      pseudoRand(seed+4) > 0.35,
+      touching_lower_bb: false,
+      bb_widest_6m:     false,
+      below_bb_midline: false,
+      yr_return:        pseudoRand(seed+5) > 0.40 ? 1.0 : 0.0,
+      daily: null,
+    };
+  }
+
+  const dailyBars    = daily.bars;
+  const meta         = daily.meta;
+  const closes       = dailyBars.map(b => b.c);
+  const volumes      = dailyBars.map(b => b.v);
+  const currentPrice = meta?.regularMarketPrice ?? closes[closes.length - 1];
+  const prevClose    = closes[closes.length - 2] ?? closes[closes.length - 1];
+  const change       = prevClose ? Math.round(((currentPrice - prevClose) / prevClose) * 10000) / 100 : 0;
+
+  const ema50       = calcEMA(closes, 50);
+  const above_ema50 = ema50 > 0 && currentPrice > ema50;
+
+  const dailyBB = calcBB(closes);
+  const lastBar = dailyBars[dailyBars.length - 1];
+  const _dailyAboveUpperBB = !!(dailyBB && lastBar && lastBar.o != null &&
+    lastBar.o > dailyBB.upper && lastBar.c > dailyBB.upper);
+  const touching_lower_bb = !!(dailyBB && lastBar && lastBar.l != null &&
+    lastBar.l <= dailyBB.lower);
+  const below_bb_midline = !!(dailyBB && lastBar && lastBar.c < dailyBB.middle);
+
+  let bb_widest_6m = false;
+  if (closes.length >= 146) {
+    const WINDOW = 126;
+    const widths = [];
+    for (let i = closes.length - WINDOW; i < closes.length; i++) {
+      const bb = calcBB(closes.slice(0, i + 1));
+      widths.push(bb ? bb.width : 0);
+    }
+    const currentWidth = widths[widths.length - 1];
+    const sorted       = [...widths].sort((a, b) => a - b);
+    const p75          = sorted[Math.floor(sorted.length * 0.75)];
+    const wideEnough   = currentWidth > 0 && currentWidth >= p75;
+    const touchingUpper3d = wideEnough && [0, 1, 2].every(daysBack => {
+      const bb    = calcBB(closes.slice(0, closes.length - daysBack));
+      const close = closes[closes.length - 1 - daysBack];
+      return bb && close >= bb.upper;
+    });
+    bb_widest_6m = touchingUpper3d;
+  }
+
+  const yr_return = closes.length >= 2 && closes[0] > 0 && currentPrice > closes[0] ? 1.0 : 0.0;
+
+  const avgVol20  = volumes.length >= 20
+    ? volumes.slice(-21, -1).reduce((a, b) => a + b, 0) / 20
+    : (volumes[volumes.length - 1] ?? 0);
+  const vol_ratio = avgVol20 > 0
+    ? Math.round((volumes[volumes.length - 1] / avgVol20) * 100) / 100
+    : 1.0;
+  const avgVol30 = volumes.length >= 30
+    ? volumes.slice(-31, -1).reduce((a, b) => a + b, 0) / 30
+    : (volumes.length > 1 ? volumes.slice(0, -1).reduce((a, b) => a + b, 0) / (volumes.length - 1) : 0);
+
+  const last20           = dailyBars.slice(-20);
+  const avg_value_traded = last20.length
+    ? last20.reduce((s, b) => s + (b.c || 0) * (b.v || 0), 0) / last20.length
+    : 0;
+
+  return {
+    _noData: false, _daily: daily, _dailyAboveUpperBB,
+    name:    meta?.longName || meta?.shortName || ticker,
+    price:   currentPrice,
+    change,
+    vol_ratio,
+    avg_vol_30: avgVol30,
+    avg_value_traded,
+    above_ema50,
+    touching_lower_bb,
+    bb_widest_6m,
+    below_bb_midline,
+    yr_return,
+    daily: dailyBars,
+  };
+}
+
+// Fetch weekly + monthly bars for a ticker that passed phase-1 daily filters.
+// Merges with the dailyResult from fetchDailyOnly and returns a complete stock data object.
+async function fetchWeeklyMonthlyData(ticker, dailyResult) {
+  if (!dailyResult._daily) {
+    // No daily data (mock fallback) — skip extra fetches, return a safe no-data object
+    const { _daily, _dailyAboveUpperBB, ...rest } = dailyResult;
+    return { ...rest, above_upper_bb: false, had_weekly_crash: false,
+             weekly: null, monthly: null, spxDaily: cachedSPXBars };
+  }
+
+  const yTicker = toYFTicker(ticker);
+  let weekly = null, monthly = null;
+
+  if (marketMode === 'PH') {
+    const [w, m] = await Promise.all([
+      fetchStooq(ticker, 'w', 800).catch(e  => { console.warn(`[${ticker}] Stooq weekly failed: ${e.message}`);  return null; }),
+      fetchStooq(ticker, 'm', 2000).catch(e => { console.warn(`[${ticker}] Stooq monthly failed: ${e.message}`); return null; }),
+    ]);
+    if (w) weekly  = { bars: w, meta: null };
+    if (m) monthly = { bars: m, meta: null };
+  } else {
+    const [w, m] = await Promise.all([
+      fetchYF(yTicker, '2y',  '1wk').catch(e => { console.warn(`[${ticker}] weekly failed: ${e.message}`);  return null; }),
+      fetchYF(yTicker, 'max', '1mo').catch(e => { console.warn(`[${ticker}] monthly failed: ${e.message}`); return null; }),
+    ]);
+    weekly = w; monthly = m;
+  }
+
+  const weeklyCloses       = weekly ? weekly.bars.map(b => b.c) : [];
+  const weeklyBB           = weeklyCloses.length >= 20 ? calcBB(weeklyCloses) : null;
+  const lastWeeklyBar      = weekly && weekly.bars.length ? weekly.bars[weekly.bars.length - 1] : null;
+  const weeklyAboveUpperBB = !!(weeklyBB && lastWeeklyBar && lastWeeklyBar.c > weeklyBB.upper);
+  const above_upper_bb     = dailyResult._dailyAboveUpperBB && weeklyAboveUpperBB;
+
+  let had_weekly_crash = false;
+  if (weekly && weekly.bars.length >= 5) {
+    const wb = weekly.bars;
+    for (let i = wb.length - 2; i >= wb.length - 4 && i > 0; i--) {
+      if (wb[i - 1].c > 0 && (wb[i].c - wb[i - 1].c) / wb[i - 1].c <= -0.20) {
+        had_weekly_crash = true;
+        break;
+      }
+    }
+  }
+
+  const { _daily, _dailyAboveUpperBB, ...rest } = dailyResult;
+  return {
+    ...rest,
+    above_upper_bb,
+    had_weekly_crash,
+    weekly:   weekly  ? weekly.bars  : null,
+    monthly:  monthly ? monthly.bars : null,
+    spxDaily: cachedSPXBars,
   };
 }
 
