@@ -1512,6 +1512,8 @@
     font-family:'IBM Plex Mono',monospace; font-size:22px; font-weight:700;
     color:var(--text); line-height:1;
   }
+  .pa-stat-val.picks-perf-pos { color:var(--green); }
+  .pa-stat-val.picks-perf-neg { color:var(--red); }
   .pa-stat-sub {
     font-family:'IBM Plex Sans',sans-serif; font-size:10px; color:var(--text3); margin-top:4px;
   }
@@ -5362,7 +5364,7 @@ function _syncPicksToolbar() {
   const gridEl       = document.getElementById('picks-grid');
   if (picksViewMode === 'analytics') {
     if (tfGroup)      tfGroup.style.display    = 'none';
-    if (viewToggle)   viewToggle.style.display  = 'none';
+    if (viewToggle) { viewToggle.style.display = ''; viewToggle.textContent = 'CHART VIEW'; }
     if (analyticsBtn) analyticsBtn.classList.add('active');
     if (analyticsEl)  analyticsEl.style.display = '';
     if (gridEl)       gridEl.style.display      = 'none';
@@ -5599,7 +5601,9 @@ async function renderPicksAnalytics() {
   _setS('pa-stat-pending',  String(pending.length));
   _setS('pa-stat-window-sub', `in last ${analyticsWindow.toUpperCase()}`);
   _setS('pa-stat-avg-win',  avgWinReturn  !== null ? `+${avgWinReturn.toFixed(1)}%`  : '—');
+  _clsS('pa-stat-avg-win',  'pa-stat-val' + (avgWinReturn  !== null ? ' picks-perf-pos' : ''));
   _setS('pa-stat-avg-loss', avgLossReturn !== null ? `${avgLossReturn.toFixed(1)}%`   : '—');
+  _clsS('pa-stat-avg-loss', 'pa-stat-val' + (avgLossReturn !== null ? ' picks-perf-neg' : ''));
   _setS('pa-stat-exp', expectancy !== null ? `${expectancy >= 0 ? '+' : ''}${expectancy.toFixed(2)}%` : '—');
   _clsS('pa-stat-exp', 'pa-stat-val' + (expectancy !== null ? (expectancy >= 0 ? ' picks-perf-pos' : ' picks-perf-neg') : ''));
   // Aggression rank computed after day series is built
