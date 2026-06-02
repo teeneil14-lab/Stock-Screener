@@ -5546,13 +5546,8 @@ function setAnalyticsMA() {
 }
 
 function setAnalyticsMode(mode) {
-  if (mode === 'live') {
-    analyticsLiveMode   = !analyticsLiveMode;
-    analyticsKickerMode = false;
-  } else if (mode === 'kicker') {
-    analyticsKickerMode = !analyticsKickerMode;
-    analyticsLiveMode   = false;
-  }
+  if (mode === 'live')   analyticsLiveMode   = !analyticsLiveMode;
+  if (mode === 'kicker') analyticsKickerMode = !analyticsKickerMode;
   document.getElementById('pa-mode-live')?.classList.toggle('active', analyticsLiveMode);
   document.getElementById('pa-mode-kicker')?.classList.toggle('active', analyticsKickerMode);
   renderPicksAnalytics();
@@ -5584,16 +5579,25 @@ function updatePicksSummary() {
 
 function resolvePickReturn(perf, rp) {
   if (!perf) return null;
+  const periodVal = perf[rp];
+  const hasPeriod = periodVal !== null && periodVal !== undefined;
+  const r5d = perf['5d'];
+  const has5d = r5d !== null && r5d !== undefined;
+
+  if (analyticsLiveMode && analyticsKickerMode) {
+    // Combined: pending picks get live; completed picks apply kicker held on top
+    if (!hasPeriod) return perf.live ?? null;
+    if (has5d && r5d >= 0) return perf.live ?? null;
+    return r5d ?? null;
+  }
   if (analyticsKickerMode) {
-    const r5d = perf['5d'];
-    if (r5d !== null && r5d !== undefined && r5d >= 0) return perf.live ?? null;
+    if (has5d && r5d >= 0) return perf.live ?? null;
     return r5d ?? null;
   }
   if (analyticsLiveMode) {
-    const periodVal = perf[rp];
-    return (periodVal !== null && periodVal !== undefined) ? periodVal : (perf.live ?? null);
+    return hasPeriod ? periodVal : (perf.live ?? null);
   }
-  return perf[rp] ?? null;
+  return periodVal ?? null;
 }
 
 async function renderPicksAnalytics() {
@@ -5678,8 +5682,9 @@ async function renderPicksAnalytics() {
   // Update chart title to reflect active mode
   const pickTitleEl = document.getElementById('pa-chart-title-pick');
   if (pickTitleEl) {
-    if (analyticsKickerMode)    pickTitleEl.textContent = 'KICKER HELD — 5D losers kept · 5D winners shown at live price · Blue line = rolling hit ratio %';
-    else if (analyticsLiveMode) pickTitleEl.textContent = 'LIVE RETURN PER PICK — pending picks included at current price · Blue line = rolling hit ratio %';
+    if (analyticsLiveMode && analyticsKickerMode) pickTitleEl.textContent = 'LIVE + KICKER HELD — pending picks at live price · 5D winners shown live · 5D losers kept at 5D · Blue line = rolling hit ratio %';
+    else if (analyticsKickerMode) pickTitleEl.textContent = 'KICKER HELD — 5D losers kept · 5D winners shown at live price · Blue line = rolling hit ratio %';
+    else if (analyticsLiveMode)   pickTitleEl.textContent = 'LIVE RETURN PER PICK — pending picks included at current price · Blue line = rolling hit ratio %';
     else pickTitleEl.textContent = `${rp.toUpperCase()} RETURN PER PICK — Bars = actual return · Blue line = rolling hit ratio %`;
   }
 
