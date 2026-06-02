@@ -2850,6 +2850,8 @@ window.addEventListener('DOMContentLoaded', () => {
   });
   migrateLikedCriteria();
   renderCriteria();
+  toggleSection('criteria');   // collapsed by default
+  applyAdaptedWeights();       // adapt to taste on by default
   renderPatternPanel();
   startClock();
   setupDragDrop();
