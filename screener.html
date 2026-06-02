@@ -3745,27 +3745,15 @@ async function runScan() {
   // Reset glance view — switch back to list so stale charts aren't shown
   if (glanceView) setListView('list');
 
-  // Fetch all pre-scan data in parallel
-  if (marketMode !== 'PH') {
-    scanMeta.innerHTML = 'Preparing scan data…';
-    const tickerSymbols = tickers.map(t => t.ticker);
-    const [_spx, sectorRank, tickerSectors, earnings, portRet] = await Promise.all([
-      ensureSPXBars(),
-      buildSectorRankMap(),
-      fetchAllTickerSectors(tickerSymbols),
-      fetchAllEarningsDates(tickerSymbols),
-      portfolioHoldings.length > 0 ? fetchPortfolioReturns() : Promise.resolve(null),
-    ]);
-    sectorRankMap   = sectorRank;
-    tickerSectorMap = tickerSectors;
-    earningsMap     = earnings;
-  } else {
-    scanMeta.innerHTML = 'Preparing PH scan…';
-    if (portfolioHoldings.length > 0) {
-      await fetchPortfolioReturns();
-    } else {
-      portfolioReturns = null;
-    }
+  // Fire background tasks immediately — they run while Phase 1 scans, so they're
+  // likely done (or nearly done) by the time we need them after Phase 1.
+  const bgSPX        = ensureSPXBars();
+  const bgSectorRank = marketMode !== 'PH' ? buildSectorRankMap() : Promise.resolve({});
+  const bgPortRet    = portfolioHoldings.length > 0 ? fetchPortfolioReturns() : Promise.resolve(null);
+
+  // PH mode has no sector/earnings fetch, so just await portfolio returns upfront (it's fast)
+  if (marketMode === 'PH') {
+    await bgPortRet;
   }
 
   const total     = tickers.length;
@@ -3773,37 +3761,35 @@ async function runScan() {
 
   const SCAN_CONCURRENCY = 5; // fetch this many stocks at once (5 × 3 YF calls = 15 concurrent — safe ceiling)
 
+  // ── PHASE 1: Daily-only scan for the full ticker list ────────────────────
+  // Applies EMA50, volume, BB, and midline hard filters immediately.
+  // Earnings filter is deferred — we only fetch earnings for survivors, saving
+  // many API calls on large watchlists.
+  const phase1Survivors = []; // accumulates { t, dailyResult } across all batches
+
   for (let i = 0; i < total; i += SCAN_CONCURRENCY) {
     const batch = tickers.slice(i, Math.min(i + SCAN_CONCURRENCY, total));
 
-    // Mark all stocks in this batch as "running" before fetching
     batch.forEach(t => {
       const el = document.getElementById('status-' + t.ticker);
       if (el) { el.textContent = '…'; el.className = 't-status running'; }
     });
 
-    // Update big progress bar
-    const pctNow     = Math.round((i / total) * 100);
+    // Progress: Phase 1 occupies 0→50% of the bar
+    const pctNow     = Math.round((i / total) * 50);
     scanBar.style.width = pctNow + '%';
     scanPct.textContent = pctNow + '%';
     const elapsedSec = (Date.now() - scanStart) / 1000;
     const etaSec     = i > 0 ? Math.round((elapsedSec / i) * (total - i)) : '–';
     scanMeta.innerHTML = `<span class="scan-progress-ticker">${batch.map(b => b.ticker).join(' · ')}</span> &nbsp;·&nbsp; ${i+1}${batch.length > 1 ? '–'+(i+batch.length) : ''} / ${total} &nbsp;·&nbsp; ${Math.round(elapsedSec)}s elapsed${etaSec !== '–' ? ' &nbsp;·&nbsp; ~' + etaSec + 's left' : ''}`;
 
-    // Phase 1 — fetch DAILY data only for the whole batch in parallel
     const dailyFetched = await Promise.all(
       batch.map(t => fetchDailyOnly(t.ticker).then(dr => ({ t, dailyResult: dr })))
     );
 
-    // Apply daily-only hard filters; survivors go to phase 2
-    const needsFullFetch = [];
     for (const { t, dailyResult } of dailyFetched) {
       const statusEl = document.getElementById('status-' + t.ticker);
       if (dailyResult._noData) noDataCount++;
-
-      const earningsTs   = marketMode !== 'PH' ? earningsMap[t.ticker] : null;
-      const earningsDays = earningsTs ? (earningsTs - Date.now() / 1000) / 86400 : Infinity;
-      const earningsSoon = earningsDays >= 0 && earningsDays <= 5;
 
       if (!dailyResult.above_ema50) {
         filteredOut.push({ ...t, ...dailyResult, reason: 'Below daily EMA50' });
@@ -3811,10 +3797,6 @@ async function runScan() {
       } else if (marketMode !== 'PH' && (dailyResult.avg_vol_30 || 0) < 500000) {
         filteredOut.push({ ...t, ...dailyResult, reason: 'Avg vol < 500K' });
         if (statusEl) { statusEl.textContent='✗'; statusEl.className='t-status'; statusEl.style.cssText='font-size:9px;padding:1px 5px;color:var(--red);border:1px solid rgba(200,41,58,0.3);background:var(--red-dim);border-radius:2px'; }
-      } else if (earningsSoon) {
-        const dLabel = earningsDays < 1 ? 'today' : `in ${Math.ceil(earningsDays)}d`;
-        filteredOut.push({ ...t, ...dailyResult, reason: `Earnings ${dLabel}` });
-        if (statusEl) { statusEl.textContent='⚡'; statusEl.className='t-status'; statusEl.style.cssText='font-size:9px;padding:1px 5px;color:var(--amber);border:1px solid rgba(160,92,0,0.3);background:var(--amber-dim);border-radius:2px'; }
       } else if (marketMode !== 'PH' && dailyResult.touching_lower_bb) {
         filteredOut.push({ ...t, ...dailyResult, reason: 'Touching lower BB' });
         if (statusEl) { statusEl.textContent='✗'; statusEl.className='t-status'; statusEl.style.cssText='font-size:9px;padding:1px 5px;color:var(--red);border:1px solid rgba(200,41,58,0.3);background:var(--red-dim);border-radius:2px'; }
@@ -3830,11 +3812,74 @@ async function runScan() {
         filteredOut.push({ ...t, ...dailyResult, reason: `Avg value ${vLabel} < 100K` });
         if (statusEl) { statusEl.textContent='✗'; statusEl.className='t-status'; statusEl.style.cssText='font-size:9px;padding:1px 5px;color:var(--red);border:1px solid rgba(200,41,58,0.3);background:var(--red-dim);border-radius:2px'; }
       } else {
+        phase1Survivors.push({ t, dailyResult });
+        if (statusEl) { statusEl.textContent = '…'; statusEl.className = 't-status running'; }
+      }
+    }
+
+    const completedCount = Math.min(i + SCAN_CONCURRENCY, total);
+    progressFill.style.width  = Math.round((completedCount / total) * 100) + '%';
+    progressLabel.textContent = completedCount + ' / ' + total;
+
+    if (i + SCAN_CONCURRENCY < total) await sleep(30);
+  }
+
+  // ── POST-PHASE 1: Fetch sector & earnings data only for survivors ─────────
+  // Background tasks (SPX, sector rank) have been running during Phase 1 and
+  // are likely already resolved. We only fetch sectors/earnings for the smaller
+  // survivor set rather than the full watchlist.
+  if (marketMode !== 'PH') {
+    const survivorCount   = phase1Survivors.length;
+    const survivorTickers = phase1Survivors.map(s => s.t.ticker);
+    scanMeta.innerHTML = `Fetching sector &amp; earnings data for ${survivorCount} survivor${survivorCount !== 1 ? 's' : ''}…`;
+    scanBar.style.width = '50%';
+    scanPct.textContent = '50%';
+    const [sectorRank, tickerSectors, earnings] = await Promise.all([
+      bgSectorRank,
+      fetchAllTickerSectors(survivorTickers),
+      fetchAllEarningsDates(survivorTickers),
+      bgSPX,
+      bgPortRet,
+    ]);
+    sectorRankMap   = sectorRank;
+    tickerSectorMap = tickerSectors;
+    earningsMap     = earnings;
+  } else {
+    await Promise.all([bgSPX, bgPortRet]);
+  }
+
+  // ── PHASE 2: Earnings filter + weekly/monthly fetch + scoring ─────────────
+  const survivorTotal = phase1Survivors.length;
+
+  for (let i = 0; i < survivorTotal; i += SCAN_CONCURRENCY) {
+    const batch = phase1Survivors.slice(i, Math.min(i + SCAN_CONCURRENCY, survivorTotal));
+
+    // Progress: Phase 2 occupies 50→100% of the bar
+    const pctNow     = 50 + Math.round((i / Math.max(survivorTotal, 1)) * 50);
+    scanBar.style.width = pctNow + '%';
+    scanPct.textContent = pctNow + '%';
+    const elapsedSec = (Date.now() - scanStart) / 1000;
+    const etaSec     = i > 0 ? Math.round((elapsedSec / i) * (survivorTotal - i)) : '–';
+    scanMeta.innerHTML = `<span class="scan-progress-ticker">${batch.map(b => b.t.ticker).join(' · ')}</span> &nbsp;·&nbsp; ${i+1}${batch.length > 1 ? '–'+(i+batch.length) : ''} / ${survivorTotal} survivors &nbsp;·&nbsp; ${Math.round(elapsedSec)}s elapsed${etaSec !== '–' ? ' &nbsp;·&nbsp; ~' + etaSec + 's left' : ''}`;
+
+    // Apply earnings filter now that we have the data
+    const needsFullFetch = [];
+    for (const { t, dailyResult } of batch) {
+      const statusEl    = document.getElementById('status-' + t.ticker);
+      const earningsTs   = marketMode !== 'PH' ? earningsMap[t.ticker] : null;
+      const earningsDays = earningsTs ? (earningsTs - Date.now() / 1000) / 86400 : Infinity;
+      const earningsSoon = earningsDays >= 0 && earningsDays <= 5;
+
+      if (earningsSoon) {
+        const dLabel = earningsDays < 1 ? 'today' : `in ${Math.ceil(earningsDays)}d`;
+        filteredOut.push({ ...t, ...dailyResult, reason: `Earnings ${dLabel}` });
+        if (statusEl) { statusEl.textContent='⚡'; statusEl.className='t-status'; statusEl.style.cssText='font-size:9px;padding:1px 5px;color:var(--amber);border:1px solid rgba(160,92,0,0.3);background:var(--amber-dim);border-radius:2px'; }
+      } else {
         needsFullFetch.push({ t, dailyResult });
       }
     }
 
-    // Phase 2 — fetch weekly+monthly ONLY for survivors, then check remaining filters
+    // Fetch weekly+monthly for earnings-cleared survivors, then score
     if (needsFullFetch.length > 0) {
       const fullFetched = await Promise.all(
         needsFullFetch.map(({ t, dailyResult }) =>
@@ -3866,13 +3911,11 @@ async function runScan() {
       }
     }
 
-    // Update small header bar after the batch
-    const completedCount = Math.min(i + SCAN_CONCURRENCY, total);
-    progressFill.style.width  = Math.round((completedCount / total) * 100) + '%';
-    progressLabel.textContent = completedCount + ' / ' + total;
+    const completedCount = Math.min(i + SCAN_CONCURRENCY, survivorTotal);
+    progressFill.style.width  = Math.round((completedCount / survivorTotal) * 100) + '%';
+    progressLabel.textContent = completedCount + ' / ' + survivorTotal;
 
-    // Brief pause between batches to stay within Yahoo Finance rate limits
-    if (i + SCAN_CONCURRENCY < total) await sleep(30);
+    if (i + SCAN_CONCURRENCY < survivorTotal) await sleep(30);
   }
 
   // Finish progress bar at 100%
