@@ -1499,7 +1499,7 @@
   }
   .pa-ma-input:focus { border-color:var(--accent); }
   .pa-stat-row {
-    display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:16px;
+    display:grid; grid-template-columns:repeat(5,1fr); gap:10px; margin-bottom:16px;
   }
   .pa-stat-card {
     background:var(--bg2); border:1px solid var(--border); border-radius:6px; padding:12px 14px;
@@ -1515,6 +1515,9 @@
   .pa-stat-sub {
     font-family:'IBM Plex Sans',sans-serif; font-size:10px; color:var(--text3); margin-top:4px;
   }
+  .pa-stat-dual { display:flex; gap:12px; align-items:flex-start; margin-top:2px; }
+  .pa-stat-dual-col { display:flex; flex-direction:column; }
+  .pa-stat-dual-label { font-family:'IBM Plex Mono',monospace; font-size:8px; letter-spacing:0.06em; color:var(--text3); margin-bottom:2px; }
   .pa-chart-section { margin-bottom:16px; }
   .pa-chart-title {
     font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:600;
@@ -2558,18 +2561,42 @@
             <div class="pa-stat-sub" id="pa-stat-hit-sub"></div>
           </div>
           <div class="pa-stat-card">
-            <div class="pa-stat-label">PICKS ANALYZED</div>
-            <div class="pa-stat-val" id="pa-stat-total">—</div>
+            <div class="pa-stat-label">PICKS</div>
+            <div class="pa-stat-dual">
+              <div class="pa-stat-dual-col">
+                <div class="pa-stat-dual-label">ANALYZED</div>
+                <div class="pa-stat-val" id="pa-stat-analyzed">—</div>
+              </div>
+              <div class="pa-stat-val" style="opacity:0.3;align-self:flex-end">/</div>
+              <div class="pa-stat-dual-col">
+                <div class="pa-stat-dual-label">PENDING</div>
+                <div class="pa-stat-val" id="pa-stat-pending">—</div>
+              </div>
+            </div>
             <div class="pa-stat-sub" id="pa-stat-window-sub"></div>
           </div>
           <div class="pa-stat-card">
-            <div class="pa-stat-label">PICKS PENDING</div>
-            <div class="pa-stat-val" id="pa-stat-pending">—</div>
-            <div class="pa-stat-sub">Awaiting 5D data</div>
+            <div class="pa-stat-label">AVG RETURN</div>
+            <div class="pa-stat-dual">
+              <div class="pa-stat-dual-col">
+                <div class="pa-stat-dual-label">WINNER</div>
+                <div class="pa-stat-val picks-perf-pos" id="pa-stat-avg-win">—</div>
+              </div>
+              <div class="pa-stat-dual-col">
+                <div class="pa-stat-dual-label">LOSER</div>
+                <div class="pa-stat-val picks-perf-neg" id="pa-stat-avg-loss">—</div>
+              </div>
+            </div>
           </div>
           <div class="pa-stat-card">
-            <div class="pa-stat-label">AVG 5D RETURN</div>
-            <div class="pa-stat-val" id="pa-stat-avg">—</div>
+            <div class="pa-stat-label">EXPECTANCY / TRADE</div>
+            <div class="pa-stat-val" id="pa-stat-exp">—</div>
+            <div class="pa-stat-sub">avg expected return %</div>
+          </div>
+          <div class="pa-stat-card">
+            <div class="pa-stat-label">AGGRESSION RANK</div>
+            <div class="pa-stat-val" id="pa-stat-aggr">—</div>
+            <div class="pa-stat-sub" id="pa-stat-aggr-sub">pick×day composite</div>
           </div>
         </div>
         <!-- Chart 1 -->
@@ -5548,40 +5575,40 @@ async function renderPicksAnalytics() {
   });
 
   // Stat cards
+  const N = analyticsMALength;
   const totalAnalyzed = analyzed.length;
-  const wins = analyzed.filter(e => (_picksPerf[e.ticker]['5d'] ?? -1) > 0);
+  const wins = analyzed.filter(e => _picksPerf[e.ticker]['5d'] > 0);
   const overallHitRatio = totalAnalyzed > 0 ? Math.round((wins.length / totalAnalyzed) * 100) : null;
-  const avg5d = totalAnalyzed > 0
-    ? analyzed.reduce((s, e) => s + (_picksPerf[e.ticker]['5d'] || 0), 0) / totalAnalyzed
-    : null;
 
-  const hitEl2   = document.getElementById('pa-stat-hit');
-  const hitSub   = document.getElementById('pa-stat-hit-sub');
-  const totEl    = document.getElementById('pa-stat-total');
-  const winSub   = document.getElementById('pa-stat-window-sub');
-  const penEl    = document.getElementById('pa-stat-pending');
-  const avgEl2   = document.getElementById('pa-stat-avg');
+  const loserEntries  = analyzed.filter(e => _picksPerf[e.ticker]['5d'] <= 0);
+  const avgWinReturn  = wins.length > 0
+    ? wins.reduce((s, e) => s + _picksPerf[e.ticker]['5d'], 0) / wins.length : null;
+  const avgLossReturn = loserEntries.length > 0
+    ? loserEntries.reduce((s, e) => s + _picksPerf[e.ticker]['5d'], 0) / loserEntries.length : null;
+  const hitRateFrac = totalAnalyzed > 0 ? wins.length / totalAnalyzed : null;
+  const expectancy  = (hitRateFrac !== null && avgWinReturn !== null && avgLossReturn !== null)
+    ? (hitRateFrac * avgWinReturn) + ((1 - hitRateFrac) * avgLossReturn) : null;
 
-  if (hitEl2) {
-    hitEl2.textContent = overallHitRatio !== null ? `${overallHitRatio}%` : '—';
-    hitEl2.className   = 'pa-stat-val' + (overallHitRatio !== null ? (overallHitRatio >= 50 ? ' picks-perf-pos' : ' picks-perf-neg') : '');
-  }
-  if (hitSub)   hitSub.textContent   = totalAnalyzed > 0 ? `${wins.length} of ${totalAnalyzed} picks` : '';
-  if (totEl)    totEl.textContent    = String(totalAnalyzed);
-  if (winSub)   winSub.textContent   = `in last ${analyticsWindow.toUpperCase()}`;
-  if (penEl)    penEl.textContent    = String(pending.length);
-  if (avgEl2) {
-    avgEl2.textContent = avg5d !== null ? `${avg5d >= 0 ? '+' : ''}${avg5d.toFixed(1)}%` : '—';
-    avgEl2.className   = 'pa-stat-val' + (avg5d !== null ? (avg5d >= 0 ? ' picks-perf-pos' : ' picks-perf-neg') : '');
-  }
+  const _setS = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  const _clsS = (id, cls) => { const el = document.getElementById(id); if (el) el.className = cls; };
+
+  _setS('pa-stat-hit', overallHitRatio !== null ? `${overallHitRatio}%` : '—');
+  _clsS('pa-stat-hit', 'pa-stat-val' + (overallHitRatio !== null ? (overallHitRatio >= 50 ? ' picks-perf-pos' : ' picks-perf-neg') : ''));
+  _setS('pa-stat-hit-sub', totalAnalyzed > 0 ? `${wins.length} of ${totalAnalyzed} picks` : '');
+  _setS('pa-stat-analyzed', String(totalAnalyzed));
+  _setS('pa-stat-pending',  String(pending.length));
+  _setS('pa-stat-window-sub', `in last ${analyticsWindow.toUpperCase()}`);
+  _setS('pa-stat-avg-win',  avgWinReturn  !== null ? `+${avgWinReturn.toFixed(1)}%`  : '—');
+  _setS('pa-stat-avg-loss', avgLossReturn !== null ? `${avgLossReturn.toFixed(1)}%`   : '—');
+  _setS('pa-stat-exp', expectancy !== null ? `${expectancy >= 0 ? '+' : ''}${expectancy.toFixed(2)}%` : '—');
+  _clsS('pa-stat-exp', 'pa-stat-val' + (expectancy !== null ? (expectancy >= 0 ? ' picks-perf-pos' : ' picks-perf-neg') : ''));
+  // Aggression rank computed after day series is built
 
   if (!analyzed.length) {
     pickEl.innerHTML = '<div class="pa-empty">No picks with 5-day return data in this window yet.</div>';
     dayEl.innerHTML  = '<div class="pa-empty">—</div>';
     return;
   }
-
-  const N = analyticsMALength;
 
   // ── Chart 1 data ─────────────────────────────────────────────
   const usedSecs   = new Set();
@@ -5646,6 +5673,46 @@ async function renderPicksAnalytics() {
     });
   });
 
+  // ── Aggression rank (composite: pick-based + day-based rolling expectancy) ──
+  const rollingPickExp = analyzed.map((_, i) => {
+    const sl  = analyzed.slice(Math.max(0, i - N + 1), i + 1);
+    const sw  = sl.filter(w => _picksPerf[w.ticker]['5d'] > 0);
+    const sl2 = sl.filter(w => _picksPerf[w.ticker]['5d'] <= 0);
+    const hr = sw.length / sl.length;
+    const aw = sw.length  > 0 ? sw.reduce((s,w)  => s + _picksPerf[w.ticker]['5d'], 0) / sw.length  : 0;
+    const al = sl2.length > 0 ? sl2.reduce((s,w) => s + _picksPerf[w.ticker]['5d'], 0) / sl2.length : 0;
+    return hr * aw + (1 - hr) * al;
+  });
+  const rollingDayExp = dayKeys.map((_, j) => {
+    const daySlice    = dayKeys.slice(Math.max(0, j - N + 1), j + 1);
+    const daySliceSet = new Set(daySlice);
+    const slicePicks  = analyzed.filter(e => {
+      const d = new Date(e.starredAt);
+      const k = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      return daySliceSet.has(k);
+    });
+    const sw = slicePicks.filter(e => _picksPerf[e.ticker]['5d'] > 0);
+    const sl = slicePicks.filter(e => _picksPerf[e.ticker]['5d'] <= 0);
+    const hr = slicePicks.length > 0 ? sw.length / slicePicks.length : 0;
+    const aw = sw.length > 0 ? sw.reduce((s,e) => s + _picksPerf[e.ticker]['5d'], 0) / sw.length : 0;
+    const al = sl.length > 0 ? sl.reduce((s,e) => s + _picksPerf[e.ticker]['5d'], 0) / sl.length : 0;
+    return hr * aw + (1 - hr) * al;
+  });
+  const _rankInWindow = series => {
+    const w = series.slice(-10);
+    if (w.length < 2) return w.length === 1 ? (w[0] > 0 ? 7 : 4) : null;
+    const mn = Math.min(...w), mx = Math.max(...w), cur = w[w.length - 1];
+    return mx === mn ? 5 : Math.round(1 + (cur - mn) / (mx - mn) * 9);
+  };
+  const pickRank = _rankInWindow(rollingPickExp);
+  const dayRank  = _rankInWindow(rollingDayExp);
+  const aggrRank = (pickRank !== null && dayRank !== null)
+    ? Math.min(10, Math.max(1, Math.round((pickRank + dayRank) / 2)))
+    : (pickRank ?? dayRank);
+  _setS('pa-stat-aggr', aggrRank !== null ? String(aggrRank) : '—');
+  _clsS('pa-stat-aggr', 'pa-stat-val' + (aggrRank !== null ? (aggrRank >= 7 ? ' picks-perf-pos' : aggrRank >= 4 ? '' : ' picks-perf-neg') : ''));
+  _setS('pa-stat-aggr-sub', rollingPickExp.length >= 2 ? `pick×day composite · ${Math.min(rollingPickExp.length, 10)} periods` : 'insufficient data');
+
   // ── Shared floating tooltip ───────────────────────────────────
   let tooltip = document.getElementById('pa-tooltip');
   if (!tooltip) {
@@ -5674,18 +5741,19 @@ async function renderPicksAnalytics() {
       autoSize: true,
       layout:   { background: { color: '#ffffff' }, textColor: '#6b7280' },
       grid:     { vertLines: { color: '#f0f0f0' }, horzLines: { color: '#f0f0f0' } },
-      rightPriceScale: { borderColor: '#e5e7eb', scaleMargins: { top: 0.1, bottom: 0.1 } },
+      leftPriceScale:  { visible: true, borderColor: '#e5e7eb', scaleMargins: { top: 0.1, bottom: 0.1 } },
+      rightPriceScale: { visible: true, borderColor: '#e5e7eb', scaleMargins: { top: 0.15, bottom: 0.15 } },
       timeScale: { borderColor: '#e5e7eb', timeVisible: true, secondsVisible: false },
       crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
-      handleScroll: true, handleScale: true,
+      handleScroll: false, handleScale: false,
     });
     _analyticsCharts['pick'] = c1;
 
-    const hist1 = c1.addHistogramSeries({ priceLineVisible: false, lastValueVisible: false });
+    const hist1 = c1.addHistogramSeries({ priceScaleId: 'left', priceLineVisible: false, lastValueVisible: false });
     hist1.setData(pickBarData);
 
     const line1 = c1.addLineSeries({
-      color: '#1d4ed8', lineWidth: 2,
+      color: '#1d4ed8', lineWidth: 2, priceScaleId: 'right',
       priceLineVisible: false, lastValueVisible: true, crosshairMarkerVisible: true,
     });
     line1.setData(pickMAData);
@@ -5723,7 +5791,7 @@ async function renderPicksAnalytics() {
       rightPriceScale: { visible: true, borderColor: '#e5e7eb', scaleMargins: { top: 0.15, bottom: 0.15 } },
       timeScale: { borderColor: '#e5e7eb', timeVisible: true, secondsVisible: false },
       crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
-      handleScroll: true, handleScale: true,
+      handleScroll: false, handleScale: false,
     });
     _analyticsCharts['day'] = c2;
 
@@ -5775,7 +5843,7 @@ async function renderPicksAnalytics() {
 }
 
 function _clearAnalyticsStats() {
-  ['pa-stat-hit','pa-stat-total','pa-stat-pending','pa-stat-avg'].forEach(id => {
+  ['pa-stat-hit','pa-stat-analyzed','pa-stat-pending','pa-stat-avg-win','pa-stat-avg-loss','pa-stat-exp','pa-stat-aggr'].forEach(id => {
     const el = document.getElementById(id);
     if (el) { el.textContent = '—'; el.className = 'pa-stat-val'; }
   });
