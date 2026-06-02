@@ -1588,11 +1588,11 @@
   .cal-pick-row:hover { opacity:0.75; }
   .cal-pick-ticker { font-family:'IBM Plex Mono',monospace; font-size:11px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:55%; }
   .cal-pick-ret { font-family:'IBM Plex Mono',monospace; font-size:11px; font-weight:700; white-space:nowrap; }
-  .cal-picks-cols { display:flex; gap:4px; margin-top:4px; flex:1; min-height:0; }
-  .cal-picks-col  { display:flex; flex-direction:column; gap:2px; flex:1; min-width:0; overflow:hidden; }
-  .cal-picks-cols .cal-pick-row { justify-content:flex-start; gap:3px; padding:0 2px; }
-  .cal-picks-cols .cal-pick-ticker { font-size:10px; max-width:none; flex-shrink:1; min-width:0; }
-  .cal-picks-cols .cal-pick-ret   { font-size:10px; flex-shrink:0; }
+  .cal-picks-grid { display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:1px 0; margin-top:4px; flex:1; min-height:0; align-content:start; }
+  .cal-grid-ticker { font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; cursor:pointer; padding:0 1px; line-height:1.5; }
+  .cal-grid-ticker:hover { opacity:0.75; }
+  .cal-grid-ret    { font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:700; white-space:nowrap; cursor:pointer; padding:0 2px 0 0; line-height:1.5; }
+  .cal-grid-ret:hover { opacity:0.75; }
   .cal-empty { font-family:'IBM Plex Sans',sans-serif; font-size:12px; color:var(--text3); text-align:center; padding:40px 20px; }
   .cal-chart-header { display:flex; align-items:center; justify-content:space-between; padding:12px 20px 10px; border-top:2px solid var(--border); gap:12px; flex-wrap:wrap; background:#fafafa; }
   .cal-chart-label-wrap { display:flex; align-items:center; gap:8px; }
@@ -2532,7 +2532,7 @@
         <div class="sectors-updated" id="sectors-updated">Not loaded</div>
       </div>
       <div class="sectors-toolbar-right">
-        <button class="sectors-refresh-btn" id="sectors-refresh-btn" onclick="loadSectors()">↻ REFRESH</button>
+        <button class="sectors-refresh-btn" id="sectors-refresh-btn" onclick="loadSectors(true)">↻ REFRESH</button>
       </div>
     </div>
     <div class="sectors-body" id="sectors-body">
@@ -2859,6 +2859,14 @@ window.addEventListener('DOMContentLoaded', () => {
   // Default the historical-pick date field to today
   const dateEl = document.getElementById('picks-add-date');
   if (dateEl) dateEl.value = new Date().toISOString().slice(0, 10);
+
+  // Pre-fetch sector/imap data in the background so tabs open instantly
+  setTimeout(() => {
+    if (marketMode !== 'PH') {
+      if (!sectorsLoaded) loadSectors();
+      if (!imapLoaded)    loadIndustryMap(false);
+    }
+  }, 3000);
 });
 
 function startClock() {
@@ -5689,14 +5697,29 @@ function resolvePickReturn(perf, rp) {
 
 // ── Calendar helpers ─────────────────────────────────────────────────────────
 
+// Returns the Date of the next market session after the last frozen daily bar.
+// That's when the user buys — the first candle after they starred the pick.
+// Falls back to starredAt if no bars are stored.
+function pickEntryDate(e) {
+  if (e.dailyBars && e.dailyBars.length > 0) {
+    const d = new Date(e.dailyBars[e.dailyBars.length - 1].t);
+    d.setUTCDate(d.getUTCDate() + 1);
+    const dow = d.getUTCDay(); // 0=Sun, 6=Sat
+    if (dow === 6) d.setUTCDate(d.getUTCDate() + 2); // Sat → Mon
+    if (dow === 0) d.setUTCDate(d.getUTCDate() + 1); // Sun → Mon
+    return d;
+  }
+  return new Date(e.starredAt);
+}
+
 function buildPicksDayMap(rp) {
   const liked = loadLiked(currentSetup);
   const byDay = {};
   liked.forEach(e => {
     const perf = _picksPerf[`${e.ticker}_${e.starredAt}`];
     const ret  = resolvePickReturn(perf, rp);
-    const d    = new Date(e.starredAt);
-    const key  = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    const d    = pickEntryDate(e);
+    const key  = `${d.getUTCFullYear()}-${String(d.getUTCMonth()+1).padStart(2,'0')}-${String(d.getUTCDate()).padStart(2,'0')}`;
     if (!byDay[key]) byDay[key] = { wins: 0, losses: 0, picks: [] };
     if (ret !== null && ret !== undefined) {
       if (ret > 0) byDay[key].wins++;
@@ -5893,19 +5916,30 @@ async function renderPicksCalendar() {
         const losers   = allPicks.filter(p => !p.pending && p.ret <= 0).sort((a, b) => b.ret - a.ret);
         const pending  = allPicks.filter(p => p.pending);
 
-        const makePickRow = (p) => {
-          if (p.pending) {
-            return `<div class="cal-pick-row" onclick="loadCalendarChart('${p.ticker}')"><span class="cal-pick-ticker" style="color:${color.text};opacity:0.7">${p.ticker}</span><span class="cal-pick-ret" style="color:${color.text};opacity:0.5;font-style:italic">—</span></div>`;
-          }
-          const sign     = p.ret > 0 ? '+' : '';
-          const retColor = p.ret > 0 ? color.winColor : color.lossColor;
-          return `<div class="cal-pick-row" onclick="loadCalendarChart('${p.ticker}')"><span class="cal-pick-ticker" style="color:${color.text}">${p.ticker}</span><span class="cal-pick-ret" style="color:${retColor}">${sign}${p.ret.toFixed(1)}%</span></div>`;
-        };
+        const makePendingRow = (p) =>
+          `<div class="cal-pick-row" onclick="loadCalendarChart('${p.ticker}')"><span class="cal-pick-ticker" style="color:${color.text};opacity:0.7">${p.ticker}</span><span class="cal-pick-ret" style="color:${color.text};opacity:0.5;font-style:italic">—</span></div>`;
 
-        picksInner = `<div class="cal-picks-cols">
-          <div class="cal-picks-col">${winners.map(makePickRow).join('')}</div>
-          <div class="cal-picks-col">${losers.map(makePickRow).join('')}</div>
-        </div>${pending.length ? `<div class="cal-picks-list" style="margin-top:2px">${pending.map(makePickRow).join('')}</div>` : ''}`;
+        const maxRows = Math.max(winners.length, losers.length);
+        let gridCells = '';
+        for (let gi = 0; gi < maxRows; gi++) {
+          const w = winners[gi];
+          const l = losers[gi];
+          if (w) {
+            const wsign = w.ret > 0 ? '+' : '';
+            gridCells += `<span class="cal-grid-ticker" style="color:${color.text}" onclick="loadCalendarChart('${w.ticker}')">${w.ticker}</span>`;
+            gridCells += `<span class="cal-grid-ret" style="color:${color.winColor}" onclick="loadCalendarChart('${w.ticker}')">${wsign}${w.ret.toFixed(1)}%</span>`;
+          } else {
+            gridCells += `<span></span><span></span>`;
+          }
+          if (l) {
+            const lsign = l.ret > 0 ? '+' : '';
+            gridCells += `<span class="cal-grid-ticker" style="color:${color.text}" onclick="loadCalendarChart('${l.ticker}')">${l.ticker}</span>`;
+            gridCells += `<span class="cal-grid-ret" style="color:${color.lossColor}" onclick="loadCalendarChart('${l.ticker}')">${lsign}${l.ret.toFixed(1)}%</span>`;
+          } else {
+            gridCells += `<span></span><span></span>`;
+          }
+        }
+        picksInner = `<div class="cal-picks-grid">${gridCells}</div>${pending.length ? `<div class="cal-picks-list" style="margin-top:2px">${pending.map(makePendingRow).join('')}</div>` : ''}`;
       }
       cellsHTML += `<div class="cal-cell has-picks" style="background:${color.bg}">
         <span class="cal-date-num" style="color:${color.text}">${d}</span>
@@ -6603,12 +6637,33 @@ let sectorRows         = null;
 let sectorEMABreadth   = {};     // ETF ticker → { ema20, ema50, ema100, ema200 (%), total }
 let sectorBreadthLoading = false;
 
-async function loadSectors() {
+const SECTORS_CACHE_KEY = 'cts_sectors_v1';
+const SECTORS_CACHE_TTL = 15 * 60 * 1000; // 15 minutes
+
+async function loadSectors(force) {
   sectorsLoaded = true;
   const btn     = document.getElementById('sectors-refresh-btn');
   const loading = document.getElementById('sectors-loading');
   const wrap    = document.getElementById('sectors-table-wrap');
   const updated = document.getElementById('sectors-updated');
+
+  // Serve from cache if fresh (skip on manual refresh)
+  if (!force) {
+    try {
+      const raw = sessionStorage.getItem(SECTORS_CACHE_KEY);
+      if (raw) {
+        const cached = JSON.parse(raw);
+        if (Date.now() - cached.ts < SECTORS_CACHE_TTL) {
+          sectorRows = cached.data;
+          updated.textContent = 'Cached ' + new Date(cached.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          btn.disabled = false;
+          loadSectorBreadth();
+          renderSectorTable(sectorRows);
+          return;
+        }
+      }
+    } catch {}
+  }
 
   btn.disabled = true;
   loading.style.display = 'flex';
@@ -6641,6 +6696,7 @@ async function loadSectors() {
   updated.textContent = 'Updated ' + new Date().toLocaleTimeString();
 
   sectorRows = rows;
+  try { sessionStorage.setItem(SECTORS_CACHE_KEY, JSON.stringify({ ts: Date.now(), data: rows })); } catch {}
   sectorBreadthLoading = false;
   sectorEMABreadth = {};
   try { sessionStorage.removeItem(BREADTH_CACHE_KEY); } catch {}
