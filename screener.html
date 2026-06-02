@@ -1485,6 +1485,14 @@
   }
   .pa-period-btn:hover { background:var(--bg3); }
   .pa-period-btn.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .pa-ret-btn {
+    font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:600; letter-spacing:0.06em;
+    background:transparent; color:var(--text2); border:1px solid var(--border); border-radius:4px;
+    padding:5px 10px; cursor:pointer; transition:background 0.15s,color 0.15s;
+  }
+  .pa-ret-btn:hover { background:var(--bg3); }
+  .pa-ret-btn.active { background:#1d4ed8; color:#fff; border-color:#1d4ed8; }
+  .pa-controls-sep { width:1px; height:20px; background:var(--border); margin:0 4px; }
   .pa-ma-wrap {
     display:flex; align-items:center; gap:5px; margin-left:10px;
   }
@@ -2549,6 +2557,13 @@
           <button class="pa-period-btn" id="pa-period-6m" onclick="setAnalyticsWindow('6m')">6M</button>
           <button class="pa-period-btn" id="pa-period-3m" onclick="setAnalyticsWindow('3m')">3M</button>
           <button class="pa-period-btn" id="pa-period-1m" onclick="setAnalyticsWindow('1m')">1M</button>
+          <div class="pa-controls-sep"></div>
+          <button class="pa-ret-btn active" id="pa-ret-5d" onclick="setAnalyticsReturnPeriod('5d')">5D</button>
+          <button class="pa-ret-btn" id="pa-ret-2w" onclick="setAnalyticsReturnPeriod('2w')">2W</button>
+          <button class="pa-ret-btn" id="pa-ret-1m" onclick="setAnalyticsReturnPeriod('1m')">1M</button>
+          <button class="pa-ret-btn" id="pa-ret-3m" onclick="setAnalyticsReturnPeriod('3m')">3M</button>
+          <button class="pa-ret-btn" id="pa-ret-6m" onclick="setAnalyticsReturnPeriod('6m')">6M</button>
+          <button class="pa-ret-btn" id="pa-ret-1y" onclick="setAnalyticsReturnPeriod('1y')">1Y</button>
           <div class="pa-ma-wrap">
             <span class="pa-ma-label">MA LENGTH</span>
             <input class="pa-ma-input" id="pa-ma-input" type="number" value="10" min="2" max="50"
@@ -2603,7 +2618,7 @@
         </div>
         <!-- Chart 1 -->
         <div class="pa-chart-section">
-          <div class="pa-chart-title">5D RETURN PER PICK — Bars = actual return · Blue line = rolling hit ratio %</div>
+          <div class="pa-chart-title" id="pa-chart-title-pick">5D RETURN PER PICK — Bars = actual return · Blue line = rolling hit ratio %</div>
           <div class="pa-chart-container" id="pa-chart-pick"></div>
         </div>
         <!-- Chart 2 -->
@@ -5480,8 +5495,9 @@ let _picksPerf = {};
 
 // Analytics state
 const _analyticsCharts = {};
-let analyticsWindow   = '1y'; // '1m' | '3m' | '6m' | '1y'
-let analyticsMALength = 10;
+let analyticsWindow        = '1y'; // '1m' | '3m' | '6m' | '1y'
+let analyticsReturnPeriod  = '5d'; // '5d' | '2w' | '1m' | '3m' | '6m' | '1y'
+let analyticsMALength      = 10;
 
 function _destroyAnalyticsCharts() {
   ['pick','day'].forEach(k => {
@@ -5494,6 +5510,14 @@ function setAnalyticsWindow(w) {
   ['1y','6m','3m','1m'].forEach(opt => {
     const btn = document.getElementById(`pa-period-${opt}`);
     if (btn) btn.classList.toggle('active', opt === w);
+  });
+  renderPicksAnalytics();
+}
+
+function setAnalyticsReturnPeriod(p) {
+  analyticsReturnPeriod = p;
+  ['5d','2w','1m','3m','6m','1y'].forEach(k => {
+    document.getElementById(`pa-ret-${k}`)?.classList.toggle('active', k === p);
   });
   renderPicksAnalytics();
 }
@@ -5566,27 +5590,28 @@ async function renderPicksAnalytics() {
   // All picks within the selected window
   const inWindow = liked.filter(e => e.starredAt >= cutoffMs);
 
-  // Analyzed = has real 5D data; pending = no data yet
+  // Analyzed = has real return data for selected period; pending = no data yet
+  const rp = analyticsReturnPeriod;
   const analyzed = inWindow
-    .filter(e => { const v = _picksPerf[e.ticker]?.['5d']; return v !== null && v !== undefined; })
+    .filter(e => { const v = _picksPerf[e.ticker]?.[rp]; return v !== null && v !== undefined; })
     .sort((a, b) => a.starredAt - b.starredAt);
 
   const pending = inWindow.filter(e => {
-    const v = _picksPerf[e.ticker]?.['5d'];
+    const v = _picksPerf[e.ticker]?.[rp];
     return v === null || v === undefined;
   });
 
   // Stat cards
   const N = analyticsMALength;
   const totalAnalyzed = analyzed.length;
-  const wins = analyzed.filter(e => _picksPerf[e.ticker]['5d'] > 0);
+  const wins = analyzed.filter(e => _picksPerf[e.ticker][rp] > 0);
   const overallHitRatio = totalAnalyzed > 0 ? Math.round((wins.length / totalAnalyzed) * 100) : null;
 
-  const loserEntries  = analyzed.filter(e => _picksPerf[e.ticker]['5d'] <= 0);
+  const loserEntries  = analyzed.filter(e => _picksPerf[e.ticker][rp] <= 0);
   const avgWinReturn  = wins.length > 0
-    ? wins.reduce((s, e) => s + _picksPerf[e.ticker]['5d'], 0) / wins.length : null;
+    ? wins.reduce((s, e) => s + _picksPerf[e.ticker][rp], 0) / wins.length : null;
   const avgLossReturn = loserEntries.length > 0
-    ? loserEntries.reduce((s, e) => s + _picksPerf[e.ticker]['5d'], 0) / loserEntries.length : null;
+    ? loserEntries.reduce((s, e) => s + _picksPerf[e.ticker][rp], 0) / loserEntries.length : null;
   const hitRateFrac = totalAnalyzed > 0 ? wins.length / totalAnalyzed : null;
   const expectancy  = (hitRateFrac !== null && avgWinReturn !== null && avgLossReturn !== null)
     ? (hitRateFrac * avgWinReturn) + ((1 - hitRateFrac) * avgLossReturn) : null;
@@ -5609,7 +5634,7 @@ async function renderPicksAnalytics() {
   // Aggression rank computed after day series is built
 
   if (!analyzed.length) {
-    pickEl.innerHTML = '<div class="pa-empty">No picks with 5-day return data in this window yet.</div>';
+    pickEl.innerHTML = `<div class="pa-empty">No picks with ${rp.toUpperCase()} return data in this window yet.</div>`;
     dayEl.innerHTML  = '<div class="pa-empty">—</div>';
     return;
   }
@@ -5621,14 +5646,14 @@ async function renderPicksAnalytics() {
   const pickByTime  = new Map(); // sec → { entry, ret, maHitRatio }
 
   analyzed.forEach((e, i) => {
-    const ret = _picksPerf[e.ticker]['5d'];
+    const ret = _picksPerf[e.ticker][rp];
     let sec = Math.floor(e.starredAt / 1000);
     while (usedSecs.has(sec)) sec += 1;
     usedSecs.add(sec);
 
     // Rolling N-pick hit ratio
     const slice      = analyzed.slice(Math.max(0, i - N + 1), i + 1);
-    const sliceWins  = slice.filter(w => (_picksPerf[w.ticker]['5d'] ?? -1) > 0).length;
+    const sliceWins  = slice.filter(w => (_picksPerf[w.ticker][rp] ?? -1) > 0).length;
     const maHitRatio = (sliceWins / slice.length) * 100;
 
     pickBarData.push({ time: sec, value: ret, color: ret > 0 ? 'rgba(10,124,78,0.7)' : 'rgba(200,41,58,0.7)' });
@@ -5642,7 +5667,7 @@ async function renderPicksAnalytics() {
     const d   = new Date(e.starredAt);
     const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     if (!byDay[key]) byDay[key] = { wins: 0, losses: 0, picks: [] };
-    const ret = _picksPerf[e.ticker]['5d'];
+    const ret = _picksPerf[e.ticker][rp];
     if (ret > 0) byDay[key].wins++;
     else byDay[key].losses++;
     byDay[key].picks.push({ ticker: e.ticker, ret });
@@ -5680,11 +5705,11 @@ async function renderPicksAnalytics() {
   // ── Aggression rank (composite: pick-based + day-based rolling expectancy) ──
   const rollingPickExp = analyzed.map((_, i) => {
     const sl  = analyzed.slice(Math.max(0, i - N + 1), i + 1);
-    const sw  = sl.filter(w => _picksPerf[w.ticker]['5d'] > 0);
-    const sl2 = sl.filter(w => _picksPerf[w.ticker]['5d'] <= 0);
+    const sw  = sl.filter(w => _picksPerf[w.ticker][rp] > 0);
+    const sl2 = sl.filter(w => _picksPerf[w.ticker][rp] <= 0);
     const hr = sw.length / sl.length;
-    const aw = sw.length  > 0 ? sw.reduce((s,w)  => s + _picksPerf[w.ticker]['5d'], 0) / sw.length  : 0;
-    const al = sl2.length > 0 ? sl2.reduce((s,w) => s + _picksPerf[w.ticker]['5d'], 0) / sl2.length : 0;
+    const aw = sw.length  > 0 ? sw.reduce((s,w)  => s + _picksPerf[w.ticker][rp], 0) / sw.length  : 0;
+    const al = sl2.length > 0 ? sl2.reduce((s,w) => s + _picksPerf[w.ticker][rp], 0) / sl2.length : 0;
     return hr * aw + (1 - hr) * al;
   });
   const rollingDayExp = dayKeys.map((_, j) => {
@@ -5695,11 +5720,11 @@ async function renderPicksAnalytics() {
       const k = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
       return daySliceSet.has(k);
     });
-    const sw = slicePicks.filter(e => _picksPerf[e.ticker]['5d'] > 0);
-    const sl = slicePicks.filter(e => _picksPerf[e.ticker]['5d'] <= 0);
+    const sw = slicePicks.filter(e => _picksPerf[e.ticker][rp] > 0);
+    const sl = slicePicks.filter(e => _picksPerf[e.ticker][rp] <= 0);
     const hr = slicePicks.length > 0 ? sw.length / slicePicks.length : 0;
-    const aw = sw.length > 0 ? sw.reduce((s,e) => s + _picksPerf[e.ticker]['5d'], 0) / sw.length : 0;
-    const al = sl.length > 0 ? sl.reduce((s,e) => s + _picksPerf[e.ticker]['5d'], 0) / sl.length : 0;
+    const aw = sw.length > 0 ? sw.reduce((s,e) => s + _picksPerf[e.ticker][rp], 0) / sw.length : 0;
+    const al = sl.length > 0 ? sl.reduce((s,e) => s + _picksPerf[e.ticker][rp], 0) / sl.length : 0;
     return hr * aw + (1 - hr) * al;
   });
   const _rankInWindow = series => {
@@ -5738,6 +5763,10 @@ async function renderPicksAnalytics() {
     tooltip.style.top  = `${top}px`;
   };
 
+  // ── Update chart 1 title to reflect selected return period ───
+  const titleEl = document.getElementById('pa-chart-title-pick');
+  if (titleEl) titleEl.textContent = `${rp.toUpperCase()} RETURN PER PICK — Bars = actual return · Blue line = rolling hit ratio %`;
+
   // ── Render Chart 1 ────────────────────────────────────────────
   pickEl.innerHTML = '';
   try {
@@ -5774,7 +5803,7 @@ async function renderPicksAnalytics() {
       showTooltip(rect.left + param.point.x, rect.top + param.point.y, `
         <div class="pa-tt-ticker">${d.entry.ticker}</div>
         <div class="pa-tt-sub">Starred ${dateStr}</div>
-        <div class="pa-tt-row"><span>5D Return</span><span style="color:${retCol};font-weight:700">${retSign}${d.ret.toFixed(2)}%</span></div>
+        <div class="pa-tt-row"><span>${rp.toUpperCase()} Return</span><span style="color:${retCol};font-weight:700">${retSign}${d.ret.toFixed(2)}%</span></div>
         <div class="pa-tt-divider"></div>
         <div class="pa-tt-row"><span>Hit Ratio (MA ${N})</span><span style="font-weight:700">${d.maHitRatio.toFixed(0)}%</span></div>
       `);
