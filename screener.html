@@ -6704,20 +6704,14 @@ function _buildGlanceChart(container, r) {
     .sort((a, bv) => a.t - bv.t)
     .filter(b => { const s = toSec(b.t); return seenAll.has(s) ? false : (seenAll.add(s), true); });
 
-  // Strip the current incomplete period — Yahoo Finance always includes the
-  // in-progress week/month as the last bar, which shows partial data as a candle.
-  if (allBars.length > 0) {
+  // Strip the current incomplete month — Yahoo Finance includes an in-progress
+  // month bar which can be very misleading (e.g. one day shown as a full candle).
+  // The current week is intentionally kept so price action this week is visible.
+  if (allBars.length > 0 && glanceTF === 'M') {
     const now = new Date();
     const last = allBars[allBars.length - 1];
-    if (glanceTF === 'W') {
-      const dow = now.getUTCDay(); // 0=Sun … 6=Sat
-      const daysToMon = (dow + 6) % 7;
-      const weekStart = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - daysToMon);
-      if (last.t >= weekStart) allBars.pop();
-    } else if (glanceTF === 'M') {
-      const monthStart = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1);
-      if (last.t >= monthStart) allBars.pop();
-    }
+    const monthStart = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1);
+    if (last.t >= monthStart) allBars.pop();
   }
 
   // Candles shown = last maxBars from the full history
