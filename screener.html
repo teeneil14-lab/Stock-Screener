@@ -1473,6 +1473,63 @@
   .picks-summary-label { font-size:9px; color:var(--text3); letter-spacing:0.08em; font-weight:600; vertical-align:middle; padding:6px 12px; }
   .picks-summary-hit { font-size:10px; color:var(--text3); font-weight:400; }
 
+  /* ── PICKS ANALYTICS VIEW ──────────────────────────────────── */
+  .picks-analytics-wrap { width:100%; }
+  .pa-controls {
+    display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap;
+  }
+  .pa-period-btn {
+    font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:600; letter-spacing:0.06em;
+    background:transparent; color:var(--text2); border:1px solid var(--border); border-radius:4px;
+    padding:5px 10px; cursor:pointer; transition:background 0.15s,color 0.15s;
+  }
+  .pa-period-btn:hover { background:var(--bg3); }
+  .pa-period-btn.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .pa-ma-wrap {
+    display:flex; align-items:center; gap:5px; margin-left:10px;
+  }
+  .pa-ma-label {
+    font-family:'IBM Plex Mono',monospace; font-size:9px; letter-spacing:0.06em; color:var(--text3);
+    white-space:nowrap;
+  }
+  .pa-ma-input {
+    font-family:'IBM Plex Mono',monospace; font-size:11px; font-weight:600;
+    width:46px; padding:4px 6px; border:1px solid var(--border); border-radius:4px;
+    background:var(--bg); color:var(--text); text-align:center; outline:none;
+  }
+  .pa-ma-input:focus { border-color:var(--accent); }
+  .pa-stat-row {
+    display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:16px;
+  }
+  .pa-stat-card {
+    background:var(--bg2); border:1px solid var(--border); border-radius:6px; padding:12px 14px;
+  }
+  .pa-stat-label {
+    font-family:'IBM Plex Mono',monospace; font-size:9px; letter-spacing:0.08em;
+    color:var(--text3); margin-bottom:6px;
+  }
+  .pa-stat-val {
+    font-family:'IBM Plex Mono',monospace; font-size:22px; font-weight:700;
+    color:var(--text); line-height:1;
+  }
+  .pa-stat-sub {
+    font-family:'IBM Plex Sans',sans-serif; font-size:10px; color:var(--text3); margin-top:4px;
+  }
+  .pa-chart-section { margin-bottom:16px; }
+  .pa-chart-title {
+    font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:600;
+    letter-spacing:0.06em; color:var(--text2); margin-bottom:6px;
+  }
+  .pa-chart-container {
+    height:280px; background:var(--bg2); border:1px solid var(--border);
+    border-radius:6px; overflow:hidden;
+  }
+  .pa-loading, .pa-empty {
+    display:flex; align-items:center; justify-content:center; height:100%;
+    font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--text3);
+    text-align:center; padding:20px;
+  }
+
   .rank-tf-scores {
     display: flex;
     gap: 10px;
@@ -2456,6 +2513,7 @@
           <button class="picks-tf-btn" id="picks-global-M" onclick="switchAllPicksCharts('M')">MONTHLY</button>
         </div>
         <button class="picks-view-btn" id="picks-view-toggle" onclick="togglePicksView()">LIST VIEW</button>
+        <button class="picks-view-btn" id="picks-analytics-btn" onclick="toggleAnalyticsView()">ANALYTICS</button>
       </div>
       <div class="picks-add-form">
         <input id="picks-add-input" class="picks-add-input" type="text" placeholder="TICKER"
@@ -2466,6 +2524,52 @@
     </div>
     <div class="picks-body">
       <div class="picks-grid" id="picks-grid"></div>
+      <div class="picks-analytics-wrap" id="picks-analytics" style="display:none">
+        <!-- Controls: period + MA length -->
+        <div class="pa-controls">
+          <button class="pa-period-btn active" id="pa-period-1y" onclick="setAnalyticsWindow('1y')">1Y</button>
+          <button class="pa-period-btn" id="pa-period-6m" onclick="setAnalyticsWindow('6m')">6M</button>
+          <button class="pa-period-btn" id="pa-period-3m" onclick="setAnalyticsWindow('3m')">3M</button>
+          <button class="pa-period-btn" id="pa-period-1m" onclick="setAnalyticsWindow('1m')">1M</button>
+          <div class="pa-ma-wrap">
+            <span class="pa-ma-label">MA LENGTH</span>
+            <input class="pa-ma-input" id="pa-ma-input" type="number" value="10" min="2" max="50"
+              onchange="setAnalyticsMA()" onblur="setAnalyticsMA()"/>
+          </div>
+        </div>
+        <!-- Stat cards -->
+        <div class="pa-stat-row" id="pa-stats">
+          <div class="pa-stat-card">
+            <div class="pa-stat-label">OVERALL HIT RATIO</div>
+            <div class="pa-stat-val" id="pa-stat-hit">—</div>
+            <div class="pa-stat-sub" id="pa-stat-hit-sub"></div>
+          </div>
+          <div class="pa-stat-card">
+            <div class="pa-stat-label">PICKS ANALYZED</div>
+            <div class="pa-stat-val" id="pa-stat-total">—</div>
+            <div class="pa-stat-sub" id="pa-stat-window-sub"></div>
+          </div>
+          <div class="pa-stat-card">
+            <div class="pa-stat-label">PICKS PENDING</div>
+            <div class="pa-stat-val" id="pa-stat-pending">—</div>
+            <div class="pa-stat-sub">Awaiting 5D data</div>
+          </div>
+          <div class="pa-stat-card">
+            <div class="pa-stat-label">AVG 5D RETURN</div>
+            <div class="pa-stat-val" id="pa-stat-avg">—</div>
+          </div>
+        </div>
+        <!-- Chart 1 -->
+        <div class="pa-chart-section">
+          <div class="pa-chart-title">5D RETURN PER PICK — Rolling MA of avg return</div>
+          <div class="pa-chart-container" id="pa-chart-pick"></div>
+        </div>
+        <!-- Chart 2 -->
+        <div class="pa-chart-section">
+          <div class="pa-chart-title">PICKS PER DAY — Winners (↑) vs Losers (↓) · Rolling MA hit ratio %</div>
+          <div class="pa-chart-container" id="pa-chart-day"></div>
+        </div>
+      </div>
     </div>
   </div>
 </div><!-- /tab-picks -->
@@ -5208,16 +5312,49 @@ function calcEMAAt(closes, period, idx) {
 }
 
 let picksGlobalTF  = 'D';
-let picksViewMode  = 'grid'; // 'grid' | 'list'
+let picksViewMode  = 'grid'; // 'grid' | 'list' | 'analytics'
+
+function _syncPicksToolbar() {
+  const tfGroup      = document.getElementById('picks-tf-controls');
+  const viewToggle   = document.getElementById('picks-view-toggle');
+  const analyticsBtn = document.getElementById('picks-analytics-btn');
+  const analyticsEl  = document.getElementById('picks-analytics');
+  const gridEl       = document.getElementById('picks-grid');
+  if (picksViewMode === 'analytics') {
+    if (tfGroup)      tfGroup.style.display    = 'none';
+    if (viewToggle)   viewToggle.style.display  = 'none';
+    if (analyticsBtn) analyticsBtn.classList.add('active');
+    if (analyticsEl)  analyticsEl.style.display = '';
+    if (gridEl)       gridEl.style.display      = 'none';
+  } else if (picksViewMode === 'list') {
+    if (tfGroup)      tfGroup.style.display    = 'none';
+    if (viewToggle) { viewToggle.style.display = ''; viewToggle.textContent = 'CHART VIEW'; }
+    if (analyticsBtn) analyticsBtn.classList.remove('active');
+    if (analyticsEl)  analyticsEl.style.display = 'none';
+    if (gridEl)       gridEl.style.display      = '';
+  } else {
+    if (tfGroup)      tfGroup.style.display    = '';
+    if (viewToggle) { viewToggle.style.display = ''; viewToggle.textContent = 'LIST VIEW'; }
+    if (analyticsBtn) analyticsBtn.classList.remove('active');
+    if (analyticsEl)  analyticsEl.style.display = 'none';
+    if (gridEl)       gridEl.style.display      = '';
+  }
+}
 
 function togglePicksView() {
+  _destroyAnalyticsCharts();
   picksViewMode = picksViewMode === 'grid' ? 'list' : 'grid';
-  const btn      = document.getElementById('picks-view-toggle');
-  const tfGroup  = document.getElementById('picks-tf-controls');
-  if (btn)     btn.textContent = picksViewMode === 'list' ? 'CHART VIEW' : 'LIST VIEW';
-  if (tfGroup) tfGroup.style.display = picksViewMode === 'list' ? 'none' : '';
+  _syncPicksToolbar();
   if (picksViewMode === 'list') renderPicksList();
   else                          renderStarredCharts();
+}
+
+function toggleAnalyticsView() {
+  _destroyAnalyticsCharts();
+  picksViewMode = picksViewMode === 'analytics' ? 'grid' : 'analytics';
+  _syncPicksToolbar();
+  if (picksViewMode === 'analytics') renderPicksAnalytics();
+  else                               renderStarredCharts();
 }
 
 function switchAllPicksCharts(tf) {
@@ -5299,6 +5436,36 @@ function renderStarredCharts() {
 // Tracks loaded perf values for the summary row: { ticker: { '5d': val|null, ... } }
 let _picksPerf = {};
 
+// Analytics state
+const _analyticsCharts = {};
+let analyticsWindow   = '1y'; // '1m' | '3m' | '6m' | '1y'
+let analyticsMALength = 10;
+
+function _destroyAnalyticsCharts() {
+  ['pick','day'].forEach(k => {
+    if (_analyticsCharts[k]) { try { _analyticsCharts[k].remove(); } catch {} delete _analyticsCharts[k]; }
+  });
+}
+
+function setAnalyticsWindow(w) {
+  analyticsWindow = w;
+  ['1y','6m','3m','1m'].forEach(opt => {
+    const btn = document.getElementById(`pa-period-${opt}`);
+    if (btn) btn.classList.toggle('active', opt === w);
+  });
+  renderPicksAnalytics();
+}
+
+function setAnalyticsMA() {
+  const input = document.getElementById('pa-ma-input');
+  if (!input) return;
+  const v = parseInt(input.value, 10);
+  if (isNaN(v) || v < 2) return;
+  analyticsMALength = Math.min(v, 50);
+  input.value = analyticsMALength;
+  renderPicksAnalytics();
+}
+
 function updatePicksSummary() {
   const periods = ['5d','2w','1m','3m','6m','1y'];
   const allVals = Object.values(_picksPerf);
@@ -5320,6 +5487,213 @@ function updatePicksSummary() {
     avgEl.className = `picks-perf-cell ${avg >= 0 ? 'picks-perf-pos' : 'picks-perf-neg'}`;
     hitEl.textContent = `${hitCount}/${vals.length} (${hitPct}%)`;
     hitEl.className = `picks-summary-hit picks-perf-cell ${hitPct >= 50 ? 'picks-perf-pos' : 'picks-perf-neg'}`;
+  });
+}
+
+async function renderPicksAnalytics() {
+  _destroyAnalyticsCharts();
+
+  const pickEl = document.getElementById('pa-chart-pick');
+  const dayEl  = document.getElementById('pa-chart-day');
+  if (!pickEl || !dayEl) return;
+
+  pickEl.innerHTML = '<div class="pa-loading">Loading performance data…</div>';
+  dayEl.innerHTML  = '<div class="pa-loading">Loading performance data…</div>';
+
+  const liked = loadLiked(currentSetup);
+
+  if (!liked.length) {
+    pickEl.innerHTML = '<div class="pa-empty">No starred picks yet. Star some picks to see analytics.</div>';
+    dayEl.innerHTML  = '<div class="pa-empty">—</div>';
+    _clearAnalyticsStats();
+    return;
+  }
+
+  // Fetch performance for any pick not yet loaded
+  const needsFetch = liked.filter(e => !_picksPerf[e.ticker]);
+  if (needsFetch.length > 0) {
+    await Promise.all(needsFetch.map(e => loadPickPerformance(e)));
+  }
+
+  if (picksViewMode !== 'analytics') return; // user navigated away during fetch
+
+  // Window cutoff
+  const windowDays = { '1m': 30, '3m': 90, '6m': 180, '1y': 365 };
+  const cutoffMs = Date.now() - windowDays[analyticsWindow] * 86400000;
+
+  // All picks within the selected window
+  const inWindow = liked.filter(e => e.starredAt >= cutoffMs);
+
+  // Analyzed = has real 5D data; pending = no data yet
+  const analyzed = inWindow
+    .filter(e => { const v = _picksPerf[e.ticker]?.['5d']; return v !== null && v !== undefined; })
+    .sort((a, b) => a.starredAt - b.starredAt);
+
+  const pending = inWindow.filter(e => {
+    const v = _picksPerf[e.ticker]?.['5d'];
+    return v === null || v === undefined;
+  });
+
+  // Stat cards
+  const totalAnalyzed = analyzed.length;
+  const wins = analyzed.filter(e => (_picksPerf[e.ticker]['5d'] ?? -1) > 0);
+  const overallHitRatio = totalAnalyzed > 0 ? Math.round((wins.length / totalAnalyzed) * 100) : null;
+  const avg5d = totalAnalyzed > 0
+    ? analyzed.reduce((s, e) => s + (_picksPerf[e.ticker]['5d'] || 0), 0) / totalAnalyzed
+    : null;
+
+  const hitEl2   = document.getElementById('pa-stat-hit');
+  const hitSub   = document.getElementById('pa-stat-hit-sub');
+  const totEl    = document.getElementById('pa-stat-total');
+  const winSub   = document.getElementById('pa-stat-window-sub');
+  const penEl    = document.getElementById('pa-stat-pending');
+  const avgEl2   = document.getElementById('pa-stat-avg');
+
+  if (hitEl2) {
+    hitEl2.textContent = overallHitRatio !== null ? `${overallHitRatio}%` : '—';
+    hitEl2.className   = 'pa-stat-val' + (overallHitRatio !== null ? (overallHitRatio >= 50 ? ' picks-perf-pos' : ' picks-perf-neg') : '');
+  }
+  if (hitSub)   hitSub.textContent   = totalAnalyzed > 0 ? `${wins.length} of ${totalAnalyzed} picks` : '';
+  if (totEl)    totEl.textContent    = String(totalAnalyzed);
+  if (winSub)   winSub.textContent   = `in last ${analyticsWindow.toUpperCase()}`;
+  if (penEl)    penEl.textContent    = String(pending.length);
+  if (avgEl2) {
+    avgEl2.textContent = avg5d !== null ? `${avg5d >= 0 ? '+' : ''}${avg5d.toFixed(1)}%` : '—';
+    avgEl2.className   = 'pa-stat-val' + (avg5d !== null ? (avg5d >= 0 ? ' picks-perf-pos' : ' picks-perf-neg') : '');
+  }
+
+  if (!analyzed.length) {
+    pickEl.innerHTML = '<div class="pa-empty">No picks with 5-day return data in this window yet.</div>';
+    dayEl.innerHTML  = '<div class="pa-empty">—</div>';
+    return;
+  }
+
+  const N = analyticsMALength;
+
+  // ── Chart 1: 5D return per pick ──────────────────────────────
+  // Deduplicate timestamps (picks starred at same second)
+  const usedSecs = new Set();
+  const pickBarData = [];
+  const pickMAData  = [];
+
+  analyzed.forEach((e, i) => {
+    const ret = _picksPerf[e.ticker]['5d'];
+    let sec = Math.floor(e.starredAt / 1000);
+    while (usedSecs.has(sec)) sec += 1;
+    usedSecs.add(sec);
+
+    pickBarData.push({
+      time:  sec,
+      value: ret,
+      color: ret > 0 ? 'rgba(10,124,78,0.7)' : 'rgba(200,41,58,0.7)',
+    });
+
+    // Rolling N-pick average return
+    const slice   = analyzed.slice(Math.max(0, i - N + 1), i + 1);
+    const avgRet  = slice.reduce((s, w) => s + (_picksPerf[w.ticker]['5d'] || 0), 0) / slice.length;
+    pickMAData.push({ time: sec, value: avgRet });
+  });
+
+  // ── Chart 2: winners vs losers per day ───────────────────────
+  const byDay = {};
+  analyzed.forEach(e => {
+    const d   = new Date(e.starredAt);
+    const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    if (!byDay[key]) byDay[key] = { wins: 0, losses: 0 };
+    if ((_picksPerf[e.ticker]['5d'] ?? -1) > 0) byDay[key].wins++;
+    else byDay[key].losses++;
+  });
+
+  const dayKeys = Object.keys(byDay).sort();
+  const dayWinData  = [];
+  const dayLossData = [];
+  const dayMAData   = [];
+
+  dayKeys.forEach((key, i) => {
+    const { wins: dWins, losses: dLosses } = byDay[key];
+    const [yr, mo, da] = key.split('-').map(Number);
+    const t = Math.floor(Date.UTC(yr, mo - 1, da) / 1000);
+
+    dayWinData.push({ time: t, value: dWins });
+    dayLossData.push({ time: t, value: -dLosses });
+
+    // Rolling N-day hit ratio %
+    const slice    = dayKeys.slice(Math.max(0, i - N + 1), i + 1);
+    const totalW   = slice.reduce((s, k) => s + byDay[k].wins, 0);
+    const totalAll = slice.reduce((s, k) => s + byDay[k].wins + byDay[k].losses, 0);
+    const hitRatio = totalAll > 0 ? (totalW / totalAll) * 100 : 0;
+    dayMAData.push({ time: t, value: hitRatio });
+  });
+
+  // ── Render Chart 1 ────────────────────────────────────────────
+  pickEl.innerHTML = '';
+  try {
+    const c1 = LightweightCharts.createChart(pickEl, {
+      autoSize: true,
+      layout:   { background: { color: '#ffffff' }, textColor: '#6b7280' },
+      grid:     { vertLines: { color: '#f0f0f0' }, horzLines: { color: '#f0f0f0' } },
+      rightPriceScale: { borderColor: '#e5e7eb', scaleMargins: { top: 0.1, bottom: 0.1 } },
+      timeScale: { borderColor: '#e5e7eb', timeVisible: true, secondsVisible: false },
+      crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+      handleScroll: true, handleScale: true,
+    });
+    _analyticsCharts['pick'] = c1;
+
+    const hist1 = c1.addHistogramSeries({ priceLineVisible: false, lastValueVisible: false });
+    hist1.setData(pickBarData);
+
+    const line1 = c1.addLineSeries({
+      color: '#1d4ed8', lineWidth: 2,
+      priceLineVisible: false, lastValueVisible: true, crosshairMarkerVisible: true,
+    });
+    line1.setData(pickMAData);
+    c1.timeScale().fitContent();
+  } catch (err) {
+    pickEl.innerHTML = `<div class="pa-loading">Chart error: ${err.message}</div>`;
+  }
+
+  // ── Render Chart 2 ────────────────────────────────────────────
+  dayEl.innerHTML = '';
+  try {
+    const c2 = LightweightCharts.createChart(dayEl, {
+      autoSize: true,
+      layout:   { background: { color: '#ffffff' }, textColor: '#6b7280' },
+      grid:     { vertLines: { color: '#f0f0f0' }, horzLines: { color: '#f0f0f0' } },
+      leftPriceScale:  { visible: true, borderColor: '#e5e7eb', scaleMargins: { top: 0.1, bottom: 0.1 } },
+      rightPriceScale: { visible: true, borderColor: '#e5e7eb', scaleMargins: { top: 0.15, bottom: 0.15 } },
+      timeScale: { borderColor: '#e5e7eb', timeVisible: true, secondsVisible: false },
+      crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+      handleScroll: true, handleScale: true,
+    });
+    _analyticsCharts['day'] = c2;
+
+    const winSeries = c2.addHistogramSeries({
+      color: 'rgba(10,124,78,0.7)', priceScaleId: 'left',
+      priceLineVisible: false, lastValueVisible: false,
+    });
+    winSeries.setData(dayWinData);
+
+    const lossSeries = c2.addHistogramSeries({
+      color: 'rgba(200,41,58,0.7)', priceScaleId: 'left',
+      priceLineVisible: false, lastValueVisible: false,
+    });
+    lossSeries.setData(dayLossData);
+
+    const line2 = c2.addLineSeries({
+      color: '#1d4ed8', lineWidth: 2, priceScaleId: 'right',
+      priceLineVisible: false, lastValueVisible: true, crosshairMarkerVisible: true,
+    });
+    line2.setData(dayMAData);
+    c2.timeScale().fitContent();
+  } catch (err) {
+    dayEl.innerHTML = `<div class="pa-loading">Chart error: ${err.message}</div>`;
+  }
+}
+
+function _clearAnalyticsStats() {
+  ['pa-stat-hit','pa-stat-total','pa-stat-pending','pa-stat-avg'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.textContent = '—'; el.className = 'pa-stat-val'; }
   });
 }
 
@@ -5490,7 +5864,12 @@ function switchTab(tab) {
   });
   if (tab === 'sectors' && !sectorsLoaded && marketMode !== 'PH') loadSectors();
   if (tab === 'imap'    && !imapLoaded    && marketMode !== 'PH') loadIndustryMap(false);
-  if (tab === 'picks') { if (picksViewMode === 'list') renderPicksList(); else renderStarredCharts(); }
+  if (tab === 'picks') {
+    _destroyAnalyticsCharts();
+    if (picksViewMode === 'analytics') renderPicksAnalytics();
+    else if (picksViewMode === 'list') renderPicksList();
+    else renderStarredCharts();
+  }
 }
 
 // ============================================================
