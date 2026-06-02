@@ -5575,8 +5575,10 @@ async function renderPicksAnalytics() {
     return;
   }
 
-  // Fetch performance for any pick not yet loaded
-  const needsFetch = liked.filter(e => !_picksPerf[e.ticker]);
+  // Fetch performance for any pick not yet loaded (keyed by ticker+starredAt so each
+  // dated entry is tracked independently — same ticker starred on different dates gets
+  // separate performance data, preventing an older entry's result from polluting a newer one)
+  const needsFetch = liked.filter(e => !_picksPerf[`${e.ticker}_${e.starredAt}`]);
   if (needsFetch.length > 0) {
     await Promise.all(needsFetch.map(e => loadPickPerformance(e)));
   }
@@ -5593,25 +5595,25 @@ async function renderPicksAnalytics() {
   // Analyzed = has real return data for selected period; pending = no data yet
   const rp = analyticsReturnPeriod;
   const analyzed = inWindow
-    .filter(e => { const v = _picksPerf[e.ticker]?.[rp]; return v !== null && v !== undefined; })
+    .filter(e => { const v = _picksPerf[`${e.ticker}_${e.starredAt}`]?.[rp]; return v !== null && v !== undefined; })
     .sort((a, b) => a.starredAt - b.starredAt);
 
   const pending = inWindow.filter(e => {
-    const v = _picksPerf[e.ticker]?.[rp];
+    const v = _picksPerf[`${e.ticker}_${e.starredAt}`]?.[rp];
     return v === null || v === undefined;
   });
 
   // Stat cards
   const N = analyticsMALength;
   const totalAnalyzed = analyzed.length;
-  const wins = analyzed.filter(e => _picksPerf[e.ticker][rp] > 0);
+  const wins = analyzed.filter(e => _picksPerf[`${e.ticker}_${e.starredAt}`][rp] > 0);
   const overallHitRatio = totalAnalyzed > 0 ? Math.round((wins.length / totalAnalyzed) * 100) : null;
 
-  const loserEntries  = analyzed.filter(e => _picksPerf[e.ticker][rp] <= 0);
+  const loserEntries  = analyzed.filter(e => _picksPerf[`${e.ticker}_${e.starredAt}`][rp] <= 0);
   const avgWinReturn  = wins.length > 0
-    ? wins.reduce((s, e) => s + _picksPerf[e.ticker][rp], 0) / wins.length : null;
+    ? wins.reduce((s, e) => s + _picksPerf[`${e.ticker}_${e.starredAt}`][rp], 0) / wins.length : null;
   const avgLossReturn = loserEntries.length > 0
-    ? loserEntries.reduce((s, e) => s + _picksPerf[e.ticker][rp], 0) / loserEntries.length : null;
+    ? loserEntries.reduce((s, e) => s + _picksPerf[`${e.ticker}_${e.starredAt}`][rp], 0) / loserEntries.length : null;
   const hitRateFrac = totalAnalyzed > 0 ? wins.length / totalAnalyzed : null;
   const expectancy  = (hitRateFrac !== null && avgWinReturn !== null && avgLossReturn !== null)
     ? (hitRateFrac * avgWinReturn) + ((1 - hitRateFrac) * avgLossReturn) : null;
@@ -5646,14 +5648,14 @@ async function renderPicksAnalytics() {
   const pickByTime  = new Map(); // sec → { entry, ret, maHitRatio }
 
   analyzed.forEach((e, i) => {
-    const ret = _picksPerf[e.ticker][rp];
+    const ret = _picksPerf[`${e.ticker}_${e.starredAt}`][rp];
     let sec = Math.floor(e.starredAt / 1000);
     while (usedSecs.has(sec)) sec += 1;
     usedSecs.add(sec);
 
     // Rolling N-pick hit ratio
     const slice      = analyzed.slice(Math.max(0, i - N + 1), i + 1);
-    const sliceWins  = slice.filter(w => (_picksPerf[w.ticker][rp] ?? -1) > 0).length;
+    const sliceWins  = slice.filter(w => (_picksPerf[`${w.ticker}_${w.starredAt}`][rp] ?? -1) > 0).length;
     const maHitRatio = (sliceWins / slice.length) * 100;
 
     pickBarData.push({ time: sec, value: ret, color: ret > 0 ? 'rgba(10,124,78,0.7)' : 'rgba(200,41,58,0.7)' });
@@ -5667,7 +5669,7 @@ async function renderPicksAnalytics() {
     const d   = new Date(e.starredAt);
     const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     if (!byDay[key]) byDay[key] = { wins: 0, losses: 0, picks: [] };
-    const ret = _picksPerf[e.ticker][rp];
+    const ret = _picksPerf[`${e.ticker}_${e.starredAt}`][rp];
     if (ret > 0) byDay[key].wins++;
     else byDay[key].losses++;
     byDay[key].picks.push({ ticker: e.ticker, ret });
@@ -5705,11 +5707,11 @@ async function renderPicksAnalytics() {
   // ── Aggression rank (composite: pick-based + day-based rolling expectancy) ──
   const rollingPickExp = analyzed.map((_, i) => {
     const sl  = analyzed.slice(Math.max(0, i - N + 1), i + 1);
-    const sw  = sl.filter(w => _picksPerf[w.ticker][rp] > 0);
-    const sl2 = sl.filter(w => _picksPerf[w.ticker][rp] <= 0);
+    const sw  = sl.filter(w => _picksPerf[`${w.ticker}_${w.starredAt}`][rp] > 0);
+    const sl2 = sl.filter(w => _picksPerf[`${w.ticker}_${w.starredAt}`][rp] <= 0);
     const hr = sw.length / sl.length;
-    const aw = sw.length  > 0 ? sw.reduce((s,w)  => s + _picksPerf[w.ticker][rp], 0) / sw.length  : 0;
-    const al = sl2.length > 0 ? sl2.reduce((s,w) => s + _picksPerf[w.ticker][rp], 0) / sl2.length : 0;
+    const aw = sw.length  > 0 ? sw.reduce((s,w)  => s + _picksPerf[`${w.ticker}_${w.starredAt}`][rp], 0) / sw.length  : 0;
+    const al = sl2.length > 0 ? sl2.reduce((s,w) => s + _picksPerf[`${w.ticker}_${w.starredAt}`][rp], 0) / sl2.length : 0;
     return hr * aw + (1 - hr) * al;
   });
   const rollingDayExp = dayKeys.map((_, j) => {
@@ -5720,11 +5722,11 @@ async function renderPicksAnalytics() {
       const k = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
       return daySliceSet.has(k);
     });
-    const sw = slicePicks.filter(e => _picksPerf[e.ticker][rp] > 0);
-    const sl = slicePicks.filter(e => _picksPerf[e.ticker][rp] <= 0);
+    const sw = slicePicks.filter(e => _picksPerf[`${e.ticker}_${e.starredAt}`][rp] > 0);
+    const sl = slicePicks.filter(e => _picksPerf[`${e.ticker}_${e.starredAt}`][rp] <= 0);
     const hr = slicePicks.length > 0 ? sw.length / slicePicks.length : 0;
-    const aw = sw.length > 0 ? sw.reduce((s,e) => s + _picksPerf[e.ticker][rp], 0) / sw.length : 0;
-    const al = sl.length > 0 ? sl.reduce((s,e) => s + _picksPerf[e.ticker][rp], 0) / sl.length : 0;
+    const aw = sw.length > 0 ? sw.reduce((s,e) => s + _picksPerf[`${e.ticker}_${e.starredAt}`][rp], 0) / sw.length : 0;
+    const al = sl.length > 0 ? sl.reduce((s,e) => s + _picksPerf[`${e.ticker}_${e.starredAt}`][rp], 0) / sl.length : 0;
     return hr * aw + (1 - hr) * al;
   });
   const _rankInWindow = series => {
@@ -5991,7 +5993,7 @@ async function loadPickPerformance(entry) {
     const { bars } = await fetchYF(yTicker, '2y', '1d');
     if (!bars || !bars.length) {
       perfIds.forEach(p => setCell(p, null));
-      _picksPerf[ticker] = { '5d': null, '2w': null, '1m': null, '3m': null, '6m': null, '1y': null };
+      _picksPerf[`${ticker}_${starTs}`] = { '5d': null, '2w': null, '1m': null, '3m': null, '6m': null, '1y': null };
       updatePicksSummary();
       return;
     }
@@ -6012,7 +6014,7 @@ async function loadPickPerformance(entry) {
     const refPrice = bars[starIdx].c;
     if (!refPrice) {
       perfIds.forEach(p => setCell(p, null));
-      _picksPerf[ticker] = { '5d': null, '2w': null, '1m': null, '3m': null, '6m': null, '1y': null };
+      _picksPerf[`${ticker}_${starTs}`] = { '5d': null, '2w': null, '1m': null, '3m': null, '6m': null, '1y': null };
       updatePicksSummary();
       return;
     }
@@ -6031,11 +6033,11 @@ async function loadPickPerformance(entry) {
     setCell('6m', r6m);
     setCell('1y', r1y);
 
-    _picksPerf[ticker] = { '5d': r5d, '2w': r2w, '1m': r1m, '3m': r3m, '6m': r6m, '1y': r1y };
+    _picksPerf[`${ticker}_${starTs}`] = { '5d': r5d, '2w': r2w, '1m': r1m, '3m': r3m, '6m': r6m, '1y': r1y };
     updatePicksSummary();
   } catch(err) {
     perfIds.forEach(p => setCell(p, null));
-    _picksPerf[ticker] = { '5d': null, '1m': null, '3m': null, '1y': null };
+    _picksPerf[`${ticker}_${starTs}`] = { '5d': null, '2w': null, '1m': null, '3m': null, '6m': null, '1y': null };
     updatePicksSummary();
   }
 }
