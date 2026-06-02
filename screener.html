@@ -1529,6 +1529,19 @@
     font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--text3);
     text-align:center; padding:20px;
   }
+  .pa-tooltip {
+    position:fixed; display:none; z-index:9999;
+    background:#fff; border:1px solid #e5e7eb; border-radius:6px;
+    padding:10px 13px; pointer-events:none;
+    box-shadow:0 4px 16px rgba(0,0,0,0.12);
+    min-width:160px; max-width:250px;
+  }
+  .pa-tt-ticker { font-family:'IBM Plex Mono',monospace; font-size:13px; font-weight:700; color:#111; margin-bottom:2px; }
+  .pa-tt-sub    { font-family:'IBM Plex Sans',sans-serif; font-size:9px; color:#9ca3af; margin-bottom:7px; }
+  .pa-tt-row    { display:flex; justify-content:space-between; gap:14px; font-family:'IBM Plex Mono',monospace; font-size:10px; color:#6b7280; margin-bottom:3px; }
+  .pa-tt-divider{ border-top:1px solid #e5e7eb; margin:6px 0; }
+  .pa-tt-pick   { display:flex; justify-content:space-between; gap:14px; font-family:'IBM Plex Mono',monospace; font-size:10px; margin-bottom:2px; }
+  .pa-tt-more   { font-family:'IBM Plex Sans',sans-serif; font-size:9px; color:#9ca3af; margin-top:3px; }
 
   .rank-tf-scores {
     display: flex;
@@ -2561,7 +2574,7 @@
         </div>
         <!-- Chart 1 -->
         <div class="pa-chart-section">
-          <div class="pa-chart-title">5D RETURN PER PICK — Rolling MA of avg return</div>
+          <div class="pa-chart-title">5D RETURN PER PICK — Bars = actual return · Blue line = rolling hit ratio %</div>
           <div class="pa-chart-container" id="pa-chart-pick"></div>
         </div>
         <!-- Chart 2 -->
@@ -5570,11 +5583,11 @@ async function renderPicksAnalytics() {
 
   const N = analyticsMALength;
 
-  // ── Chart 1: 5D return per pick ──────────────────────────────
-  // Deduplicate timestamps (picks starred at same second)
-  const usedSecs = new Set();
+  // ── Chart 1 data ─────────────────────────────────────────────
+  const usedSecs   = new Set();
   const pickBarData = [];
   const pickMAData  = [];
+  const pickByTime  = new Map(); // sec → { entry, ret, maHitRatio }
 
   analyzed.forEach((e, i) => {
     const ret = _picksPerf[e.ticker]['5d'];
@@ -5582,48 +5595,77 @@ async function renderPicksAnalytics() {
     while (usedSecs.has(sec)) sec += 1;
     usedSecs.add(sec);
 
-    pickBarData.push({
-      time:  sec,
-      value: ret,
-      color: ret > 0 ? 'rgba(10,124,78,0.7)' : 'rgba(200,41,58,0.7)',
-    });
+    // Rolling N-pick hit ratio
+    const slice      = analyzed.slice(Math.max(0, i - N + 1), i + 1);
+    const sliceWins  = slice.filter(w => (_picksPerf[w.ticker]['5d'] ?? -1) > 0).length;
+    const maHitRatio = (sliceWins / slice.length) * 100;
 
-    // Rolling N-pick average return
-    const slice   = analyzed.slice(Math.max(0, i - N + 1), i + 1);
-    const avgRet  = slice.reduce((s, w) => s + (_picksPerf[w.ticker]['5d'] || 0), 0) / slice.length;
-    pickMAData.push({ time: sec, value: avgRet });
+    pickBarData.push({ time: sec, value: ret, color: ret > 0 ? 'rgba(10,124,78,0.7)' : 'rgba(200,41,58,0.7)' });
+    pickMAData.push({ time: sec, value: maHitRatio });
+    pickByTime.set(sec, { entry: e, ret, maHitRatio });
   });
 
-  // ── Chart 2: winners vs losers per day ───────────────────────
+  // ── Chart 2 data ─────────────────────────────────────────────
   const byDay = {};
   analyzed.forEach(e => {
     const d   = new Date(e.starredAt);
     const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-    if (!byDay[key]) byDay[key] = { wins: 0, losses: 0 };
-    if ((_picksPerf[e.ticker]['5d'] ?? -1) > 0) byDay[key].wins++;
+    if (!byDay[key]) byDay[key] = { wins: 0, losses: 0, picks: [] };
+    const ret = _picksPerf[e.ticker]['5d'];
+    if (ret > 0) byDay[key].wins++;
     else byDay[key].losses++;
+    byDay[key].picks.push({ ticker: e.ticker, ret });
   });
 
-  const dayKeys = Object.keys(byDay).sort();
+  const dayKeys     = Object.keys(byDay).sort();
   const dayWinData  = [];
   const dayLossData = [];
   const dayMAData   = [];
+  const dayByTime   = new Map(); // midnight sec → day stats
 
   dayKeys.forEach((key, i) => {
-    const { wins: dWins, losses: dLosses } = byDay[key];
+    const { wins: dWins, losses: dLosses, picks: dPicks } = byDay[key];
     const [yr, mo, da] = key.split('-').map(Number);
     const t = Math.floor(Date.UTC(yr, mo - 1, da) / 1000);
 
     dayWinData.push({ time: t, value: dWins });
     dayLossData.push({ time: t, value: -dLosses });
 
-    // Rolling N-day hit ratio %
     const slice    = dayKeys.slice(Math.max(0, i - N + 1), i + 1);
     const totalW   = slice.reduce((s, k) => s + byDay[k].wins, 0);
     const totalAll = slice.reduce((s, k) => s + byDay[k].wins + byDay[k].losses, 0);
-    const hitRatio = totalAll > 0 ? (totalW / totalAll) * 100 : 0;
-    dayMAData.push({ time: t, value: hitRatio });
+    const maHitRatio = totalAll > 0 ? (totalW / totalAll) * 100 : 0;
+    dayMAData.push({ time: t, value: maHitRatio });
+
+    dayByTime.set(t, {
+      dateKey: key,
+      wins: dWins, losses: dLosses,
+      dayHitRatio: Math.round((dWins / (dWins + dLosses)) * 100),
+      maHitRatio,
+      picks: dPicks.slice().sort((a, b) => b.ret - a.ret),
+    });
   });
+
+  // ── Shared floating tooltip ───────────────────────────────────
+  let tooltip = document.getElementById('pa-tooltip');
+  if (!tooltip) {
+    tooltip = document.createElement('div');
+    tooltip.id        = 'pa-tooltip';
+    tooltip.className = 'pa-tooltip';
+    document.body.appendChild(tooltip);
+  }
+  const hideTooltip = () => { tooltip.style.display = 'none'; };
+  const showTooltip = (clientX, clientY, html) => {
+    tooltip.innerHTML    = html;
+    tooltip.style.display = 'block';
+    const tw = tooltip.offsetWidth, th = tooltip.offsetHeight;
+    let left = clientX + 16, top = clientY - 20;
+    if (left + tw > window.innerWidth  - 8) left = clientX - tw - 16;
+    if (top  + th > window.innerHeight - 8) top  = window.innerHeight - th - 8;
+    if (top < 8) top = 8;
+    tooltip.style.left = `${left}px`;
+    tooltip.style.top  = `${top}px`;
+  };
 
   // ── Render Chart 1 ────────────────────────────────────────────
   pickEl.innerHTML = '';
@@ -5648,6 +5690,24 @@ async function renderPicksAnalytics() {
     });
     line1.setData(pickMAData);
     c1.timeScale().fitContent();
+
+    c1.subscribeCrosshairMove(param => {
+      if (!param.point || param.point.x < 0 || !param.time || !param.seriesData.get(hist1)) { hideTooltip(); return; }
+      const d = pickByTime.get(param.time);
+      if (!d) { hideTooltip(); return; }
+      const rect    = pickEl.getBoundingClientRect();
+      const retSign = d.ret >= 0 ? '+' : '';
+      const retCol  = d.ret >= 0 ? '#0a7c4e' : '#c8293a';
+      const dateStr = new Date(d.entry.starredAt).toLocaleDateString('en-US', { day:'numeric', month:'short', year:'numeric' });
+      showTooltip(rect.left + param.point.x, rect.top + param.point.y, `
+        <div class="pa-tt-ticker">${d.entry.ticker}</div>
+        <div class="pa-tt-sub">Starred ${dateStr}</div>
+        <div class="pa-tt-row"><span>5D Return</span><span style="color:${retCol};font-weight:700">${retSign}${d.ret.toFixed(2)}%</span></div>
+        <div class="pa-tt-divider"></div>
+        <div class="pa-tt-row"><span>Hit Ratio (MA ${N})</span><span style="font-weight:700">${d.maHitRatio.toFixed(0)}%</span></div>
+      `);
+    });
+    pickEl.addEventListener('mouseleave', hideTooltip);
   } catch (err) {
     pickEl.innerHTML = `<div class="pa-loading">Chart error: ${err.message}</div>`;
   }
@@ -5685,6 +5745,30 @@ async function renderPicksAnalytics() {
     });
     line2.setData(dayMAData);
     c2.timeScale().fitContent();
+
+    c2.subscribeCrosshairMove(param => {
+      if (!param.point || param.point.x < 0 || !param.time || (!param.seriesData.get(winSeries) && !param.seriesData.get(lossSeries))) { hideTooltip(); return; }
+      const d = dayByTime.get(param.time);
+      if (!d) { hideTooltip(); return; }
+      const rect    = dayEl.getBoundingClientRect();
+      const [yr, mo, da] = d.dateKey.split('-').map(Number);
+      const dateStr = new Date(Date.UTC(yr, mo-1, da)).toLocaleDateString('en-US', { day:'numeric', month:'short', year:'numeric', timeZone:'UTC' });
+      const picksHtml = d.picks.slice(0, 6).map(p => {
+        const s = p.ret >= 0 ? '+' : '';
+        const c = p.ret >= 0 ? '#0a7c4e' : '#c8293a';
+        return `<div class="pa-tt-pick"><span>${p.ticker}</span><span style="color:${c}">${s}${p.ret.toFixed(2)}%</span></div>`;
+      }).join('');
+      const moreStr = d.picks.length > 6 ? `<div class="pa-tt-more">+${d.picks.length - 6} more</div>` : '';
+      showTooltip(rect.left + param.point.x, rect.top + param.point.y, `
+        <div class="pa-tt-ticker">${dateStr}</div>
+        <div class="pa-tt-row"><span style="color:#0a7c4e">↑ ${d.wins} winner${d.wins !== 1 ? 's' : ''}</span><span style="color:#c8293a">↓ ${d.losses} loser${d.losses !== 1 ? 's' : ''}</span></div>
+        <div class="pa-tt-row"><span>Day Hit Ratio</span><span style="font-weight:700">${d.dayHitRatio}%</span></div>
+        <div class="pa-tt-row"><span>Rolling MA (${N})</span><span style="font-weight:700">${d.maHitRatio.toFixed(0)}%</span></div>
+        <div class="pa-tt-divider"></div>
+        ${picksHtml}${moreStr}
+      `);
+    });
+    dayEl.addEventListener('mouseleave', hideTooltip);
   } catch (err) {
     dayEl.innerHTML = `<div class="pa-loading">Chart error: ${err.message}</div>`;
   }
