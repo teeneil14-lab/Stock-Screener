@@ -1581,17 +1581,21 @@
   .cal-cell.other-month { background:#fafafa; opacity:0.4; }
   .cal-cell.has-picks { border-color:transparent; }
   .cal-date-num { font-family:'IBM Plex Mono',monospace; font-size:11px; font-weight:700; line-height:1; margin-bottom:4px; }
-  .cal-cell.has-picks .cal-date-num { color:rgba(255,255,255,0.9); }
   .cal-cell:not(.has-picks) .cal-date-num { color:var(--text3); }
-  .cal-badge { font-family:'IBM Plex Mono',monospace; font-size:9px; font-weight:600; color:rgba(255,255,255,0.95); margin-top:auto; letter-spacing:0.02em; padding-top:3px; }
-  .cal-picks-list { display:flex; flex-direction:column; gap:2px; margin-top:2px; flex:1; }
-  .cal-pick-row { display:flex; justify-content:space-between; align-items:center; gap:4px; }
-  .cal-pick-ticker { font-family:'IBM Plex Mono',monospace; font-size:9px; font-weight:700; color:rgba(255,255,255,0.95); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:55%; }
-  .cal-pick-ret { font-family:'IBM Plex Mono',monospace; font-size:9px; font-weight:600; white-space:nowrap; }
-  .cal-pick-ret.win    { color:rgba(255,255,255,0.95); }
-  .cal-pick-ret.loss   { color:rgba(255,210,210,0.95); }
-  .cal-pick-ret.pending { color:rgba(255,255,255,0.55); font-style:italic; }
+  .cal-badge { font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:700; margin-top:auto; letter-spacing:0.02em; padding-top:3px; }
+  .cal-picks-list { display:flex; flex-direction:column; gap:3px; margin-top:4px; flex:1; }
+  .cal-pick-row { display:flex; justify-content:space-between; align-items:center; gap:4px; cursor:pointer; border-radius:3px; padding:1px 2px; transition:opacity 0.1s; }
+  .cal-pick-row:hover { opacity:0.75; }
+  .cal-pick-ticker { font-family:'IBM Plex Mono',monospace; font-size:11px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:55%; }
+  .cal-pick-ret { font-family:'IBM Plex Mono',monospace; font-size:11px; font-weight:700; white-space:nowrap; }
   .cal-empty { font-family:'IBM Plex Sans',sans-serif; font-size:12px; color:var(--text3); text-align:center; padding:40px 20px; }
+  .cal-chart-header { display:flex; align-items:center; justify-content:space-between; padding:12px 20px 10px; border-top:2px solid var(--border); gap:12px; flex-wrap:wrap; background:#fafafa; }
+  .cal-chart-label-wrap { display:flex; align-items:center; gap:8px; }
+  .cal-chart-label-pre { font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--text3); letter-spacing:0.06em; }
+  .cal-chart-symbol { font-family:'IBM Plex Mono',monospace; font-size:13px; font-weight:700; color:var(--text); }
+  .cal-chart-controls { display:flex; align-items:center; gap:6px; }
+  .cal-tv-widget-wrap { height:440px; }
+  #picks-calendar-chart.chart-hidden .cal-tv-widget-wrap { display:none; }
 
   .rank-tf-scores {
     display: flex;
@@ -2669,6 +2673,21 @@
         </div>
       </div>
       <div id="picks-calendar-wrap" class="picks-calendar-wrap" style="display:none"></div>
+      <div id="picks-calendar-chart" class="picks-calendar-chart" style="display:none">
+        <div class="cal-chart-header">
+          <div class="cal-chart-label-wrap">
+            <span class="cal-chart-label-pre">TRADINGVIEW</span>
+            <span class="cal-chart-symbol" id="cal-chart-symbol-label">— select a pick</span>
+          </div>
+          <div class="cal-chart-controls">
+            <button class="picks-tf-btn active" id="cal-chart-mode-D" onclick="setCalendarChartMode('D')">DAILY</button>
+            <button class="picks-tf-btn" id="cal-chart-mode-W" onclick="setCalendarChartMode('W')">WEEKLY</button>
+            <button class="picks-tf-btn" id="cal-chart-mode-M" onclick="setCalendarChartMode('M')">MONTHLY</button>
+            <button class="picks-view-btn" id="cal-chart-hide-btn" onclick="toggleCalendarChart()">↓ HIDE CHART</button>
+          </div>
+        </div>
+        <div id="cal-tv-widget-wrap" class="cal-tv-widget-wrap"></div>
+      </div>
     </div>
   </div>
 </div><!-- /tab-picks -->
@@ -5422,6 +5441,7 @@ function _syncPicksToolbar() {
   const calendarBtn  = document.getElementById('picks-calendar-btn');
   const analyticsEl  = document.getElementById('picks-analytics');
   const calendarEl   = document.getElementById('picks-calendar-wrap');
+  const calChartEl   = document.getElementById('picks-calendar-chart');
   const gridEl       = document.getElementById('picks-grid');
   if (picksViewMode === 'analytics') {
     if (tfGroup)      tfGroup.style.display    = 'none';
@@ -5430,6 +5450,7 @@ function _syncPicksToolbar() {
     if (calendarBtn)  calendarBtn.classList.remove('active');
     if (analyticsEl)  analyticsEl.style.display = '';
     if (calendarEl)   calendarEl.style.display  = 'none';
+    if (calChartEl)   calChartEl.style.display  = 'none';
     if (gridEl)       gridEl.style.display      = 'none';
   } else if (picksViewMode === 'calendar') {
     if (tfGroup)      tfGroup.style.display    = 'none';
@@ -5438,6 +5459,7 @@ function _syncPicksToolbar() {
     if (calendarBtn)  calendarBtn.classList.add('active');
     if (analyticsEl)  analyticsEl.style.display = 'none';
     if (calendarEl)   calendarEl.style.display  = '';
+    if (calChartEl)   calChartEl.style.display  = '';
     if (gridEl)       gridEl.style.display      = 'none';
   } else if (picksViewMode === 'list') {
     if (tfGroup)      tfGroup.style.display    = 'none';
@@ -5446,6 +5468,7 @@ function _syncPicksToolbar() {
     if (calendarBtn)  calendarBtn.classList.remove('active');
     if (analyticsEl)  analyticsEl.style.display = 'none';
     if (calendarEl)   calendarEl.style.display  = 'none';
+    if (calChartEl)   calChartEl.style.display  = 'none';
     if (gridEl)       gridEl.style.display      = '';
   } else {
     if (tfGroup)      tfGroup.style.display    = '';
@@ -5454,6 +5477,7 @@ function _syncPicksToolbar() {
     if (calendarBtn)  calendarBtn.classList.remove('active');
     if (analyticsEl)  analyticsEl.style.display = 'none';
     if (calendarEl)   calendarEl.style.display  = 'none';
+    if (calChartEl)   calChartEl.style.display  = 'none';
     if (gridEl)       gridEl.style.display      = '';
   }
 }
@@ -5685,20 +5709,31 @@ function buildPicksDayMap(rp) {
 }
 
 function _calHitRatioColor(pct) {
-  const r = pct / 100;
-  let red, green, blue;
-  if (r < 0.5) {
-    const t = r * 2;
-    red   = Math.round(220 + (217 - 220) * t);
-    green = Math.round(38  + (119 - 38)  * t);
-    blue  = Math.round(38  + (6   - 38)  * t);
-  } else {
-    const t = (r - 0.5) * 2;
-    red   = Math.round(217 + (10  - 217) * t);
-    green = Math.round(119 + (124 - 119) * t);
-    blue  = Math.round(6   + (78  - 6)   * t);
-  }
-  return `rgb(${red},${green},${blue})`;
+  // 9-stop scale: dark red → red → light red → pink → pale pink | pale mint → light green → green → dark green → accent green
+  const stops = [
+    [0,   [139,   0,   0]],
+    [12,  [192,  57,  43]],
+    [26,  [231,  76,  60]],
+    [40,  [239, 154, 154]],
+    [50,  [252, 222, 228]],
+    [60,  [210, 237, 190]],
+    [72,  [102, 187, 106]],
+    [86,  [ 46, 125,  50]],
+    [100, [ 10, 124,  78]],
+  ];
+  let i = 0;
+  while (i < stops.length - 2 && stops[i + 1][0] <= pct) i++;
+  const [p0, c0] = stops[i];
+  const [p1, c1] = stops[i + 1];
+  const t = p1 === p0 ? 1 : (pct - p0) / (p1 - p0);
+  const r = Math.round(c0[0] + (c1[0] - c0[0]) * t);
+  const g = Math.round(c0[1] + (c1[1] - c0[1]) * t);
+  const b = Math.round(c0[2] + (c1[2] - c0[2]) * t);
+  const lum = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+  const text     = lum > 0.45 ? '#111111' : '#ffffff';
+  const winColor = lum > 0.45 ? '#1a6e2a' : '#a8f0b0';
+  const lossColor= lum > 0.45 ? '#8b0000' : '#ffb0b0';
+  return { bg: `rgb(${r},${g},${b})`, text, winColor, lossColor };
 }
 
 function prevCalendarMonth() {
@@ -5714,6 +5749,77 @@ function nextCalendarMonth() {
 function toggleCalendarShowPicks() {
   calendarShowPicks = !calendarShowPicks;
   renderPicksCalendar();
+}
+
+let calendarChartMode    = 'D';
+let calendarChartVisible = true;
+let calendarChartTicker  = null;
+
+function loadCalendarChart(ticker) {
+  calendarChartTicker = ticker;
+  const labelEl = document.getElementById('cal-chart-symbol-label');
+  if (labelEl) labelEl.textContent = ticker;
+
+  // If chart was hidden, reveal it when a pick is clicked
+  if (!calendarChartVisible) {
+    calendarChartVisible = true;
+    const chartEl = document.getElementById('picks-calendar-chart');
+    if (chartEl) chartEl.classList.remove('chart-hidden');
+    const hideBtn = document.getElementById('cal-chart-hide-btn');
+    if (hideBtn) hideBtn.textContent = '↓ HIDE CHART';
+  }
+
+  const wrap = document.getElementById('cal-tv-widget-wrap');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+
+  const panel = document.createElement('div');
+  panel.style.cssText = 'height:100%;width:100%;';
+  panel.innerHTML = `
+    <div class="tradingview-widget-container" style="height:100%;width:100%">
+      <div class="tradingview-widget-container__widget" style="height:calc(100% - 32px);width:100%"></div>
+      <div class="tradingview-widget-copyright">
+        <a href="https://www.tradingview.com/" rel="noopener nofollow" target="_blank">
+          <span style="color:#2962ff">TradingView</span>
+        </a>
+      </div>
+    </div>`;
+  wrap.appendChild(panel);
+
+  const script = document.createElement('script');
+  script.type  = 'text/javascript';
+  script.src   = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
+  script.async = true;
+  const tvConfig = {
+    autosize: true, symbol: ticker, interval: calendarChartMode,
+    theme: 'light', style: '1', locale: 'en', timezone: 'Etc/UTC',
+    backgroundColor: '#ffffff', gridColor: 'rgba(46,46,46,0.06)',
+    allow_symbol_change: true, hide_side_toolbar: true,
+    hide_top_toolbar: false, hide_legend: false, hide_volume: false,
+    save_image: true, withdateranges: false, calendar: false,
+    hotlist: false, details: false, watchlist: [], compareSymbols: [],
+    studies: DEFAULT_STUDIES,
+  };
+  if (calendarChartMode === 'D') tvConfig.range = '12M';
+  script.innerHTML = JSON.stringify(tvConfig);
+  panel.querySelector('.tradingview-widget-container').appendChild(script);
+}
+
+function setCalendarChartMode(mode) {
+  calendarChartMode = mode;
+  ['D','W','M'].forEach(m => {
+    const btn = document.getElementById(`cal-chart-mode-${m}`);
+    if (btn) btn.classList.toggle('active', m === mode);
+  });
+  if (calendarChartTicker) loadCalendarChart(calendarChartTicker);
+}
+
+function toggleCalendarChart() {
+  calendarChartVisible = !calendarChartVisible;
+  const chartEl = document.getElementById('picks-calendar-chart');
+  const btn     = document.getElementById('cal-chart-hide-btn');
+  if (chartEl) chartEl.classList.toggle('chart-hidden', !calendarChartVisible);
+  if (btn)     btn.textContent = calendarChartVisible ? '↓ HIDE CHART' : '↑ SHOW CHART';
 }
 
 async function renderPicksCalendar() {
@@ -5768,12 +5874,12 @@ async function renderPicksCalendar() {
       let pendingInner = '';
       if (calendarShowPicks && pendingPicks.length > 0) {
         pendingInner = `<div class="cal-picks-list">${pendingPicks.map(p =>
-          `<div class="cal-pick-row"><span class="cal-pick-ticker">${p.ticker}</span><span class="cal-pick-ret pending">—</span></div>`
+          `<div class="cal-pick-row" onclick="loadCalendarChart('${p.ticker}')"><span class="cal-pick-ticker" style="color:var(--text)">${p.ticker}</span><span class="cal-pick-ret" style="color:var(--text3);font-style:italic">—</span></div>`
         ).join('')}</div>`;
       }
       cellsHTML += `<div class="cal-cell"><span class="cal-date-num">${d}</span>${pendingInner}</div>`;
     } else {
-      const bg    = data.dayHitRatio !== null ? _calHitRatioColor(data.dayHitRatio) : '#9ca3af';
+      const color = data.dayHitRatio !== null ? _calHitRatioColor(data.dayHitRatio) : { bg:'#9ca3af', text:'#fff', winColor:'#a8f0b0', lossColor:'#ffb0b0' };
       const badge = `${data.wins}W / ${data.losses}L`;
       let picksInner = '';
       if (calendarShowPicks) {
@@ -5783,16 +5889,18 @@ async function renderPicksCalendar() {
           return (b.ret ?? -999) - (a.ret ?? -999);
         });
         picksInner = `<div class="cal-picks-list">${sorted.map(p => {
-          if (p.pending) return `<div class="cal-pick-row"><span class="cal-pick-ticker">${p.ticker}</span><span class="cal-pick-ret pending">—</span></div>`;
+          if (p.pending) {
+            return `<div class="cal-pick-row" onclick="loadCalendarChart('${p.ticker}')"><span class="cal-pick-ticker" style="color:${color.text};opacity:0.7">${p.ticker}</span><span class="cal-pick-ret" style="color:${color.text};opacity:0.5;font-style:italic">—</span></div>`;
+          }
           const sign = p.ret > 0 ? '+' : '';
-          const cls  = p.ret > 0 ? 'win' : 'loss';
-          return `<div class="cal-pick-row"><span class="cal-pick-ticker">${p.ticker}</span><span class="cal-pick-ret ${cls}">${sign}${p.ret.toFixed(1)}%</span></div>`;
+          const retColor = p.ret > 0 ? color.winColor : color.lossColor;
+          return `<div class="cal-pick-row" onclick="loadCalendarChart('${p.ticker}')"><span class="cal-pick-ticker" style="color:${color.text}">${p.ticker}</span><span class="cal-pick-ret" style="color:${retColor}">${sign}${p.ret.toFixed(1)}%</span></div>`;
         }).join('')}</div>`;
       }
-      cellsHTML += `<div class="cal-cell has-picks" style="background:${bg}">
-        <span class="cal-date-num">${d}</span>
+      cellsHTML += `<div class="cal-cell has-picks" style="background:${color.bg}">
+        <span class="cal-date-num" style="color:${color.text}">${d}</span>
         ${picksInner}
-        <span class="cal-badge">${badge}</span>
+        <span class="cal-badge" style="color:${color.text}">${badge}</span>
       </div>`;
     }
   }
