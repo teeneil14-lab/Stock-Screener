@@ -1493,6 +1493,14 @@
   .pa-ret-btn:hover { background:var(--bg3); }
   .pa-ret-btn.active { background:#1d4ed8; color:#fff; border-color:#1d4ed8; }
   .pa-controls-sep { width:1px; height:20px; background:var(--border); margin:0 4px; }
+  .pa-mode-btn {
+    font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:600; letter-spacing:0.06em;
+    background:transparent; color:var(--text2); border:1px solid var(--border); border-radius:4px;
+    padding:5px 10px; cursor:pointer; transition:background 0.15s,color 0.15s;
+    border-style:dashed;
+  }
+  .pa-mode-btn:hover { background:var(--bg3); }
+  .pa-mode-btn.active { background:#b45309; color:#fff; border-color:#b45309; border-style:solid; }
   .pa-ma-wrap {
     display:flex; align-items:center; gap:5px; margin-left:10px;
   }
@@ -2569,6 +2577,9 @@
             <input class="pa-ma-input" id="pa-ma-input" type="number" value="10" min="2" max="50"
               onchange="setAnalyticsMA()" onblur="setAnalyticsMA()"/>
           </div>
+          <div class="pa-controls-sep"></div>
+          <button class="pa-mode-btn" id="pa-mode-live"   onclick="setAnalyticsMode('live')">LIVE</button>
+          <button class="pa-mode-btn" id="pa-mode-kicker" onclick="setAnalyticsMode('kicker')">KICKER HELD</button>
         </div>
         <!-- Stat cards -->
         <div class="pa-stat-row" id="pa-stats">
@@ -5498,6 +5509,8 @@ const _analyticsCharts = {};
 let analyticsWindow        = '1y'; // '1m' | '3m' | '6m' | '1y'
 let analyticsReturnPeriod  = '5d'; // '5d' | '2w' | '1m' | '3m' | '6m' | '1y'
 let analyticsMALength      = 10;
+let analyticsLiveMode      = false; // include pending picks at their live return
+let analyticsKickerMode    = false; // 5D winners shown at live price, 5D losers kept at 5D
 
 function _destroyAnalyticsCharts() {
   ['pick','day'].forEach(k => {
@@ -5532,6 +5545,19 @@ function setAnalyticsMA() {
   renderPicksAnalytics();
 }
 
+function setAnalyticsMode(mode) {
+  if (mode === 'live') {
+    analyticsLiveMode   = !analyticsLiveMode;
+    analyticsKickerMode = false;
+  } else if (mode === 'kicker') {
+    analyticsKickerMode = !analyticsKickerMode;
+    analyticsLiveMode   = false;
+  }
+  document.getElementById('pa-mode-live')?.classList.toggle('active', analyticsLiveMode);
+  document.getElementById('pa-mode-kicker')?.classList.toggle('active', analyticsKickerMode);
+  renderPicksAnalytics();
+}
+
 function updatePicksSummary() {
   const periods = ['5d','2w','1m','3m','6m','1y'];
   const allVals = Object.values(_picksPerf);
@@ -5554,6 +5580,20 @@ function updatePicksSummary() {
     hitEl.textContent = `${hitCount}/${vals.length} (${hitPct}%)`;
     hitEl.className = `picks-summary-hit picks-perf-cell ${hitPct >= 50 ? 'picks-perf-pos' : 'picks-perf-neg'}`;
   });
+}
+
+function resolvePickReturn(perf, rp) {
+  if (!perf) return null;
+  if (analyticsKickerMode) {
+    const r5d = perf['5d'];
+    if (r5d !== null && r5d !== undefined && r5d >= 0) return perf.live ?? null;
+    return r5d ?? null;
+  }
+  if (analyticsLiveMode) {
+    const periodVal = perf[rp];
+    return (periodVal !== null && periodVal !== undefined) ? periodVal : (perf.live ?? null);
+  }
+  return perf[rp] ?? null;
 }
 
 async function renderPicksAnalytics() {
@@ -5592,28 +5632,28 @@ async function renderPicksAnalytics() {
   // All picks within the selected window
   const inWindow = liked.filter(e => e.starredAt >= cutoffMs);
 
-  // Analyzed = has real return data for selected period; pending = no data yet
+  // Analyzed = has a return value for the active mode; pending = no data yet
   const rp = analyticsReturnPeriod;
   const analyzed = inWindow
-    .filter(e => { const v = _picksPerf[`${e.ticker}_${e.starredAt}`]?.[rp]; return v !== null && v !== undefined; })
+    .filter(e => { const v = resolvePickReturn(_picksPerf[`${e.ticker}_${e.starredAt}`], rp); return v !== null && v !== undefined; })
     .sort((a, b) => a.starredAt - b.starredAt);
 
   const pending = inWindow.filter(e => {
-    const v = _picksPerf[`${e.ticker}_${e.starredAt}`]?.[rp];
+    const v = resolvePickReturn(_picksPerf[`${e.ticker}_${e.starredAt}`], rp);
     return v === null || v === undefined;
   });
 
   // Stat cards
   const N = analyticsMALength;
   const totalAnalyzed = analyzed.length;
-  const wins = analyzed.filter(e => _picksPerf[`${e.ticker}_${e.starredAt}`][rp] > 0);
+  const wins = analyzed.filter(e => resolvePickReturn(_picksPerf[`${e.ticker}_${e.starredAt}`], rp) > 0);
   const overallHitRatio = totalAnalyzed > 0 ? Math.round((wins.length / totalAnalyzed) * 100) : null;
 
-  const loserEntries  = analyzed.filter(e => _picksPerf[`${e.ticker}_${e.starredAt}`][rp] <= 0);
+  const loserEntries  = analyzed.filter(e => resolvePickReturn(_picksPerf[`${e.ticker}_${e.starredAt}`], rp) <= 0);
   const avgWinReturn  = wins.length > 0
-    ? wins.reduce((s, e) => s + _picksPerf[`${e.ticker}_${e.starredAt}`][rp], 0) / wins.length : null;
+    ? wins.reduce((s, e) => s + resolvePickReturn(_picksPerf[`${e.ticker}_${e.starredAt}`], rp), 0) / wins.length : null;
   const avgLossReturn = loserEntries.length > 0
-    ? loserEntries.reduce((s, e) => s + _picksPerf[`${e.ticker}_${e.starredAt}`][rp], 0) / loserEntries.length : null;
+    ? loserEntries.reduce((s, e) => s + resolvePickReturn(_picksPerf[`${e.ticker}_${e.starredAt}`], rp), 0) / loserEntries.length : null;
   const hitRateFrac = totalAnalyzed > 0 ? wins.length / totalAnalyzed : null;
   const expectancy  = (hitRateFrac !== null && avgWinReturn !== null && avgLossReturn !== null)
     ? (hitRateFrac * avgWinReturn) + ((1 - hitRateFrac) * avgLossReturn) : null;
@@ -5635,8 +5675,16 @@ async function renderPicksAnalytics() {
   _clsS('pa-stat-exp', 'pa-stat-val' + (expectancy !== null ? (expectancy >= 0 ? ' picks-perf-pos' : ' picks-perf-neg') : ''));
   // Aggression rank computed after day series is built
 
+  // Update chart title to reflect active mode
+  const pickTitleEl = document.getElementById('pa-chart-title-pick');
+  if (pickTitleEl) {
+    if (analyticsKickerMode)    pickTitleEl.textContent = 'KICKER HELD — 5D losers kept · 5D winners shown at live price · Blue line = rolling hit ratio %';
+    else if (analyticsLiveMode) pickTitleEl.textContent = 'LIVE RETURN PER PICK — pending picks included at current price · Blue line = rolling hit ratio %';
+    else pickTitleEl.textContent = `${rp.toUpperCase()} RETURN PER PICK — Bars = actual return · Blue line = rolling hit ratio %`;
+  }
+
   if (!analyzed.length) {
-    pickEl.innerHTML = `<div class="pa-empty">No picks with ${rp.toUpperCase()} return data in this window yet.</div>`;
+    pickEl.innerHTML = `<div class="pa-empty">No picks with ${analyticsLiveMode ? 'live' : analyticsKickerMode ? 'kicker held' : rp.toUpperCase()} return data in this window yet.</div>`;
     dayEl.innerHTML  = '<div class="pa-empty">—</div>';
     return;
   }
@@ -5648,14 +5696,14 @@ async function renderPicksAnalytics() {
   const pickByTime  = new Map(); // sec → { entry, ret, maHitRatio }
 
   analyzed.forEach((e, i) => {
-    const ret = _picksPerf[`${e.ticker}_${e.starredAt}`][rp];
+    const ret = resolvePickReturn(_picksPerf[`${e.ticker}_${e.starredAt}`], rp);
     let sec = Math.floor(e.starredAt / 1000);
     while (usedSecs.has(sec)) sec += 1;
     usedSecs.add(sec);
 
     // Rolling N-pick hit ratio
     const slice      = analyzed.slice(Math.max(0, i - N + 1), i + 1);
-    const sliceWins  = slice.filter(w => (_picksPerf[`${w.ticker}_${w.starredAt}`][rp] ?? -1) > 0).length;
+    const sliceWins  = slice.filter(w => (resolvePickReturn(_picksPerf[`${w.ticker}_${w.starredAt}`], rp) ?? -1) > 0).length;
     const maHitRatio = (sliceWins / slice.length) * 100;
 
     pickBarData.push({ time: sec, value: ret, color: ret > 0 ? 'rgba(10,124,78,0.7)' : 'rgba(200,41,58,0.7)' });
@@ -5669,7 +5717,7 @@ async function renderPicksAnalytics() {
     const d   = new Date(e.starredAt);
     const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     if (!byDay[key]) byDay[key] = { wins: 0, losses: 0, picks: [] };
-    const ret = _picksPerf[`${e.ticker}_${e.starredAt}`][rp];
+    const ret = resolvePickReturn(_picksPerf[`${e.ticker}_${e.starredAt}`], rp);
     if (ret > 0) byDay[key].wins++;
     else byDay[key].losses++;
     byDay[key].picks.push({ ticker: e.ticker, ret });
@@ -5707,11 +5755,11 @@ async function renderPicksAnalytics() {
   // ── Aggression rank (composite: pick-based + day-based rolling expectancy) ──
   const rollingPickExp = analyzed.map((_, i) => {
     const sl  = analyzed.slice(Math.max(0, i - N + 1), i + 1);
-    const sw  = sl.filter(w => _picksPerf[`${w.ticker}_${w.starredAt}`][rp] > 0);
-    const sl2 = sl.filter(w => _picksPerf[`${w.ticker}_${w.starredAt}`][rp] <= 0);
+    const sw  = sl.filter(w => resolvePickReturn(_picksPerf[`${w.ticker}_${w.starredAt}`], rp) > 0);
+    const sl2 = sl.filter(w => resolvePickReturn(_picksPerf[`${w.ticker}_${w.starredAt}`], rp) <= 0);
     const hr = sw.length / sl.length;
-    const aw = sw.length  > 0 ? sw.reduce((s,w)  => s + _picksPerf[`${w.ticker}_${w.starredAt}`][rp], 0) / sw.length  : 0;
-    const al = sl2.length > 0 ? sl2.reduce((s,w) => s + _picksPerf[`${w.ticker}_${w.starredAt}`][rp], 0) / sl2.length : 0;
+    const aw = sw.length  > 0 ? sw.reduce((s,w)  => s + resolvePickReturn(_picksPerf[`${w.ticker}_${w.starredAt}`], rp), 0) / sw.length  : 0;
+    const al = sl2.length > 0 ? sl2.reduce((s,w) => s + resolvePickReturn(_picksPerf[`${w.ticker}_${w.starredAt}`], rp), 0) / sl2.length : 0;
     return hr * aw + (1 - hr) * al;
   });
   const rollingDayExp = dayKeys.map((_, j) => {
@@ -5722,11 +5770,11 @@ async function renderPicksAnalytics() {
       const k = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
       return daySliceSet.has(k);
     });
-    const sw = slicePicks.filter(e => _picksPerf[`${e.ticker}_${e.starredAt}`][rp] > 0);
-    const sl = slicePicks.filter(e => _picksPerf[`${e.ticker}_${e.starredAt}`][rp] <= 0);
+    const sw = slicePicks.filter(e => resolvePickReturn(_picksPerf[`${e.ticker}_${e.starredAt}`], rp) > 0);
+    const sl = slicePicks.filter(e => resolvePickReturn(_picksPerf[`${e.ticker}_${e.starredAt}`], rp) <= 0);
     const hr = slicePicks.length > 0 ? sw.length / slicePicks.length : 0;
-    const aw = sw.length > 0 ? sw.reduce((s,e) => s + _picksPerf[`${e.ticker}_${e.starredAt}`][rp], 0) / sw.length : 0;
-    const al = sl.length > 0 ? sl.reduce((s,e) => s + _picksPerf[`${e.ticker}_${e.starredAt}`][rp], 0) / sl.length : 0;
+    const aw = sw.length > 0 ? sw.reduce((s,e) => s + resolvePickReturn(_picksPerf[`${e.ticker}_${e.starredAt}`], rp), 0) / sw.length : 0;
+    const al = sl.length > 0 ? sl.reduce((s,e) => s + resolvePickReturn(_picksPerf[`${e.ticker}_${e.starredAt}`], rp), 0) / sl.length : 0;
     return hr * aw + (1 - hr) * al;
   });
   const _rankInWindow = series => {
@@ -5993,7 +6041,7 @@ async function loadPickPerformance(entry) {
     const { bars } = await fetchYF(yTicker, '2y', '1d');
     if (!bars || !bars.length) {
       perfIds.forEach(p => setCell(p, null));
-      _picksPerf[`${ticker}_${starTs}`] = { '5d': null, '2w': null, '1m': null, '3m': null, '6m': null, '1y': null };
+      _picksPerf[`${ticker}_${starTs}`] = { '5d': null, '2w': null, '1m': null, '3m': null, '6m': null, '1y': null, live: null };
       updatePicksSummary();
       return;
     }
@@ -6014,7 +6062,7 @@ async function loadPickPerformance(entry) {
     const refPrice = bars[starIdx].c;
     if (!refPrice) {
       perfIds.forEach(p => setCell(p, null));
-      _picksPerf[`${ticker}_${starTs}`] = { '5d': null, '2w': null, '1m': null, '3m': null, '6m': null, '1y': null };
+      _picksPerf[`${ticker}_${starTs}`] = { '5d': null, '2w': null, '1m': null, '3m': null, '6m': null, '1y': null, live: null };
       updatePicksSummary();
       return;
     }
@@ -6026,6 +6074,7 @@ async function loadPickPerformance(entry) {
     };
 
     const r5d = getReturn(5), r2w = getReturn(10), r1m = getReturn(21), r3m = getReturn(63), r6m = getReturn(126), r1y = getReturn(252);
+    const rLive = (bars[bars.length - 1].c / refPrice - 1) * 100;
     setCell('5d', r5d);
     setCell('2w', r2w);
     setCell('1m', r1m);
@@ -6033,11 +6082,11 @@ async function loadPickPerformance(entry) {
     setCell('6m', r6m);
     setCell('1y', r1y);
 
-    _picksPerf[`${ticker}_${starTs}`] = { '5d': r5d, '2w': r2w, '1m': r1m, '3m': r3m, '6m': r6m, '1y': r1y };
+    _picksPerf[`${ticker}_${starTs}`] = { '5d': r5d, '2w': r2w, '1m': r1m, '3m': r3m, '6m': r6m, '1y': r1y, live: rLive };
     updatePicksSummary();
   } catch(err) {
     perfIds.forEach(p => setCell(p, null));
-    _picksPerf[`${ticker}_${starTs}`] = { '5d': null, '2w': null, '1m': null, '3m': null, '6m': null, '1y': null };
+    _picksPerf[`${ticker}_${starTs}`] = { '5d': null, '2w': null, '1m': null, '3m': null, '6m': null, '1y': null, live: null };
     updatePicksSummary();
   }
 }
