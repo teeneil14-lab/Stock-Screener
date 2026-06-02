@@ -2722,8 +2722,8 @@
         <button class="view-btn active" id="flist-btn-list"   onclick="setFListView('list')">LIST</button>
         <button class="view-btn"        id="flist-btn-glance" onclick="setFListView('glance')">GLANCE</button>
         <div id="flist-tf-btns" style="display:none;gap:4px;margin-left:4px">
-          <button class="view-btn active" id="flist-tf-D" onclick="setFListTF('D')">D</button>
-          <button class="view-btn"        id="flist-tf-W" onclick="setFListTF('W')">W</button>
+          <button class="view-btn"        id="flist-tf-D" onclick="setFListTF('D')">D</button>
+          <button class="view-btn active" id="flist-tf-W" onclick="setFListTF('W')">W</button>
           <button class="view-btn"        id="flist-tf-M" onclick="setFListTF('M')">M</button>
         </div>
       </div>
@@ -5287,7 +5287,9 @@ function _renderFListGlance() {
 }
 
 function _buildFListChart(container, f, tf, key) {
-  const rawBars = tf === 'M' ? f.monthly : tf === 'W' ? f.weekly : f.daily;
+  const rawBars = tf === 'M' ? (f.monthly || f.weekly || f.daily)
+                : tf === 'W' ? (f.weekly  || f.daily)
+                : f.daily;
   if (!rawBars || rawBars.length < 5) return;
 
   const toSec = t => Math.floor(t / 1000);
@@ -7655,7 +7657,7 @@ let glanceCols        = 4;       // charts per row: 2–6
 let glanceTF          = 'W';     // 'D' | 'W' | 'M'
 
 let flistView         = 'list';  // 'list' | 'glance'
-let flistTF           = 'D';
+let flistTF           = 'W';
 let flistItems        = [];
 let lowScoreResults   = [];
 const _flistCharts    = {};
