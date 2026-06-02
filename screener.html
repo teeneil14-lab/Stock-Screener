@@ -6785,7 +6785,7 @@ async function loadSectorBreadth() {
     totals[etf] = { ema20: 0, ema50: 0, ema100: 0, ema200: 0, total: 0 };
   });
 
-  const BATCH = 50;
+  const CONCURRENCY = 60;
   let done = 0;
 
   function updateProgress() {
@@ -6794,33 +6794,48 @@ async function loadSectorBreadth() {
   }
   updateProgress();
 
-  for (let i = 0; i < allStocks.length; i += BATCH) {
-    const batch = allStocks.slice(i, i + BATCH);
-    await Promise.all(batch.map(async ({ ticker, etf }) => {
-      try {
-        const res    = await fetch(`/api/yf?ticker=${encodeURIComponent(ticker)}&range=1y&interval=1d`);
-        const json   = await res.json();
-        const result = json?.chart?.result?.[0];
-        if (!result) return;
-        const raw    = result.indicators.quote[0].close || [];
-        const closes = raw.filter(c => c != null);
-        if (closes.length < 21) return;
-        const price  = closes[closes.length - 1];
-        const ema20  = calcEMA(closes, 20);
-        const ema50  = calcEMA(closes, 50);
-        const ema100 = calcEMA(closes, Math.min(100, closes.length));
-        const ema200 = calcEMA(closes, Math.min(200, closes.length));
-        const b = totals[etf];
-        b.total++;
-        if (ema20  > 0 && price > ema20)  b.ema20++;
-        if (ema50  > 0 && price > ema50)  b.ema50++;
-        if (ema100 > 0 && price > ema100) b.ema100++;
-        if (ema200 > 0 && price > ema200) b.ema200++;
-      } catch {}
-    }));
-    done += batch.length;
-    updateProgress();
-  }
+  // Concurrency pool: always keep CONCURRENCY requests in-flight.
+  // Unlike fixed batches, each slot refills the instant it finishes — no
+  // waiting for the slowest request in a round before starting the next.
+  await new Promise(resolve => {
+    let running = 0, idx = 0;
+    function next() {
+      if (idx >= allStocks.length && running === 0) { resolve(); return; }
+      while (running < CONCURRENCY && idx < allStocks.length) {
+        running++;
+        const { ticker, etf } = allStocks[idx++];
+        (async () => {
+          try {
+            const res    = await fetch(`/api/yf?ticker=${encodeURIComponent(ticker)}&range=1y&interval=1d`);
+            const json   = await res.json();
+            const result = json?.chart?.result?.[0];
+            if (result) {
+              const raw    = result.indicators.quote[0].close || [];
+              const closes = raw.filter(c => c != null);
+              if (closes.length >= 21) {
+                const price  = closes[closes.length - 1];
+                const ema20  = calcEMA(closes, 20);
+                const ema50  = calcEMA(closes, 50);
+                const ema100 = calcEMA(closes, Math.min(100, closes.length));
+                const ema200 = calcEMA(closes, Math.min(200, closes.length));
+                const b = totals[etf];
+                b.total++;
+                if (ema20  > 0 && price > ema20)  b.ema20++;
+                if (ema50  > 0 && price > ema50)  b.ema50++;
+                if (ema100 > 0 && price > ema100) b.ema100++;
+                if (ema200 > 0 && price > ema200) b.ema200++;
+              }
+            }
+          } catch {}
+          running--;
+          done++;
+          updateProgress();
+          next();
+        })();
+      }
+    }
+    next();
+  });
 
   sectorEMABreadth = {};
   Object.entries(totals).forEach(([etf, b]) => {
