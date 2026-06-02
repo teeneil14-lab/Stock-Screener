@@ -3522,7 +3522,6 @@ async function runScan() {
     sectorRankMap   = sectorRank;
     tickerSectorMap = tickerSectors;
     earningsMap     = earnings;
-    if (portRet !== null) portfolioReturns = portRet;
   } else {
     scanMeta.innerHTML = 'Preparing PH scan…';
     if (portfolioHoldings.length > 0) {
@@ -5657,6 +5656,7 @@ async function loadSectors() {
   sectorRows = rows;
   sectorBreadthLoading = false;
   sectorEMABreadth = {};
+  try { sessionStorage.removeItem(BREADTH_CACHE_KEY); } catch {}
   loadSectorBreadth();       // sets sectorBreadthLoading=true synchronously before first await
   renderSectorTable(rows);   // sees the loading flag → renders progress placeholder correctly
 }
@@ -5710,8 +5710,26 @@ function breadthCell(pct) {
   return `<span class="breadth-cell ${cls}">${pct}%</span>`;
 }
 
+const BREADTH_CACHE_KEY = 'cts_breadth_v1';
+const BREADTH_CACHE_TTL = 60 * 60 * 1000; // 1 hour
+
 async function loadSectorBreadth() {
   if (sectorBreadthLoading) return;
+
+  // Serve from sessionStorage cache if fresh
+  try {
+    const raw = sessionStorage.getItem(BREADTH_CACHE_KEY);
+    if (raw) {
+      const cached = JSON.parse(raw);
+      if (Date.now() - cached.ts < BREADTH_CACHE_TTL) {
+        sectorEMABreadth = cached.data;
+        sectorBreadthLoading = false;
+        if (sectorRows) renderSectorTable(sectorRows);
+        return;
+      }
+    }
+  } catch {}
+
   sectorBreadthLoading = true;
 
   const allStocks = [];
@@ -5724,7 +5742,7 @@ async function loadSectorBreadth() {
     totals[etf] = { ema20: 0, ema50: 0, ema100: 0, ema200: 0, total: 0 };
   });
 
-  const BATCH = 20;
+  const BATCH = 50;
   let done = 0;
 
   function updateProgress() {
@@ -5775,6 +5793,7 @@ async function loadSectorBreadth() {
   });
 
   sectorBreadthLoading = false;
+  try { sessionStorage.setItem(BREADTH_CACHE_KEY, JSON.stringify({ ts: Date.now(), data: sectorEMABreadth })); } catch {}
   if (sectorRows) renderSectorTable(sectorRows);
 }
 
@@ -6289,36 +6308,55 @@ function updateImapTile(ticker, pct) {
   }
 }
 
+const IMAP_CACHE_KEY = 'cts_imap_v1';
+const IMAP_CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+
 async function loadIndustryMap(force) {
   if (imapLoaded && !force) return;
   imapLoaded = true;
 
   const btn = document.getElementById('imap-refresh-btn');
   btn.disabled = true;
-  document.getElementById('imap-updated').textContent = 'Loading…';
 
+  // Try sessionStorage cache first (skip on manual refresh)
+  if (!force) {
+    try {
+      const raw = sessionStorage.getItem(IMAP_CACHE_KEY);
+      if (raw) {
+        const cached = JSON.parse(raw);
+        if (Date.now() - cached.ts < IMAP_CACHE_TTL) {
+          renderImapSkeleton();
+          renderImapSorted(cached.data);
+          Object.entries(cached.data).forEach(([ticker, pct]) => updateImapTile(ticker, pct));
+          document.getElementById('imap-updated').textContent =
+            'Cached ' + new Date(cached.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          btn.disabled = false;
+          return;
+        }
+      }
+    } catch {}
+  }
+
+  document.getElementById('imap-updated').textContent = 'Loading…';
   renderImapSkeleton();
 
   const benchItems = IMAP_BENCHMARKS;
   const etfItems   = IMAP_SECTORS.flatMap(s => s.etfs);
   const allItems   = [...benchItems, ...etfItems];
 
+  // Fetch all items in parallel — only ~34 ETFs, no need to batch
   const resultsMap = {};
-  const BATCH = 10;
-  for (let i = 0; i < allItems.length; i += BATCH) {
-    const batch = allItems.slice(i, i + BATCH);
-    const pcts  = await Promise.all(batch.map(t => fetchImapWeekly(t.ticker)));
-    batch.forEach((t, j) => {
-      resultsMap[t.ticker] = pcts[j];
-      updateImapTile(t.ticker, pcts[j]);
-    });
-    if (i + BATCH < allItems.length) await new Promise(r => setTimeout(r, 100));
-  }
+  const pcts = await Promise.all(allItems.map(t => fetchImapWeekly(t.ticker)));
+  allItems.forEach((t, i) => { resultsMap[t.ticker] = pcts[i]; });
 
   renderImapSorted(resultsMap);
+  allItems.forEach(t => updateImapTile(t.ticker, resultsMap[t.ticker]));
+
+  const now = Date.now();
+  try { sessionStorage.setItem(IMAP_CACHE_KEY, JSON.stringify({ ts: now, data: resultsMap })); } catch {}
 
   document.getElementById('imap-updated').textContent =
-    'Updated ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    'Updated ' + new Date(now).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   btn.disabled = false;
 }
 
