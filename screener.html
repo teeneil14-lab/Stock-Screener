@@ -1083,6 +1083,19 @@
     padding: 0 2px;
   }
   .pp-remove:hover { color: var(--red); }
+  .pp-ticker { flex: 0 0 auto; }
+  .pp-corr {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    margin-left: auto;
+    margin-right: 8px;
+    white-space: nowrap;
+    letter-spacing: 0;
+  }
+  .pp-corr-loading { color: var(--text3); }
+  .pp-corr-high    { color: var(--amber); }   /* >0.70 — highly correlated to market */
+  .pp-corr-mid     { color: var(--text3); }   /* 0.40–0.70 */
+  .pp-corr-low     { color: var(--green); }   /* <0.40 — more independent */
   .pp-empty {
     font-family: 'Inter', sans-serif;
     font-size: 11px;
@@ -2821,6 +2834,7 @@ let filteredOut   = [];   // tickers removed by EMA50 filter
 // Portfolio holdings for correlation analysis
 let portfolioHoldings = JSON.parse(localStorage.getItem('cts-portfolio-holdings') || '[]');
 let portfolioReturns  = null; // 20-element array of avg daily returns across all holdings
+let portfolioSpyCorrelations = {}; // { 'AAPL': 0.87, … } — each holding's 20-day Pearson corr vs SPY
 
 // Sector bonus — populated before each scan
 // Maps Yahoo Finance sector name → bonus points (0–10)
@@ -4056,6 +4070,48 @@ async function fetchPortfolioReturns() {
   }
 }
 
+// Fetch SPY + each holding (2-month daily data), compute Pearson correlation
+// for each holding vs SPY, store in portfolioSpyCorrelations, then re-render the panel.
+async function fetchAndRenderSPYCorrelations() {
+  if (portfolioHoldings.length === 0) {
+    portfolioSpyCorrelations = {};
+    renderPortfolioList();
+    return;
+  }
+  // Show a loading placeholder immediately
+  portfolioHoldings.forEach(t => { portfolioSpyCorrelations[t] = 'loading'; });
+  renderPortfolioList();
+
+  try {
+    const tickers = ['SPY', ...portfolioHoldings];
+    const results  = await Promise.all(
+      tickers.map(t => fetchYF(t, '2mo', '1d').catch(() => null))
+    );
+
+    // Build SPY's 20-day return series
+    const spyBars = results[0]?.bars ?? null;
+    let spyRets = null;
+    if (spyBars && spyBars.length >= 22) {
+      const closes = spyBars.slice(-21).map(b => b.c);
+      spyRets = [];
+      for (let i = 1; i < closes.length; i++) spyRets.push((closes[i] - closes[i - 1]) / closes[i - 1]);
+    }
+
+    portfolioHoldings.forEach((t, idx) => {
+      const bars = results[idx + 1]?.bars ?? null;
+      if (!spyRets || !bars || bars.length < 22) { portfolioSpyCorrelations[t] = null; return; }
+      const closes = bars.slice(-21).map(b => b.c);
+      const rets = [];
+      for (let i = 1; i < closes.length; i++) rets.push((closes[i] - closes[i - 1]) / closes[i - 1]);
+      const len = Math.min(rets.length, spyRets.length);
+      portfolioSpyCorrelations[t] = pearsonCorr(rets.slice(-len), spyRets.slice(-len));
+    });
+  } catch (e) {
+    portfolioSpyCorrelations = {};
+  }
+  renderPortfolioList();
+}
+
 // Extract 20-day return series from a stock's daily bars (already fetched during scan).
 function getTickerReturns(dailyBars) {
   if (!dailyBars || dailyBars.length < 22) return null;
@@ -5049,7 +5105,9 @@ function getSortFn(by) {
 // ============================================================
 function togglePortfolioPanel() {
   const panel = document.getElementById('portfolio-panel');
+  const isOpening = !panel.classList.contains('open');
   panel.classList.toggle('open');
+  if (isOpening && portfolioHoldings.length > 0) fetchAndRenderSPYCorrelations();
 }
 
 function addPortfolioTicker() {
@@ -5076,7 +5134,9 @@ function clearPortfolio() {
 
 function saveAndRenderPortfolio() {
   localStorage.setItem('cts-portfolio-holdings', JSON.stringify(portfolioHoldings));
+  portfolioSpyCorrelations = {};
   renderPortfolioList();
+  if (portfolioHoldings.length > 0) fetchAndRenderSPYCorrelations();
 }
 
 function renderPortfolioList() {
@@ -5089,12 +5149,21 @@ function renderPortfolioList() {
     count.textContent = '';
     count.classList.remove('has-items');
   } else {
-    list.innerHTML = portfolioHoldings.map(t =>
-      `<div class="pp-item">
-        <span>${t}</span>
+    list.innerHTML = portfolioHoldings.map(t => {
+      const corr = portfolioSpyCorrelations[t];
+      let corrHtml = '';
+      if (corr === 'loading') {
+        corrHtml = `<span class="pp-corr pp-corr-loading">vs SPY …</span>`;
+      } else if (typeof corr === 'number') {
+        const cls = corr > 0.70 ? 'pp-corr-high' : corr < 0.40 ? 'pp-corr-low' : 'pp-corr-mid';
+        corrHtml = `<span class="pp-corr ${cls}">vs SPY ${corr.toFixed(2)}</span>`;
+      }
+      return `<div class="pp-item">
+        <span class="pp-ticker">${t}</span>
+        ${corrHtml}
         <button class="pp-remove" onclick="removePortfolioTicker('${t}')" title="Remove">×</button>
-      </div>`
-    ).join('');
+      </div>`;
+    }).join('');
     count.textContent = portfolioHoldings.length;
     count.classList.add('has-items');
   }
