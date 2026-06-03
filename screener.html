@@ -7904,13 +7904,15 @@ function _rebuildGlanceCharts() {
     const body = document.getElementById(`glance-body-${idx}`);
     if (body) body.innerHTML = '';
   });
-  // Re-trigger the observer by briefly unobserving + re-observing (forces intersection re-check)
-  if (_glanceObserver) {
-    sortedResults.forEach((_, idx) => {
-      const body = document.getElementById(`glance-body-${idx}`);
-      if (body) { _glanceObserver.unobserve(body); _glanceObserver.observe(body); }
-    });
-  }
+  // Re-trigger in the next frame so the DOM clears before we check intersection again
+  requestAnimationFrame(() => {
+    if (_glanceObserver) {
+      sortedResults.forEach((_, idx) => {
+        const body = document.getElementById(`glance-body-${idx}`);
+        if (body) { _glanceObserver.unobserve(body); _glanceObserver.observe(body); }
+      });
+    }
+  });
 }
 
 function renderGlanceView() {
@@ -8019,8 +8021,9 @@ function _buildGlanceChart(container, r) {
     bbLower .push({ time: t, value: sma - 2 * std });
   }
 
+  let _chart;
   try {
-    const chart = LightweightCharts.createChart(container, {
+    _chart = LightweightCharts.createChart(container, {
       autoSize: true,
       layout:       { background: { color: '#ffffff' }, textColor: '#6b7280' },
       grid:         { vertLines: { color: '#f5f5f5' }, horzLines: { color: '#f5f5f5' } },
@@ -8031,9 +8034,8 @@ function _buildGlanceChart(container, r) {
       handleScroll: false,
       handleScale:  false,
     });
-    _glanceCharts[r.ticker] = chart;
 
-    const candles = chart.addCandlestickSeries({
+    const candles = _chart.addCandlestickSeries({
       upColor:        '#0a7c4e', downColor:       '#c82828',
       borderUpColor:  '#0a7c4e', borderDownColor: '#c82828',
       wickUpColor:    '#0a7c4e', wickDownColor:   '#c82828',
@@ -8041,12 +8043,15 @@ function _buildGlanceChart(container, r) {
     candles.setData(bars.map(b => ({ time: toSec(b.t), open: b.o, high: b.h, low: b.l, close: b.c })));
 
     const bandStyle = { lineWidth: 1, priceLineVisible: false, lastValueVisible: false };
-    chart.addLineSeries({ ...bandStyle, color: 'rgba(99,132,199,0.55)' }).setData(bbUpper);
-    chart.addLineSeries({ ...bandStyle, color: 'rgba(150,150,150,0.45)', lineStyle: 2 }).setData(bbMiddle);
-    chart.addLineSeries({ ...bandStyle, color: 'rgba(99,132,199,0.55)' }).setData(bbLower);
+    _chart.addLineSeries({ ...bandStyle, color: 'rgba(99,132,199,0.55)' }).setData(bbUpper);
+    _chart.addLineSeries({ ...bandStyle, color: 'rgba(150,150,150,0.45)', lineStyle: 2 }).setData(bbMiddle);
+    _chart.addLineSeries({ ...bandStyle, color: 'rgba(99,132,199,0.55)' }).setData(bbLower);
 
-    chart.timeScale().fitContent();
-  } catch {}
+    _chart.timeScale().fitContent();
+    _glanceCharts[r.ticker] = _chart;  // only register after full success
+  } catch {
+    try { if (_chart) _chart.remove(); } catch {}
+  }
 }
 
 // ============================================================
