@@ -1086,7 +1086,7 @@
   .pp-ticker { flex: 0 0 auto; }
   .pp-corr {
     font-family: 'IBM Plex Mono', monospace;
-    font-size: 10px;
+    font-size: 5px;
     margin-left: auto;
     margin-right: 8px;
     white-space: nowrap;
@@ -5149,7 +5149,12 @@ function renderPortfolioList() {
     count.textContent = '';
     count.classList.remove('has-items');
   } else {
-    list.innerHTML = portfolioHoldings.map(t => {
+    const sorted = [...portfolioHoldings].sort((a, b) => {
+      const ca = typeof portfolioSpyCorrelations[a] === 'number' ? portfolioSpyCorrelations[a] : -Infinity;
+      const cb = typeof portfolioSpyCorrelations[b] === 'number' ? portfolioSpyCorrelations[b] : -Infinity;
+      return cb - ca;
+    });
+    list.innerHTML = sorted.map(t => {
       const corr = portfolioSpyCorrelations[t];
       let corrHtml = '';
       if (corr === 'loading') {
