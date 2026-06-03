@@ -1717,6 +1717,10 @@
     text-transform: uppercase;
   }
   .rank-header .right { text-align: right; }
+  .rank-header .center { text-align: center; }
+  .rank-header .sortable { cursor: pointer; }
+  .rank-header .sortable:hover { color: var(--text2); }
+  .rank-header .sort-active { color: var(--accent) !important; }
 
   /* DIVIDERS for score brackets */
   .bracket-divider {
@@ -2856,6 +2860,8 @@ let sectorRankMap   = {}; // sector name → bonus pts (0–10)
 let tickerSectorMap = {}; // ticker symbol → YF sector name
 let earningsMap     = {}; // ticker symbol → next earnings Unix timestamp (seconds)
 let lastSort      = "score";
+let sortColKey    = "score";
+let sortColDir    = "desc";
 let cachedSPXBars = null; // fetched once per scan; shared across all tickers
 let activeRow     = -1;   // index into sorted results array
 let listVisible   = true;
@@ -4596,7 +4602,7 @@ function renderResults() {
     return;
   }
 
-  sortedResults = [...filtered].sort(getSortFn(lastSort));
+  sortedResults = [...filtered].sort(getSortFn2(sortColKey, sortColDir));
 
   const countLabel = document.getElementById('result-count-label');
   if (countLabel) {
@@ -4608,10 +4614,7 @@ function renderResults() {
     }
   }
 
-  area.innerHTML = `<div class="rank-header">
-    <div>#</div><div></div><div>TICKER</div><div>SCORE</div><div></div><div>SECTOR</div><div>SIGNALS</div>
-    <div style="text-align:center">RS</div><div class="col-corr" title="20-day Pearson correlation to your portfolio holdings">CORR</div><div>MTH / WK / DAY / YR</div><div class="right">PRICE</div><div class="right">CHG%</div><div class="right">YTD%</div>
-  </div>
+  area.innerHTML = buildRankHeader() + `
   <div id="vs-top" style="will-change:transform"></div>
   <div id="vs-rows"></div>
   <div id="vs-bot" style="will-change:transform"></div>`;
@@ -5188,8 +5191,93 @@ function applySortToResults() { lastSort = document.getElementById('sort-select'
 
 function applySort(val) {
   lastSort = val;
+  if      (val === 'score')     { sortColKey = 'score';  sortColDir = 'desc'; }
+  else if (val === 'ticker')    { sortColKey = 'ticker'; sortColDir = 'asc';  }
+  else if (val === 'rs_spx')    { sortColKey = 'rs';     sortColDir = 'desc'; }
+  else if (val === 'corr_asc')  { sortColKey = 'corr';   sortColDir = 'asc';  }
+  else if (val === 'corr_desc') { sortColKey = 'corr';   sortColDir = 'desc'; }
+  else if (val === 'change')    { sortColKey = 'change'; sortColDir = 'desc'; }
+  else if (val === 'ytd_pct')   { sortColKey = 'ytd';    sortColDir = 'desc'; }
+  else if (val === 'sector')    { sortColKey = 'sector'; sortColDir = 'desc'; }
+  else                          { sortColKey = val;      sortColDir = 'desc'; }
   activeRow = 0;
   if (results.length) renderResults();
+}
+
+function sortByCol(col) {
+  const defaultDir = { score:'desc', ticker:'asc', sector:'desc', rs:'desc', corr:'desc', price:'desc', change:'desc', ytd:'desc' };
+  if (sortColKey === col) {
+    sortColDir = sortColDir === 'desc' ? 'asc' : 'desc';
+  } else {
+    sortColKey = col;
+    sortColDir = defaultDir[col] || 'desc';
+  }
+  const sel = document.getElementById('sort-select');
+  if (sel) {
+    if      (col === 'score')  sel.value = 'score';
+    else if (col === 'ticker') sel.value = 'ticker';
+    else if (col === 'rs')     sel.value = 'rs_spx';
+    else if (col === 'corr')   sel.value = sortColDir === 'desc' ? 'corr_desc' : 'corr_asc';
+    else if (col === 'change') sel.value = 'change';
+    else if (col === 'ytd')    sel.value = 'ytd_pct';
+    else if (col === 'sector') sel.value = 'sector';
+  }
+  activeRow = 0;
+  if (results.length) renderResults();
+}
+
+function buildRankHeader() {
+  function hdr(col, label, align) {
+    const isActive = col && sortColKey === col;
+    const arrow = isActive ? (sortColDir === 'desc' ? ' ↓' : ' ↑') : '';
+    const classes = [
+      col ? 'sortable' : '',
+      isActive ? 'sort-active' : '',
+      align === 'right' ? 'right' : align === 'center' ? 'center' : ''
+    ].filter(Boolean).join(' ');
+    const onclick = col ? ` onclick="sortByCol('${col}')"` : '';
+    const title = col === 'corr' ? ' title="20-day Pearson correlation to your portfolio holdings"' : '';
+    return `<div class="${classes}"${onclick}${title}>${label}${arrow}</div>`;
+  }
+  return `<div class="rank-header">
+    <div>#</div><div></div>
+    ${hdr('ticker', 'TICKER')}
+    ${hdr('score', 'SCORE')}
+    <div></div>
+    ${hdr('sector', 'SECTOR')}
+    <div>SIGNALS</div>
+    ${hdr('rs', 'RS', 'center')}
+    ${hdr('corr', 'CORR')}
+    <div>MTH / WK / DAY / YR</div>
+    ${hdr('price', 'PRICE', 'right')}
+    ${hdr('change', 'CHG%', 'right')}
+    ${hdr('ytd', 'YTD%', 'right')}
+  </div>`;
+}
+
+function getSortFn2(col, dir) {
+  const m = dir === 'desc' ? 1 : -1;
+  if (col === 'score')  return (a,b) => m * ((b.rankScore??b.score) - (a.rankScore??a.score));
+  if (col === 'ticker') return (a,b) => m * b.ticker.localeCompare(a.ticker);
+  if (col === 'rs')     return (a,b) => m * ((b.rsDays??0) - (a.rsDays??0));
+  if (col === 'corr') {
+    const fallback = dir === 'desc' ? -2 : 2;
+    return (a,b) => m * ((b.corrCoeff ?? fallback) - (a.corrCoeff ?? fallback));
+  }
+  if (col === 'price')  return (a,b) => m * (b.price - a.price);
+  if (col === 'change') return (a,b) => m * (b.change - a.change);
+  if (col === 'ytd')    return (a,b) => m * ((b.ytdPct ?? -Infinity) - (a.ytdPct ?? -Infinity));
+  if (col === 'sector') return (a,b) => {
+    const sd = m * ((b.sectorBonus||0) - (a.sectorBonus||0));
+    if (sd !== 0) return sd;
+    return (b.rankScore??b.score) - (a.rankScore??a.score);
+  };
+  // Legacy dropdown-only sorts
+  if (col === 'taste')     return (a,b) => (b.prefSim??0) - (a.prefSim??0);
+  if (col === 'wk_high')   return (a,b) => getPeriodHighProx(b,'weekly') - getPeriodHighProx(a,'weekly');
+  if (col === 'mo_high')   return (a,b) => getPeriodHighProx(b,'monthly') - getPeriodHighProx(a,'monthly');
+  if (col === '52wk_high') return (a,b) => get52WkHighProx(b) - get52WkHighProx(a);
+  return (a,b) => (b.rankScore??b.score) - (a.rankScore??a.score);
 }
 
 // ============================================================
