@@ -1086,12 +1086,13 @@
   .pp-ticker { flex: 0 0 auto; }
   .pp-corr {
     font-family: 'IBM Plex Mono', monospace;
-    font-size: 5px;
     margin-left: auto;
     margin-right: 8px;
     white-space: nowrap;
     letter-spacing: 0;
   }
+  .pp-corr-label { font-size: 8px; }
+  .pp-corr-val   { font-size: 10px; }
   .pp-corr-loading { color: var(--text3); }
   .pp-corr-high    { color: var(--amber); }   /* >0.70 — highly correlated to market */
   .pp-corr-mid     { color: var(--text3); }   /* 0.40–0.70 */
@@ -2316,8 +2317,8 @@
   <div class="tab-search-wrap">
     <input type="text" id="tab-search-input" class="tab-search-input" placeholder="AAPL or AVGO, AAPL, SMCI…"
       oninput="tabSearchOnInput()" onkeydown="if(event.key==='Enter')tabSearchGo()" />
-    <button class="todays-picks-btn" id="todays-picks-btn" onclick="loadTodaysPicks()" title="Load all tickers you starred today into the screener">★ Today's Picks</button>
     <button class="tab-search-btn" onclick="tabSearchGo()">Find</button>
+    <button class="todays-picks-btn" id="todays-picks-btn" onclick="loadTodaysPicks()" title="Load all tickers you starred today into the screener">★ Today's Picks</button>
   </div>
 </div>
 
@@ -5158,10 +5159,10 @@ function renderPortfolioList() {
       const corr = portfolioSpyCorrelations[t];
       let corrHtml = '';
       if (corr === 'loading') {
-        corrHtml = `<span class="pp-corr pp-corr-loading">vs SPY …</span>`;
+        corrHtml = `<span class="pp-corr pp-corr-loading"><span class="pp-corr-label">vs SPY</span> <span class="pp-corr-val">…</span></span>`;
       } else if (typeof corr === 'number') {
         const cls = corr > 0.70 ? 'pp-corr-high' : corr < 0.40 ? 'pp-corr-low' : 'pp-corr-mid';
-        corrHtml = `<span class="pp-corr ${cls}">vs SPY ${corr.toFixed(2)}</span>`;
+        corrHtml = `<span class="pp-corr ${cls}"><span class="pp-corr-label">vs SPY</span> <span class="pp-corr-val">${corr.toFixed(2)}</span></span>`;
       }
       return `<div class="pp-item">
         <span class="pp-ticker">${t}</span>
