@@ -159,6 +159,23 @@
     white-space: nowrap;
   }
   .tab-search-btn:hover { opacity: 0.85; }
+  .todays-picks-btn {
+    font-family: 'Inter', sans-serif;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    color: #fff;
+    background: #d97706;
+    border: none;
+    border-radius: 5px;
+    padding: 0 10px;
+    height: 24px;
+    cursor: pointer;
+    transition: opacity 0.15s;
+    white-space: nowrap;
+  }
+  .todays-picks-btn:hover { opacity: 0.85; }
+  .todays-picks-btn:disabled { opacity: 0.5; cursor: default; }
 
   /* MARKET TOGGLE (US / PH) */
   .market-toggle-wrap {
@@ -2286,6 +2303,7 @@
   <div class="tab-search-wrap">
     <input type="text" id="tab-search-input" class="tab-search-input" placeholder="AAPL or AVGO, AAPL, SMCI…"
       oninput="tabSearchOnInput()" onkeydown="if(event.key==='Enter')tabSearchGo()" />
+    <button class="todays-picks-btn" id="todays-picks-btn" onclick="loadTodaysPicks()" title="Load all tickers you starred today into the screener">★ Today's Picks</button>
     <button class="tab-search-btn" onclick="tabSearchGo()">Find</button>
   </div>
 </div>
@@ -4780,6 +4798,38 @@ async function tabSearchGo() {
   } finally {
     if (btn) { btn.textContent = 'Find'; btn.disabled = false; }
   }
+}
+
+async function loadTodaysPicks() {
+  const btn = document.getElementById('todays-picks-btn');
+  const input = document.getElementById('tab-search-input');
+
+  // Collect all picks from every setup pool, deduplicate by ticker, keep only those starred today
+  const todayStr = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD in local time
+  const seen = new Set();
+  const todayTickers = [];
+
+  getActiveSetupIds().forEach(sid => {
+    loadLiked(sid).forEach(entry => {
+      if (!entry.starredAt || seen.has(entry.ticker)) return;
+      const entryDate = new Date(entry.starredAt).toLocaleDateString('en-CA');
+      if (entryDate === todayStr) {
+        seen.add(entry.ticker);
+        todayTickers.push(entry.ticker);
+      }
+    });
+  });
+
+  if (todayTickers.length === 0) {
+    if (btn) { btn.textContent = 'None today'; btn.disabled = true; }
+    setTimeout(() => { if (btn) { btn.textContent = '★ Today\'s Picks'; btn.disabled = false; } }, 2000);
+    return;
+  }
+
+  // Put them into the search input and fire the standard Find flow
+  input.value = todayTickers.join(', ');
+  input.classList.remove('found', 'not-found', 'loading');
+  await tabSearchGo();
 }
 
 function removeManualResult(ticker) {
