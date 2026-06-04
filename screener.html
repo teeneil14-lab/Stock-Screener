@@ -2266,6 +2266,16 @@
   }
   .tv-panel-body { flex: 1; min-height: 0; position: relative; }
   .tv-panel-body .tradingview-widget-container { height: 100% !important; }
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: #1a2e22; color: #fff; font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px; letter-spacing: 0.06em; padding: 8px 18px; border-radius: 6px;
+    border: 1px solid #0a7c4e; box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+    z-index: 9999; opacity: 0; transition: opacity 0.2s; pointer-events: none;
+    white-space: nowrap;
+  }
+  .toast.show { opacity: 1; }
+  .toast.error { background: #2e1a1a; border-color: var(--red); }
 </style>
 <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
 </head>
@@ -2734,6 +2744,8 @@
 </div><!-- /tab-picks -->
 
 <!-- MODAL -->
+<div class="toast" id="app-toast"></div>
+
 <div class="modal-overlay" id="modal" onclick="if(event.target===this)closeModal()">
   <div class="modal">
     <div class="modal-header">
@@ -7395,6 +7407,20 @@ function renderSectorTable(rows) {
 }
 
 // ============================================================
+//  TOAST NOTIFICATIONS
+// ============================================================
+let _toastTimer = null;
+function showToast(msg, type) {
+  const el = document.getElementById('app-toast');
+  if (!el) return;
+  clearTimeout(_toastTimer);
+  el.textContent = msg;
+  el.className = 'toast' + (type === 'error' ? ' error' : '');
+  requestAnimationFrame(() => el.classList.add('show'));
+  _toastTimer = setTimeout(() => el.classList.remove('show'), type === 'error' ? 5000 : 2500);
+}
+
+// ============================================================
 //  PREFERENCE LEARNING — STARRED STOCKS
 // ============================================================
 
@@ -7405,7 +7431,13 @@ function loadLiked(setupId) {
 }
 
 function saveLiked(setupId, arr) {
-  try { localStorage.setItem(`cts_liked_setup_${setupId}`, JSON.stringify(arr)); } catch {}
+  try {
+    localStorage.setItem(`cts_liked_setup_${setupId}`, JSON.stringify(arr));
+    return true;
+  } catch (e) {
+    console.error('[saveLiked] localStorage write failed:', e);
+    return false;
+  }
 }
 
 function getStarredProfile(setupId) {
@@ -7487,24 +7519,40 @@ function toggleStar(ticker) {
       monthlyBars: (r.monthly || []).slice(-60) .map(b => ({ t:b.t, o:b.o, h:b.h, l:b.l, c:b.c })),
     };
 
-    getActiveSetupIds().forEach(sid => {
-      const liked = loadLiked(sid);
-      const scored = scoreStock(r, sid);
-      const criteriaVector = {};
-      SETUPS[sid].criteria.forEach(c => { criteriaVector[c.id] = scored.criteriaScores?.[c.id]?.raw ?? 0; });
-      liked.push({ ...sharedBase, setupId: sid, criteriaVector });
-      saveLiked(sid, liked);
-    });
+    let saveOk = false;
+    try {
+      getActiveSetupIds().forEach(sid => {
+        const liked = loadLiked(sid);
+        const scored = scoreStock(r, sid);
+        const criteriaVector = {};
+        SETUPS[sid].criteria.forEach(c => { criteriaVector[c.id] = scored.criteriaScores?.[c.id]?.raw ?? 0; });
+        liked.push({ ...sharedBase, setupId: sid, criteriaVector });
+        const ok = saveLiked(sid, liked);
+        if (ok) saveOk = true;
+      });
+    } catch (e) {
+      console.error('[toggleStar] save failed:', e);
+      showToast(`Could not save ${ticker} to My Picks: ${e.message}`, 'error');
+      return;
+    }
+
+    if (!saveOk) {
+      showToast(`Could not save ${ticker} — storage may be full. Open console for details.`, 'error');
+      return;
+    }
 
     r.isStarred = true;
   }
 
+  showToast(`★ ${ticker} added to My Picks`);
+
   // Update star button in DOM without full re-render (list view + glance view)
-  const btn = document.getElementById(`star-${results.indexOf(r)}`);
-  if (btn) {
-    btn.textContent = r.isStarred ? '★' : '☆';
-    btn.classList.toggle('star-active', r.isStarred);
-    btn.title = r.isStarred ? 'Add again as new entry (remove via My Picks tab)' : 'Add to My Picks';
+  // Use sortedResults index since that's what the rendered row IDs are based on
+  const starBtnEl = document.getElementById(`star-${sortedResults.indexOf(r)}`);
+  if (starBtnEl) {
+    starBtnEl.textContent = r.isStarred ? '★' : '☆';
+    starBtnEl.classList.toggle('star-active', r.isStarred);
+    starBtnEl.title = r.isStarred ? 'Add again as new entry (remove via My Picks tab)' : 'Add to My Picks';
   }
   const glanceBtn = document.getElementById(`glance-star-${ticker}`);
   if (glanceBtn) {
