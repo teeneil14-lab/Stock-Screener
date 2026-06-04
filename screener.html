@@ -5616,7 +5616,7 @@ function removeStarredFromTab(ticker, starredAt) {
   }
 
   // Remove card/row from DOM (works in both chart grid and list view)
-  const card = document.getElementById(`picks-card-${ticker}`);
+  const card = document.getElementById(`picks-card-${ticker}-${starredAt}`);
   if (card) card.remove();
   const row = document.getElementById(`picks-list-row-${ticker}-${starredAt}`);
   if (row) row.remove();
@@ -5989,7 +5989,7 @@ function renderStarredCharts() {
     const dateStr = new Date(entry.starredAt).toLocaleDateString('en-US', { day:'numeric', month:'short', year:'numeric' });
     const card    = document.createElement('div');
     card.className   = 'picks-card';
-    card.id          = `picks-card-${entry.ticker}`;
+    card.id          = `picks-card-${entry.ticker}-${entry.starredAt}`;
 
     const tf0 = picksGlobalTF;
 
@@ -5997,7 +5997,7 @@ function renderStarredCharts() {
       <div class="picks-card-header">
         <div class="picks-card-top">
           <div class="picks-card-ticker">${entry.ticker}</div>
-          <button class="picks-card-remove" onclick="removeStarredFromTab('${entry.ticker}')" title="Remove from My Picks">×</button>
+          <button class="picks-card-remove" onclick="removeStarredFromTab('${entry.ticker}',${entry.starredAt})" title="Remove from My Picks">×</button>
         </div>
         <div class="picks-card-name">${entry.name}</div>
         <div class="picks-card-meta">
@@ -6947,8 +6947,10 @@ function switchTab(tab) {
   if (tab === 'imap'    && !imapLoaded    && marketMode !== 'PH') loadIndustryMap(false);
   if (tab === 'picks') {
     _destroyAnalyticsCharts();
+    _syncPicksToolbar();
     if (picksViewMode === 'analytics') renderPicksAnalytics();
     else if (picksViewMode === 'list') renderPicksList();
+    else if (picksViewMode === 'calendar') renderPicksCalendar();
     else renderStarredCharts();
   }
 }
