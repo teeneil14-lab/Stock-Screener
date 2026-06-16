@@ -418,12 +418,10 @@ const server = http.createServer(async (req, res) => {
       return results.length > 0 ? results : { error: 'No rows parsed from CSV' };
     }
 
-    try {
-      // st=w1 + token = weekly 1-week performance view
-      const qs  = `/grp_export?g=${type}&v=210&o=name&st=w1${FINVIZ_TOKEN}`;
-      const raw = await rawHttpsGet({
+    function finvizEliteGet(path) {
+      return rawHttpsGet({
         hostname: 'elite.finviz.com',
-        path:     qs,
+        path,
         headers: {
           'User-Agent':      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
           'Accept':          'text/csv,text/plain,*/*',
@@ -431,10 +429,31 @@ const server = http.createServer(async (req, res) => {
           'Referer':         'https://elite.finviz.com/',
         },
       });
+    }
+
+    try {
+      // st=w1 + token = weekly 1-week performance view
+      const qs  = `/grp_export?g=${type}&v=210&o=name&st=w1${FINVIZ_TOKEN}`;
+      let raw   = await finvizEliteGet(qs);
+
+      // Follow up to 3 redirects
+      let hops = 0;
+      while ((raw.status === 301 || raw.status === 302 || raw.status === 307 || raw.status === 308) && raw.headers.location && hops < 3) {
+        hops++;
+        try {
+          const loc      = new URL(raw.headers.location, `https://elite.finviz.com`);
+          const newPath  = loc.pathname + loc.search;
+          if (loc.hostname === 'elite.finviz.com') {
+            raw = await finvizEliteGet(newPath);
+          } else {
+            raw = await rawHttpsGet({ hostname: loc.hostname, path: newPath, headers: { 'User-Agent': 'Mozilla/5.0' } });
+          }
+        } catch { break; }
+      }
 
       if (raw.status !== 200) {
         res.writeHead(502, { 'Content-Type': 'application/json' });
-        return res.end(JSON.stringify({ error: `Finviz Elite returned HTTP ${raw.status}` }));
+        return res.end(JSON.stringify({ error: `Finviz Elite returned HTTP ${raw.status}`, location: raw.headers.location || null }));
       }
 
       const data = parseFinvizCSV(raw.body);
