@@ -357,6 +357,94 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // ── Finviz groups proxy (sector / industry 1-week performance) ──────────────
+  if (reqUrl.pathname === '/api/finviz-groups') {
+    const type = (reqUrl.searchParams.get('type') || 'sector').replace(/[^a-z]/gi, '');
+    if (type !== 'sector' && type !== 'industry') {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: 'type must be sector or industry' }));
+    }
+
+    const FINVIZ_TTL = 15 * 60 * 1000;
+    if (!server._finvizCache) server._finvizCache = new Map();
+    const cached = server._finvizCache.get(type);
+    if (cached && Date.now() - cached.ts < FINVIZ_TTL) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify(cached.data));
+    }
+
+    function parseFinvizGroupsHTML(html) {
+      const rowHtmls = [];
+      const trRe = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
+      let m;
+      while ((m = trRe.exec(html)) !== null) rowHtmls.push(m[1]);
+
+      let perfWeekIdx = -1, nameIdx = 1, dataStart = -1;
+      for (let i = 0; i < rowHtmls.length; i++) {
+        const cells = [];
+        const cRe = /<(?:td|th)[^>]*>([\s\S]*?)<\/(?:td|th)>/gi;
+        let c;
+        while ((c = cRe.exec(rowHtmls[i])) !== null)
+          cells.push(c[1].replace(/<[^>]+>/g, '').trim());
+        const pwi = cells.findIndex(h => /perf\s*week/i.test(h));
+        if (pwi >= 0) {
+          perfWeekIdx = pwi;
+          const ni = cells.findIndex(h => /^name$/i.test(h));
+          if (ni >= 0) nameIdx = ni;
+          dataStart = i + 1;
+          break;
+        }
+      }
+      if (perfWeekIdx < 0) return null;
+
+      const results = [];
+      for (let i = dataStart; i < rowHtmls.length; i++) {
+        const cells = [];
+        const tdRe = /<td[^>]*>([\s\S]*?)<\/td>/gi;
+        let c;
+        while ((c = tdRe.exec(rowHtmls[i])) !== null)
+          cells.push(c[1].replace(/<[^>]+>/g, '').trim());
+        if (cells.length <= Math.max(perfWeekIdx, nameIdx)) continue;
+        const name = cells[nameIdx];
+        const val  = parseFloat(cells[perfWeekIdx].replace('%', '').replace('+', ''));
+        if (!name || isNaN(val)) continue;
+        results.push({ name, perf1w: val });
+      }
+      return results.length > 0 ? results : null;
+    }
+
+    try {
+      const raw = await rawHttpsGet({
+        hostname: 'finviz.com',
+        path:     `/groups.ashx?g=${type}&o=-perf1w`,
+        headers: {
+          'User-Agent':      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          'Accept':          'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Referer':         'https://finviz.com/',
+          'Connection':      'keep-alive',
+        },
+      });
+      if (raw.status !== 200) {
+        res.writeHead(502, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: `Finviz returned HTTP ${raw.status}` }));
+      }
+      const data = parseFinvizGroupsHTML(raw.body);
+      if (!data) {
+        res.writeHead(502, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: 'Could not parse Finviz groups table — structure may have changed' }));
+      }
+      server._finvizCache.set(type, { ts: Date.now(), data });
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(data));
+    } catch (e) {
+      console.error(`[finviz-groups] ${type}: ${e.message}`);
+      res.writeHead(502, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return;
+  }
+
   // Static file server
   let filePath = reqUrl.pathname === '/' ? '/screener.html' : reqUrl.pathname;
   const fullPath = path.join(__dirname, filePath);
