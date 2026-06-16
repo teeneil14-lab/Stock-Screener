@@ -2636,8 +2636,8 @@
         <button class="picks-view-btn" id="picks-calendar-btn" onclick="toggleCalendarView()">CALENDAR</button>
       </div>
       <div class="picks-add-form">
-        <input id="picks-add-input" class="picks-add-input" type="text" placeholder="TICKER"
-          onkeydown="if(event.key==='Enter')addPickByTicker(this.value,document.getElementById('picks-add-date').value)" maxlength="10" autocomplete="off" spellcheck="false"/>
+        <input id="picks-add-input" class="picks-add-input" type="text" placeholder="AAPL MSFT TSLA"
+          onkeydown="if(event.key==='Enter')addPickByTicker(this.value,document.getElementById('picks-add-date').value)" autocomplete="off" spellcheck="false"/>
         <input id="picks-add-date" class="picks-add-date" type="date" title="Pick date (leave as today for a current pick)"/>
         <button id="picks-add-btn" class="picks-add-btn" onclick="addPickByTicker(document.getElementById('picks-add-input').value,document.getElementById('picks-add-date').value)">ADD ★</button>
       </div>
@@ -5666,18 +5666,49 @@ function renderPicksEmpty() {
   </div>`;
 }
 
-async function addPickByTicker(rawTicker, dateStr) {
-  const ticker = rawTicker.trim().toUpperCase();
-  if (!ticker) return;
+async function _addSinglePickWorker(ticker, starredAt) {
+  const data = await fetchStockData(ticker);
+  const r = {
+    ticker,
+    name:        data.name || ticker,
+    price:       data.price,
+    change:      data.change,
+    vol_ratio:   data.vol_ratio,
+    above_ema50: data.above_ema50,
+    yr_return:   data.yr_return,
+    daily:       data.daily,
+    weekly:      data.weekly,
+    monthly:     data.monthly,
+  };
+  const sharedBase = {
+    ticker:     r.ticker,
+    name:       r.name,
+    starredAt,
+    sectorBonus: 0,
+    sectorName:  '',
+    price:      r.price,
+    dailyBars:   (r.daily   || []).slice(-130).map(b => ({ t:b.t, o:b.o, h:b.h, l:b.l, c:b.c })),
+    weeklyBars:  (r.weekly  || []).slice(-52) .map(b => ({ t:b.t, o:b.o, h:b.h, l:b.l, c:b.c })),
+    monthlyBars: (r.monthly || []).slice(-36) .map(b => ({ t:b.t, o:b.o, h:b.h, l:b.l, c:b.c })),
+  };
+  getActiveSetupIds().forEach(sid => {
+    const existing = loadLiked(sid).filter(l => l.ticker !== ticker);
+    const scored   = scoreStock(r, sid);
+    const criteriaVector = {};
+    SETUPS[sid].criteria.forEach(c => { criteriaVector[c.id] = scored.criteriaScores?.[c.id]?.raw ?? 0; });
+    existing.push({ ...sharedBase, score: scored.score, tfNorm: { ...scored.tfNorm }, setupId: sid, criteriaVector });
+    saveLiked(sid, existing);
+  });
+}
+
+async function addPickByTicker(rawInput, dateStr) {
+  const tickers = rawInput.trim().toUpperCase().split(/[\s,]+/).filter(Boolean);
+  if (!tickers.length) return;
 
   const btn   = document.getElementById('picks-add-btn');
   const input = document.getElementById('picks-add-input');
 
-  btn.disabled    = true;
-  btn.textContent = '...';
-
-  // If the user supplied a date, convert "YYYY-MM-DD" to a ms timestamp at noon UTC
-  // (noon avoids timezone edge cases where midnight rolls back to the previous day).
+  // Convert "YYYY-MM-DD" to noon UTC to avoid timezone edge cases.
   // If no date supplied, use the current moment.
   let starredAt = Date.now();
   if (dateStr) {
@@ -5685,54 +5716,28 @@ async function addPickByTicker(rawTicker, dateStr) {
     if (!isNaN(parsed)) starredAt = parsed.getTime();
   }
 
-  try {
-    const data = await fetchStockData(ticker);
+  btn.disabled = true;
+  const errors = [];
 
-    const r = {
-      ticker,
-      name:        data.name || ticker,
-      price:       data.price,
-      change:      data.change,
-      vol_ratio:   data.vol_ratio,
-      above_ema50: data.above_ema50,
-      yr_return:   data.yr_return,
-      daily:       data.daily,
-      weekly:      data.weekly,
-      monthly:     data.monthly,
-    };
-
-    const sharedBase = {
-      ticker:     r.ticker,
-      name:       r.name,
-      starredAt,
-      sectorBonus: 0,
-      sectorName:  '',
-      price:      r.price,
-      dailyBars:   (r.daily   || []).slice(-130).map(b => ({ t:b.t, o:b.o, h:b.h, l:b.l, c:b.c })),
-      weeklyBars:  (r.weekly  || []).slice(-52) .map(b => ({ t:b.t, o:b.o, h:b.h, l:b.l, c:b.c })),
-      monthlyBars: (r.monthly || []).slice(-36) .map(b => ({ t:b.t, o:b.o, h:b.h, l:b.l, c:b.c })),
-    };
-
-    getActiveSetupIds().forEach(sid => {
-      const existing = loadLiked(sid).filter(l => l.ticker !== ticker);
-      const scored   = scoreStock(r, sid);
-      const criteriaVector = {};
-      SETUPS[sid].criteria.forEach(c => { criteriaVector[c.id] = scored.criteriaScores?.[c.id]?.raw ?? 0; });
-      existing.push({ ...sharedBase, score: scored.score, tfNorm: { ...scored.tfNorm }, setupId: sid, criteriaVector });
-      saveLiked(sid, existing);
-    });
-
-    input.value = '';
-    renderStarredCharts();
-    computeAllSimilarityBonuses();
-    renderPatternPanel();
-    if (results.length) renderResults();
-  } catch (err) {
-    alert(`Could not add ${ticker}: ${err.message}`);
-  } finally {
-    btn.disabled    = false;
-    btn.textContent = 'ADD ★';
+  for (let i = 0; i < tickers.length; i++) {
+    btn.textContent = tickers.length > 1 ? `${i + 1}/${tickers.length}…` : '…';
+    try {
+      await _addSinglePickWorker(tickers[i], starredAt);
+    } catch (err) {
+      errors.push(`${tickers[i]}: ${err.message}`);
+    }
   }
+
+  input.value = '';
+  renderStarredCharts();
+  computeAllSimilarityBonuses();
+  renderPatternPanel();
+  if (results.length) renderResults();
+
+  btn.disabled    = false;
+  btn.textContent = 'ADD ★';
+
+  if (errors.length) alert('Could not add:\n' + errors.join('\n'));
 }
 
 async function switchPicksChart(ticker, tf) {
@@ -6150,18 +6155,7 @@ function resolvePickReturn(perf, rp) {
 
 // ── Calendar helpers ─────────────────────────────────────────────────────────
 
-// Returns the Date of the next market session after the last frozen daily bar.
-// That's when the user buys — the first candle after they starred the pick.
-// Falls back to starredAt if no bars are stored.
 function pickEntryDate(e) {
-  if (e.dailyBars && e.dailyBars.length > 0) {
-    const d = new Date(e.dailyBars[e.dailyBars.length - 1].t);
-    d.setUTCDate(d.getUTCDate() + 1);
-    const dow = d.getUTCDay(); // 0=Sun, 6=Sat
-    if (dow === 6) d.setUTCDate(d.getUTCDate() + 2); // Sat → Mon
-    if (dow === 0) d.setUTCDate(d.getUTCDate() + 1); // Sun → Mon
-    return d;
-  }
   return new Date(e.starredAt);
 }
 
