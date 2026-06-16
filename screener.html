@@ -4991,20 +4991,74 @@ async function tabSearchGo() {
   }
 }
 
+// Returns the date of Easter Sunday for the given year (local time).
+function _easterSunday(year) {
+  const a = year % 19, b = Math.floor(year / 100), c = year % 100;
+  const d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4), k = c % 4;
+  const l = (32 + 2 * e + 2 * i - h - k) % 7;
+  const m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const month = Math.floor((h + l - 7 * m + 114) / 31);
+  const day   = ((h + l - 7 * m + 114) % 31) + 1;
+  return new Date(year, month - 1, day);
+}
+
+// Returns a Set of YYYY-MM-DD strings for US stock market holidays in the given year.
+function _usMarketHolidays(year) {
+  const s = new Set();
+  function obs(month, day) { // month 0-indexed; applies Saturday→Friday, Sunday→Monday observance
+    const d = new Date(year, month, day);
+    const dow = d.getDay();
+    if (dow === 6) d.setDate(d.getDate() - 1);
+    if (dow === 0) d.setDate(d.getDate() + 1);
+    s.add(d.toLocaleDateString('en-CA'));
+  }
+  function nth(month, weekday, n) { // nth weekday of month (1-indexed)
+    const d = new Date(year, month, 1); let count = 0;
+    while (true) { if (d.getDay() === weekday && ++count === n) return new Date(d); d.setDate(d.getDate() + 1); }
+  }
+  function last(month, weekday) { // last weekday of month
+    const d = new Date(year, month + 1, 0);
+    while (d.getDay() !== weekday) d.setDate(d.getDate() - 1);
+    return new Date(d);
+  }
+  obs(0, 1);                                              // New Year's Day
+  s.add(nth(0, 1, 3).toLocaleDateString('en-CA'));        // MLK Day (3rd Mon Jan)
+  s.add(nth(1, 1, 3).toLocaleDateString('en-CA'));        // Presidents' Day (3rd Mon Feb)
+  const gf = new Date(_easterSunday(year));               // Good Friday
+  gf.setDate(gf.getDate() - 2);
+  s.add(gf.toLocaleDateString('en-CA'));
+  s.add(last(4, 1).toLocaleDateString('en-CA'));          // Memorial Day (last Mon May)
+  obs(5, 19);                                             // Juneteenth (Jun 19)
+  obs(6, 4);                                              // Independence Day (Jul 4)
+  s.add(nth(8, 1, 1).toLocaleDateString('en-CA'));        // Labor Day (1st Mon Sep)
+  s.add(nth(10, 4, 4).toLocaleDateString('en-CA'));       // Thanksgiving (4th Thu Nov)
+  obs(11, 25);                                            // Christmas (Dec 25)
+  return s;
+}
+
+// Returns true if the US stock market is closed on the given Date (weekend or holiday).
+function _isMarketClosed(date) {
+  const dow = date.getDay();
+  if (dow === 0 || dow === 6) return true;
+  return _usMarketHolidays(date.getFullYear()).has(date.toLocaleDateString('en-CA'));
+}
+
 async function loadTodaysPicks() {
   const btn = document.getElementById('todays-picks-btn');
   const input = document.getElementById('tab-search-input');
 
-  // Collect all picks from every setup pool, deduplicate by ticker, keep only those starred today.
-  // On Monday, also include Saturday and Sunday — same logic as the calendar (first buyable day).
+  // Build the set of valid starred-at dates: today, plus any consecutive closed-market days
+  // immediately before today (weekends, holidays). Those picks first become buyable today.
   const today = new Date();
-  const todayStr = today.toLocaleDateString('en-CA'); // YYYY-MM-DD in local time
-  const validDates = new Set([todayStr]);
-  if (today.getDay() === 1) { // Monday
-    const sun = new Date(today); sun.setDate(today.getDate() - 1);
-    const sat = new Date(today); sat.setDate(today.getDate() - 2);
-    validDates.add(sun.toLocaleDateString('en-CA'));
-    validDates.add(sat.toLocaleDateString('en-CA'));
+  const validDates = new Set([today.toLocaleDateString('en-CA')]);
+  const prev = new Date(today);
+  prev.setDate(today.getDate() - 1);
+  while (_isMarketClosed(prev)) {
+    validDates.add(prev.toLocaleDateString('en-CA'));
+    prev.setDate(prev.getDate() - 1);
   }
   const seen = new Set();
   const todayTickers = [];
