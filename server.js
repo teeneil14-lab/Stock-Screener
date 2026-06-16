@@ -357,7 +357,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // ── Finviz groups proxy (sector / industry 1-week performance) ──────────────
+  // ── Finviz Elite groups proxy (sector / industry 1-week performance) ─────────
   if (reqUrl.pathname === '/api/finviz-groups') {
     const type = (reqUrl.searchParams.get('type') || 'sector').replace(/[^a-z]/gi, '');
     if (type !== 'sector' && type !== 'industry') {
@@ -365,7 +365,9 @@ const server = http.createServer(async (req, res) => {
       return res.end(JSON.stringify({ error: 'type must be sector or industry' }));
     }
 
-    const FINVIZ_TTL = 15 * 60 * 1000;
+    const FINVIZ_TTL   = 15 * 60 * 1000;
+    const FINVIZ_TOKEN = 'aef22707-59f4-492a-be23-ed3f64945fcb';
+
     if (!server._finvizCache) server._finvizCache = new Map();
     const cached = server._finvizCache.get(type);
     if (cached && Date.now() - cached.ts < FINVIZ_TTL) {
@@ -373,81 +375,74 @@ const server = http.createServer(async (req, res) => {
       return res.end(JSON.stringify(cached.data));
     }
 
-    function parseFinvizGroupsHTML(html) {
-      const rowHtmls = [];
-      const trRe = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
-      let m;
-      while ((m = trRe.exec(html)) !== null) rowHtmls.push(m[1]);
-
-      let perfWeekIdx = -1, nameIdx = 1, dataStart = -1;
-      for (let i = 0; i < rowHtmls.length; i++) {
-        const cells = [];
-        const cRe = /<(?:td|th)[^>]*>([\s\S]*?)<\/(?:td|th)>/gi;
-        let c;
-        while ((c = cRe.exec(rowHtmls[i])) !== null)
-          cells.push(c[1].replace(/<[^>]+>/g, '').trim());
-        const pwi = cells.findIndex(h => /perf\s*week/i.test(h));
-        if (pwi >= 0) {
-          perfWeekIdx = pwi;
-          const ni = cells.findIndex(h => /^name$/i.test(h));
-          if (ni >= 0) nameIdx = ni;
-          dataStart = i + 1;
-          break;
-        }
+    function parseCSVLine(line) {
+      const cells = [];
+      let cur = '', inQ = false;
+      for (let i = 0; i < line.length; i++) {
+        if (line[i] === '"') { inQ = !inQ; }
+        else if (line[i] === ',' && !inQ) { cells.push(cur.trim()); cur = ''; }
+        else { cur += line[i]; }
       }
-      if (perfWeekIdx < 0) return null;
+      cells.push(cur.trim());
+      return cells;
+    }
+
+    function parseFinvizCSV(csv) {
+      const lines = csv.trim().split(/\r?\n/).filter(Boolean);
+      if (lines.length < 2) return null;
+
+      const headers = parseCSVLine(lines[0]);
+      const nameIdx = headers.findIndex(h => /^name$/i.test(h));
+      // Flexible column match: "Performance", "Perf Week", "1W", "Change", "Perf 1W"
+      const perfIdx = headers.findIndex(h =>
+        /^performance$/i.test(h) ||
+        /perf\s*week/i.test(h)   ||
+        /^1w$/i.test(h)          ||
+        /perf\s*1w/i.test(h)     ||
+        /^change$/i.test(h)
+      );
+
+      if (nameIdx < 0 || perfIdx < 0) {
+        return { error: `Columns not found. Headers: ${headers.join(', ')}` };
+      }
 
       const results = [];
-      for (let i = dataStart; i < rowHtmls.length; i++) {
-        const cells = [];
-        const tdRe = /<td[^>]*>([\s\S]*?)<\/td>/gi;
-        let c;
-        while ((c = tdRe.exec(rowHtmls[i])) !== null)
-          cells.push(c[1].replace(/<[^>]+>/g, '').trim());
-        if (cells.length <= Math.max(perfWeekIdx, nameIdx)) continue;
+      for (let i = 1; i < lines.length; i++) {
+        const cells = parseCSVLine(lines[i]);
+        if (cells.length <= Math.max(nameIdx, perfIdx)) continue;
         const name = cells[nameIdx];
-        const val  = parseFloat(cells[perfWeekIdx].replace('%', '').replace('+', ''));
+        const val  = parseFloat(cells[perfIdx].replace('%', '').replace('+', ''));
         if (!name || isNaN(val)) continue;
         results.push({ name, perf1w: val });
       }
-      return results.length > 0 ? results : null;
-    }
-
-    function finvizGet(hostname, path) {
-      return rawHttpsGet({
-        hostname,
-        path,
-        headers: {
-          'User-Agent':      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-          'Accept':          'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-          'Accept-Language': 'en-US,en;q=0.9',
-          'Referer':         'https://www.finviz.com/',
-          'Connection':      'keep-alive',
-        },
-      });
+      return results.length > 0 ? results : { error: 'No rows parsed from CSV' };
     }
 
     try {
-      const qs  = `/groups.ashx?g=${type}&o=-perf1w`;
-      let raw   = await finvizGet('www.finviz.com', qs);
-
-      // Follow one redirect (301/302) in case of domain change
-      if ((raw.status === 301 || raw.status === 302) && raw.headers.location) {
-        try {
-          const loc = new URL(raw.headers.location);
-          raw = await finvizGet(loc.hostname, loc.pathname + loc.search);
-        } catch {}
-      }
+      // st=w1 + token = weekly 1-week performance view
+      const qs  = `/grp_export?g=${type}&v=210&o=name&st=w1${FINVIZ_TOKEN}`;
+      const raw = await rawHttpsGet({
+        hostname: 'elite.finviz.com',
+        path:     qs,
+        headers: {
+          'User-Agent':      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          'Accept':          'text/csv,text/plain,*/*',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Referer':         'https://elite.finviz.com/',
+        },
+      });
 
       if (raw.status !== 200) {
         res.writeHead(502, { 'Content-Type': 'application/json' });
-        return res.end(JSON.stringify({ error: `Finviz returned HTTP ${raw.status}` }));
+        return res.end(JSON.stringify({ error: `Finviz Elite returned HTTP ${raw.status}` }));
       }
-      const data = parseFinvizGroupsHTML(raw.body);
-      if (!data) {
+
+      const data = parseFinvizCSV(raw.body);
+      if (!data || data.error) {
         res.writeHead(502, { 'Content-Type': 'application/json' });
-        return res.end(JSON.stringify({ error: 'Could not parse Finviz groups table — structure may have changed' }));
+        return res.end(JSON.stringify({ error: (data && data.error) || 'Failed to parse CSV' }));
       }
+
       server._finvizCache.set(type, { ts: Date.now(), data });
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(data));
