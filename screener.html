@@ -4995,8 +4995,17 @@ async function loadTodaysPicks() {
   const btn = document.getElementById('todays-picks-btn');
   const input = document.getElementById('tab-search-input');
 
-  // Collect all picks from every setup pool, deduplicate by ticker, keep only those starred today
-  const todayStr = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD in local time
+  // Collect all picks from every setup pool, deduplicate by ticker, keep only those starred today.
+  // On Monday, also include Saturday and Sunday — same logic as the calendar (first buyable day).
+  const today = new Date();
+  const todayStr = today.toLocaleDateString('en-CA'); // YYYY-MM-DD in local time
+  const validDates = new Set([todayStr]);
+  if (today.getDay() === 1) { // Monday
+    const sun = new Date(today); sun.setDate(today.getDate() - 1);
+    const sat = new Date(today); sat.setDate(today.getDate() - 2);
+    validDates.add(sun.toLocaleDateString('en-CA'));
+    validDates.add(sat.toLocaleDateString('en-CA'));
+  }
   const seen = new Set();
   const todayTickers = [];
 
@@ -5004,7 +5013,7 @@ async function loadTodaysPicks() {
     loadLiked(sid).forEach(entry => {
       if (!entry.starredAt || seen.has(entry.ticker)) return;
       const entryDate = new Date(entry.starredAt).toLocaleDateString('en-CA');
-      if (entryDate === todayStr) {
+      if (validDates.has(entryDate)) {
         seen.add(entry.ticker);
         todayTickers.push(entry.ticker);
       }
