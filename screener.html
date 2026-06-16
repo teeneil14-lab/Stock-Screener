@@ -1613,7 +1613,10 @@
   .cal-cell.has-picks { border-color:transparent; }
   .cal-date-num { font-family:'IBM Plex Mono',monospace; font-size:11px; font-weight:700; line-height:1; margin-bottom:4px; }
   .cal-cell:not(.has-picks) .cal-date-num { color:var(--text3); }
-  .cal-badge { font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:700; margin-top:auto; letter-spacing:0.02em; padding-top:3px; }
+  .cal-badge { font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:700; letter-spacing:0.02em; }
+  .cal-scan-avg { font-family:'IBM Plex Mono',monospace; font-size:9px; font-weight:600; letter-spacing:0.03em; position:absolute; top:6px; right:7px; }
+  .cal-avg-footer { font-family:'IBM Plex Mono',monospace; font-size:9px; font-weight:700; letter-spacing:0.02em; }
+  .cal-cell-bottom { display:flex; justify-content:space-between; align-items:flex-end; margin-top:auto; padding-top:3px; }
   .cal-picks-list { display:flex; flex-direction:column; gap:3px; margin-top:4px; flex:1; }
   .cal-pick-row { display:flex; justify-content:space-between; align-items:center; gap:4px; cursor:pointer; border-radius:3px; padding:1px 2px; transition:opacity 0.1s; }
   .cal-pick-row:hover { opacity:0.75; }
@@ -4019,6 +4022,9 @@ async function runScan() {
   if (results.length) {
     document.getElementById('download-btn').style.display = '';
     loadChart(results[0]);
+    const todayScanStr = new Date().toLocaleDateString('en-CA');
+    const avgScanScore = Math.round(results.reduce((sum, r) => sum + (r.score || 0), 0) / results.length);
+    saveScanAvg(currentSetup, todayScanStr, avgScanScore, results.length);
   }
 
   btn.disabled = false;
@@ -6316,7 +6322,8 @@ async function renderPicksCalendar() {
 
   if (picksViewMode !== 'calendar') return;
 
-  const byDay = buildPicksDayMap(analyticsReturnPeriod);
+  const byDay    = buildPicksDayMap(analyticsReturnPeriod);
+  const scanAvgs = loadScanAvgs(currentSetup);
 
   const yr  = calendarCurrentDate.getFullYear();
   const mo  = calendarCurrentDate.getMonth();
@@ -6347,6 +6354,7 @@ async function renderPicksCalendar() {
     const key  = `${yr}-${String(mo+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     const data = byDay[key];
     const total = data ? data.wins + data.losses : 0;
+    const scanAvg = scanAvgs[key];
 
     if (!data || (total === 0 && data.picks.every(p => p.pending))) {
       const pendingPicks = data ? data.picks.filter(p => p.pending) : [];
@@ -6356,10 +6364,13 @@ async function renderPicksCalendar() {
           `<div class="cal-pick-row" onclick="loadCalendarChart('${p.ticker}')"><span class="cal-pick-ticker" style="color:var(--text)">${p.ticker}</span><span class="cal-pick-ret" style="color:var(--text3);font-style:italic">—</span></div>`
         ).join('')}</div>`;
       }
-      cellsHTML += `<div class="cal-cell"><span class="cal-date-num">${d}</span>${pendingInner}</div>`;
+      const avgBadge = scanAvg ? `<span class="cal-scan-avg" style="color:var(--text3)">${scanAvg.avgScore}%</span>` : '';
+      cellsHTML += `<div class="cal-cell"><span class="cal-date-num">${d}</span>${avgBadge}${pendingInner}</div>`;
     } else {
       const color = data.dayHitRatio !== null ? _calHitRatioColor(data.dayHitRatio) : { bg:'#9ca3af', text:'#fff', winColor:'#a8f0b0', lossColor:'#ffb0b0' };
       const badge = `${data.wins}W / ${data.losses}L`;
+      const avgBadge = scanAvg ? `<span class="cal-scan-avg" style="color:${color.text}">${scanAvg.avgScore}%</span>` : '';
+      const avgFooter = (calendarShowPicks && scanAvg) ? `<span class="cal-avg-footer" style="color:${color.text}">${scanAvg.avgScore}% AVG</span>` : '';
       let picksInner = '';
       if (calendarShowPicks) {
         const allPicks = data.picks;
@@ -6394,8 +6405,12 @@ async function renderPicksCalendar() {
       }
       cellsHTML += `<div class="cal-cell has-picks" style="background:${color.bg}">
         <span class="cal-date-num" style="color:${color.text}">${d}</span>
+        ${avgBadge}
         ${picksInner}
-        <span class="cal-badge" style="color:${color.text}">${badge}</span>
+        <div class="cal-cell-bottom">
+          <span class="cal-badge" style="color:${color.text}">${badge}</span>
+          ${avgFooter}
+        </div>
       </div>`;
     }
   }
@@ -7453,6 +7468,23 @@ function migrateLikedCompression() {
       } catch(e) { console.warn('[migrateLikedCompression]', e); }
     }
   });
+}
+
+function loadScanAvgs(setupId) {
+  try {
+    const raw = localStorage.getItem(`cts_scan_avg_${setupId}`);
+    return raw ? JSON.parse(raw) : {};
+  } catch { return {}; }
+}
+
+function saveScanAvg(setupId, dateStr, avgScore, count) {
+  try {
+    const data = loadScanAvgs(setupId);
+    data[dateStr] = { avgScore, count };
+    localStorage.setItem(`cts_scan_avg_${setupId}`, JSON.stringify(data));
+  } catch (e) {
+    console.error('[saveScanAvg] localStorage write failed:', e);
+  }
 }
 
 function loadLiked(setupId) {
