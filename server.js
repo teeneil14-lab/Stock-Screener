@@ -456,10 +456,12 @@ const server = http.createServer(async (req, res) => {
         return res.end(JSON.stringify({ error: `Finviz Elite returned HTTP ${raw.status}`, location: raw.headers.location || null }));
       }
 
+      console.log(`[finviz-groups] ${type} body preview: ${raw.body.substring(0, 300)}`);
+
       const data = parseFinvizCSV(raw.body);
       if (!data || data.error) {
         res.writeHead(502, { 'Content-Type': 'application/json' });
-        return res.end(JSON.stringify({ error: (data && data.error) || 'Failed to parse CSV' }));
+        return res.end(JSON.stringify({ error: (data && data.error) || 'Failed to parse CSV', preview: raw.body.substring(0, 300) }));
       }
 
       server._finvizCache.set(type, { ts: Date.now(), data });
