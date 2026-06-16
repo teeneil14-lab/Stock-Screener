@@ -365,13 +365,12 @@ const server = http.createServer(async (req, res) => {
       return res.end(JSON.stringify({ error: 'type must be sector or industry' }));
     }
 
-    const FINVIZ_TTL   = 15 * 60 * 1000;
-    // Full st= value from the Elite export URL — do not modify
-    const FINVIZ_ST    = 'd1aef22707-59f4-492a-be23-ed3f64945fcb';
+    const FINVIZ_AUTH = 'aef22707-59f4-492a-be23-ed3f64945fcb';
+    const CACHE_TTL   = 15 * 60 * 1000;
 
     if (!server._finvizCache) server._finvizCache = new Map();
     const cached = server._finvizCache.get(type);
-    if (cached && Date.now() - cached.ts < FINVIZ_TTL) {
+    if (cached && Date.now() - cached.ts < CACHE_TTL) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       return res.end(JSON.stringify(cached.data));
     }
@@ -391,24 +390,15 @@ const server = http.createServer(async (req, res) => {
     function parseFinvizCSV(csv) {
       const lines = csv.trim().split(/\r?\n/).filter(Boolean);
       if (lines.length < 2) return null;
-
       const headers = parseCSVLine(lines[0]);
       const nameIdx = headers.findIndex(h => /^name$/i.test(h) || /^sector$/i.test(h) || /^industry$/i.test(h));
-      // Flexible column match for 1-week performance across Finviz view variants
       const perfIdx = headers.findIndex(h =>
-        /^performance$/i.test(h) ||
-        /perf\s*week/i.test(h)   ||
-        /^1w$/i.test(h)          ||
-        /perf\s*1w/i.test(h)     ||
-        /^change$/i.test(h)      ||
-        /^week$/i.test(h)        ||
-        /^w$/i.test(h)
+        /perf.*week/i.test(h) || /^performance$/i.test(h) || /perf\s*1w/i.test(h) ||
+        /^1w$/i.test(h) || /^week$/i.test(h)
       );
-
       if (nameIdx < 0 || perfIdx < 0) {
         return { error: `Columns not found. Headers: ${headers.join(', ')}` };
       }
-
       const results = [];
       for (let i = 1; i < lines.length; i++) {
         const cells = parseCSVLine(lines[i]);
@@ -421,60 +411,31 @@ const server = http.createServer(async (req, res) => {
       return results.length > 0 ? results : { error: 'No rows parsed from CSV' };
     }
 
-    const FINVIZ_COOKIE = 'finviz_t=bee4f374-a7f0-4e0e-90d8-38cb154344c8; finvizFuturesQuotesTimeframe=d; insiderTradingUrl=tc%3D7; notice-newsletter=hidden; promo-homepage-maps=hidden; pubcv={}; screenerCustomTable=0%2C1%2C2%2C3%2C5%2C6%2C30%2C63%2C64%2C67%2C65%2C66; screenerUrl=v%3D111; survey_dialog_cohort=0; tcf2cookie=CQj1lwAQj1lwAAJAGBENCdFsAP_gAEPgACiQMcNR_G__bWlr; usprivacy=1N--; ic_tagmanager=UAT';
-
-    function finvizEliteGet(path) {
-      return rawHttpsGet({
-        hostname: 'elite.finviz.com',
-        path,
-        headers: {
-          'User-Agent':      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-          'Accept':          'text/csv,text/plain,*/*',
-          'Accept-Language': 'en-US,en;q=0.9',
-          'Referer':         'https://elite.finviz.com/',
-          'Cookie':          FINVIZ_COOKIE,
-        },
-      });
-    }
-
     try {
-      // v=210 = performance view from the original Elite export URL
-      const qs  = `/grp_export?g=${type}&v=210&o=name&st=${FINVIZ_ST}`;
-      let raw   = await finvizEliteGet(qs);
+      // v=140 = performance view with "Performance (Week)" column; auth= token, no cookies needed
+      const path = `/grp_export?g=${type}&v=140&auth=${FINVIZ_AUTH}`;
+      const raw  = await rawHttpsGet({ hostname: 'elite.finviz.com', path, headers: {} });
 
-      // Follow up to 3 redirects
-      let hops = 0;
-      while ((raw.status === 301 || raw.status === 302 || raw.status === 307 || raw.status === 308) && raw.headers.location && hops < 3) {
-        hops++;
-        try {
-          const loc      = new URL(raw.headers.location, `https://elite.finviz.com`);
-          const newPath  = loc.pathname + loc.search;
-          if (loc.hostname === 'elite.finviz.com') {
-            raw = await finvizEliteGet(newPath);
-          } else {
-            raw = await rawHttpsGet({ hostname: loc.hostname, path: newPath, headers: { 'User-Agent': 'Mozilla/5.0' } });
-          }
-        } catch { break; }
-      }
+      console.log(`[finviz] ${type} status=${raw.status} preview: ${raw.body.substring(0, 200)}`);
 
       if (raw.status !== 200) {
         res.writeHead(502, { 'Content-Type': 'application/json' });
-        return res.end(JSON.stringify({ error: `Finviz Elite returned HTTP ${raw.status}`, location: raw.headers.location || null }));
+        return res.end(JSON.stringify({ error: `Finviz returned HTTP ${raw.status}`, preview: raw.body.substring(0, 200) }));
       }
-
-      console.log(`[finviz-groups] ${type} body preview: ${raw.body.substring(0, 300)}`);
 
       const data = parseFinvizCSV(raw.body);
       if (!data || data.error) {
         res.writeHead(502, { 'Content-Type': 'application/json' });
-        return res.end(JSON.stringify({ error: (data && data.error) || 'Failed to parse CSV', preview: raw.body.substring(0, 300) }));
+        return res.end(JSON.stringify({ error: (data && data.error) || 'Failed to parse CSV', preview: raw.body.substring(0, 200) }));
       }
+
+      if (type === 'industry') data.sort((a, b) => b.perf1w - a.perf1w);
 
       server._finvizCache.set(type, { ts: Date.now(), data });
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(data));
     } catch (e) {
-      console.error(`[finviz-groups] ${type}: ${e.message}`);
+      console.error(`[finviz] ${type}: ${e.message}`);
       res.writeHead(502, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: e.message }));
     }
