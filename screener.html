@@ -6156,7 +6156,11 @@ function resolvePickReturn(perf, rp) {
 // ── Calendar helpers ─────────────────────────────────────────────────────────
 
 function pickEntryDate(e) {
-  return new Date(e.starredAt);
+  const d = new Date(e.starredAt);
+  const dow = d.getUTCDay(); // 0=Sun, 6=Sat
+  if (dow === 6) d.setUTCDate(d.getUTCDate() + 2); // Sat → Mon
+  if (dow === 0) d.setUTCDate(d.getUTCDate() + 1); // Sun → Mon
+  return d;
 }
 
 function buildPicksDayMap(rp) {
