@@ -8550,6 +8550,21 @@ function sortSectors(col) {
 //  TWEEKLY TAB — Finviz 1-Week Sector + Top 10 Industry Performance
 // ============================================================
 
+// S&P 500 sector SPDR ETFs — one per sector
+const TWEEKLY_SECTOR_ETFS = [
+  { name: 'Technology',             ticker: 'XLK'  },
+  { name: 'Health Care',            ticker: 'XLV'  },
+  { name: 'Financials',             ticker: 'XLF'  },
+  { name: 'Consumer Discretionary', ticker: 'XLY'  },
+  { name: 'Industrials',            ticker: 'XLI'  },
+  { name: 'Communication Services', ticker: 'XLC'  },
+  { name: 'Consumer Staples',       ticker: 'XLP'  },
+  { name: 'Energy',                 ticker: 'XLE'  },
+  { name: 'Utilities',              ticker: 'XLU'  },
+  { name: 'Real Estate',            ticker: 'XLRE' },
+  { name: 'Materials',              ticker: 'XLB'  },
+];
+
 async function loadTweekly(force) {
   tweeklyLoaded = true;
   const btn     = document.getElementById('tweekly-refresh-btn');
@@ -8557,7 +8572,7 @@ async function loadTweekly(force) {
   const secWrap = document.getElementById('tweekly-sectors-wrap');
   const indWrap = document.getElementById('tweekly-industries-wrap');
 
-  const CACHE_KEY = 'cts_tweekly_v1';
+  const CACHE_KEY = 'cts_tweekly_v2';
   const CACHE_TTL = 15 * 60 * 1000;
 
   if (!force) {
@@ -8575,31 +8590,38 @@ async function loadTweekly(force) {
     } catch {}
   }
 
-  btn.disabled  = true;
+  btn.disabled = true;
   updated.textContent = 'Loading…';
-  secWrap.innerHTML = '<div class="tweekly-loading"><div class="tweekly-spinner"></div>Loading sectors…</div>';
-  indWrap.innerHTML = '<div class="tweekly-loading"><div class="tweekly-spinner"></div>Loading industries…</div>';
+  secWrap.innerHTML = '<div style="padding:12px;color:var(--text3);font-size:12px;">Loading sectors…</div>';
+  indWrap.innerHTML = '<div style="padding:12px;color:var(--text3);font-size:12px;">Loading industries…</div>';
+
+  // Industry ETFs = all IMAP sub-sector ETFs excluding the broad sector ones
+  const BROAD = new Set(['XLK','XLV','XLF','XLY','XLI','XLC','XLP','XLE','XLU','XLRE','XLB']);
+  const industryEtfs = IMAP_SECTORS.flatMap(s => s.etfs).filter(e => !BROAD.has(e.ticker));
 
   try {
-    const [sRes, iRes] = await Promise.all([
-      fetch('/api/finviz-groups?type=sector'),
-      fetch('/api/finviz-groups?type=industry'),
+    const [sectorPcts, indPcts] = await Promise.all([
+      Promise.all(TWEEKLY_SECTOR_ETFS.map(s => fetchImapWeekly(s.ticker))),
+      Promise.all(industryEtfs.map(e => fetchImapWeekly(e.ticker))),
     ]);
-    const sectors    = await sRes.json();
-    const industries = await iRes.json();
 
-    if (!Array.isArray(sectors))    throw new Error(sectors.error    || 'Bad sector data');
-    if (!Array.isArray(industries)) throw new Error(industries.error || 'Bad industry data');
+    const sectors = TWEEKLY_SECTOR_ETFS
+      .map((s, i) => ({ name: s.name, perf1w: sectorPcts[i] }))
+      .filter(r => r.perf1w !== null)
+      .sort((a, b) => b.perf1w - a.perf1w);
 
-    // Top 10 industries already sorted desc by Finviz (o=-perf1w), take first 10
-    const top10 = industries.slice(0, 10);
+    const industries = industryEtfs
+      .map((e, i) => ({ name: e.name, perf1w: indPcts[i] }))
+      .filter(r => r.perf1w !== null)
+      .sort((a, b) => b.perf1w - a.perf1w)
+      .slice(0, 10);
 
     renderTweeklySection(secWrap, sectors);
-    renderTweeklySection(indWrap, top10);
+    renderTweeklySection(indWrap, industries);
     updated.textContent = 'Updated ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
     try {
-      sessionStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), sectors, industries: top10 }));
+      sessionStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), sectors, industries }));
     } catch {}
   } catch (e) {
     secWrap.innerHTML = `<div class="tweekly-error">Failed to load: ${e.message}</div>`;

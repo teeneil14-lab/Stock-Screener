@@ -393,14 +393,16 @@ const server = http.createServer(async (req, res) => {
       if (lines.length < 2) return null;
 
       const headers = parseCSVLine(lines[0]);
-      const nameIdx = headers.findIndex(h => /^name$/i.test(h));
-      // Flexible column match: "Performance", "Perf Week", "1W", "Change", "Perf 1W"
+      const nameIdx = headers.findIndex(h => /^name$/i.test(h) || /^sector$/i.test(h) || /^industry$/i.test(h));
+      // Flexible column match for 1-week performance across Finviz view variants
       const perfIdx = headers.findIndex(h =>
         /^performance$/i.test(h) ||
         /perf\s*week/i.test(h)   ||
         /^1w$/i.test(h)          ||
         /perf\s*1w/i.test(h)     ||
-        /^change$/i.test(h)
+        /^change$/i.test(h)      ||
+        /^week$/i.test(h)        ||
+        /^w$/i.test(h)
       );
 
       if (nameIdx < 0 || perfIdx < 0) {
@@ -419,6 +421,8 @@ const server = http.createServer(async (req, res) => {
       return results.length > 0 ? results : { error: 'No rows parsed from CSV' };
     }
 
+    const FINVIZ_COOKIE = 'finviz_t=bee4f374-a7f0-4e0e-90d8-38cb154344c8; finvizFuturesQuotesTimeframe=d; insiderTradingUrl=tc%3D7; notice-newsletter=hidden; promo-homepage-maps=hidden; pubcv={}; screenerCustomTable=0%2C1%2C2%2C3%2C5%2C6%2C30%2C63%2C64%2C67%2C65%2C66; screenerUrl=v%3D111; survey_dialog_cohort=0; tcf2cookie=CQj1lwAQj1lwAAJAGBENCdFsAP_gAEPgACiQMcNR_G__bWlr; usprivacy=1N--; ic_tagmanager=UAT';
+
     function finvizEliteGet(path) {
       return rawHttpsGet({
         hostname: 'elite.finviz.com',
@@ -428,13 +432,14 @@ const server = http.createServer(async (req, res) => {
           'Accept':          'text/csv,text/plain,*/*',
           'Accept-Language': 'en-US,en;q=0.9',
           'Referer':         'https://elite.finviz.com/',
+          'Cookie':          FINVIZ_COOKIE,
         },
       });
     }
 
     try {
-      // v=110 = standard performance view with Perf Week column; st= exact value from Elite export URL
-      const qs  = `/grp_export?g=${type}&v=110&o=name&st=${FINVIZ_ST}`;
+      // v=210 = performance view from the original Elite export URL
+      const qs  = `/grp_export?g=${type}&v=210&o=name&st=${FINVIZ_ST}`;
       let raw   = await finvizEliteGet(qs);
 
       // Follow up to 3 redirects
