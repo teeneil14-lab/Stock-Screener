@@ -1215,6 +1215,103 @@
   .pane-chart.hidden { display: none; }
   .pane-chart.full   { flex: 1; }
 
+  /* Info bar shown below the TradingView chart */
+  .chart-info-bar {
+    display: none;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 0;
+    padding: 0 16px;
+    height: 46px;
+    background: var(--bg3);
+    border-top: 1px solid var(--border);
+    overflow: hidden;
+  }
+  .chart-info-bar.visible { display: flex; }
+
+  .cib-divider {
+    width: 1px;
+    height: 20px;
+    background: var(--border2);
+    flex-shrink: 0;
+    margin: 0 14px;
+  }
+
+  .cib-ticker {
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+  }
+  .cib-name {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 9px;
+    color: var(--text3);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 130px;
+    margin-top: 1px;
+  }
+
+  .cib-score-num {
+    font-family: 'Inter', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .cib-score-bar-wrap {
+    width: 60px;
+    height: 5px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-top: 3px;
+  }
+  .cib-score-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+  }
+
+  .cib-sector {
+    font-family: 'Inter', sans-serif;
+    font-size: 9px;
+    color: var(--text3);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .cib-tags { display: flex; gap: 4px; flex-wrap: nowrap; overflow: hidden; }
+
+  .cib-rs { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+  .cib-rs-label { font-family: 'Inter', sans-serif; font-size: 7px; color: var(--text3); letter-spacing: 0.06em; text-transform: uppercase; }
+
+  .cib-tf-scores { display: flex; gap: 12px; }
+
+  .cib-price {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    white-space: nowrap;
+  }
+  .cib-change {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+  .cib-ytd {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    color: var(--text3);
+    white-space: nowrap;
+  }
+  .cib-ytd.up { color: var(--green); }
+  .cib-ytd.down { color: var(--red); }
+
   .pane-toolbar {
     display: flex;
     align-items: center;
@@ -2172,6 +2269,18 @@
     font-size: 10px;
     font-weight: 600;
   }
+  .glance-card-sector {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 8.5px;
+    color: var(--text3);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    border-bottom: 1px solid var(--border);
+  }
   /* aspect-ratio keeps the chart body proportional as column width changes */
   .glance-card-body { aspect-ratio: 16 / 9; position: relative; width: 100%; }
   .glance-cols-btns {
@@ -2556,6 +2665,7 @@
             <button class="view-btn"        id="btn-range-6m"  onclick="setChartRange('6M')"  title="6-month view">6M</button>
             <button class="view-btn active" id="btn-range-12m" onclick="setChartRange('12M')" title="1-year view">1Y</button>
             <span style="width:1px;height:14px;background:var(--border2);display:inline-block;margin:0 3px"></span>
+            <button class="view-btn" id="btn-toggle-info-bar" onclick="toggleChartInfoBar()" title="Show/hide score bar">INFO</button>
             <button class="view-btn" id="btn-hide-chart" onclick="togglePane('chart')">↓ HIDE CHART</button>
           </div>
         </div>
@@ -2565,6 +2675,7 @@
             <div class="tv-placeholder-text">Click a ticker row to load chart</div>
           </div>
         </div>
+        <div class="chart-info-bar" id="chart-info-bar"></div>
       </div>
 
     </div>
@@ -4945,12 +5056,113 @@ function setActiveRow(idx, loadChart_, debounce) {
 
   const row = document.getElementById('row-' + idx);
   if (row) row.classList.add('active');
+  if (sortedResults[idx]) updateChartInfoBar(sortedResults[idx]);
   if (!loadChart_ || !sortedResults[idx]) return;
   if (debounce) {
     clearTimeout(chartDebounceTimer);
     chartDebounceTimer = setTimeout(() => loadChart(sortedResults[idx]), 260);
   } else {
     loadChart(sortedResults[idx]);
+  }
+}
+
+// ============================================================
+//  CHART INFO BAR
+// ============================================================
+
+let chartInfoBarVisible = true;
+
+function toggleChartInfoBar() {
+  chartInfoBarVisible = !chartInfoBarVisible;
+  const bar = document.getElementById('chart-info-bar');
+  const btn = document.getElementById('btn-toggle-info-bar');
+  if (!bar) return;
+  if (chartInfoBarVisible && bar.dataset.populated) {
+    bar.classList.add('visible');
+    if (btn) btn.classList.add('active');
+  } else {
+    bar.classList.remove('visible');
+    if (btn) btn.classList.remove('active');
+  }
+}
+
+function updateChartInfoBar(r) {
+  const bar = document.getElementById('chart-info-bar');
+  if (!bar) return;
+
+  const sc         = r.rankScore ?? r.score;
+  const baseScore  = r.score;
+  const colorClass = sc >= 70 ? 'score-high' : sc >= 40 ? 'score-mid' : 'score-low';
+  const barClass   = sc >= 70 ? 'bar-high'   : sc >= 40 ? 'bar-mid'   : 'bar-low';
+  const chgClass   = r.change >= 0 ? 'up' : 'down';
+  const chgColor   = r.change >= 0 ? 'var(--green)' : 'var(--red)';
+  const chgSign    = r.change >= 0 ? '+' : '';
+  const ytdClass   = r.ytdPct == null ? '' : r.ytdPct >= 0 ? 'up' : 'down';
+  const ytdStr     = r.ytdPct == null ? '—' : (r.ytdPct >= 0 ? '+' : '') + r.ytdPct + '%';
+
+  const tagsHtml = (r.tags || []).slice(0, 4).map(t =>
+    `<span class="tag ${t.cls}">${t.label}</span>`
+  ).join('');
+
+  const tfHtml = ['MONTHLY','WEEKLY','DAILY','YEARLY'].map(tf => {
+    const v  = (r.tfNorm && r.tfNorm[tf]) || 0;
+    const tc = v >= 70 ? 'score-high' : v >= 40 ? 'score-mid' : 'score-low';
+    return `<div class="tf-score-mini">
+      <span class="tf-label">${tf.slice(0,3)}</span>
+      <span class="tf-val ${tc}">${v}%</span>
+    </div>`;
+  }).join('');
+
+  const rsDays = r.rsDays ?? 0;
+  const rsStrength = rsDays >= 4 ? 'rs-strong' : rsDays >= 3 ? 'rs-mid' : 'rs-weak';
+  const pipsHtml = [1,2,3,4,5].map(i =>
+    `<span class="pip${rsDays >= i ? ' on' : ''}"></span>`
+  ).join('');
+
+  const cv = r.corrCoeff;
+  const corrDisplay = (cv == null || isNaN(cv)) ? '—' : (cv >= 0 ? '+' : '') + cv.toFixed(2);
+  const corrCls = (cv == null || isNaN(cv)) ? 'corr-none'
+    : cv >= 0.7 ? 'corr-high' : cv >= 0.3 ? 'corr-med' : cv >= -0.3 ? 'corr-low' : 'corr-neg';
+
+  bar.innerHTML = `
+    <div style="display:flex;flex-direction:column;min-width:90px">
+      <span class="cib-ticker">${r.ticker}</span>
+      <span class="cib-name">${r.name || ''}</span>
+    </div>
+    <div class="cib-divider"></div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:0">
+      <span class="cib-score-num ${colorClass}">${baseScore}%${r.sectorBonus > 0 ? `<span style="font-size:9px;margin-left:3px;color:#7c3aed">+${r.sectorBonus}</span>` : ''}${r.prefBonus > 0 ? `<span style="font-size:9px;margin-left:3px;color:#d97706">★+${r.prefBonus}</span>` : ''}</span>
+      <div class="cib-score-bar-wrap"><div class="cib-score-bar-fill ${barClass}" style="width:${Math.min(sc,100)}%"></div></div>
+    </div>
+    <div class="cib-divider"></div>
+    <span class="cib-sector">${r.sectorName || ''}</span>
+    <div class="cib-divider"></div>
+    <div class="cib-tags">${tagsHtml}</div>
+    <div class="cib-divider"></div>
+    <div class="cib-rs">
+      <div class="rs-pips ${rsStrength}">${pipsHtml}</div>
+      <span class="cib-rs-label">RS</span>
+    </div>
+    <div class="cib-divider"></div>
+    <span class="col-corr ${corrCls}" style="font-size:10px">${corrDisplay}</span>
+    <div class="cib-divider"></div>
+    <div class="cib-tf-scores">${tfHtml}</div>
+    <div class="cib-divider"></div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">
+      <span class="cib-price">$${Number(r.price).toFixed(2)}</span>
+      <span class="cib-change ${chgClass}">${chgSign}${r.change}%</span>
+    </div>
+    <div class="cib-divider"></div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">
+      <span style="font-family:'Inter',sans-serif;font-size:7px;color:var(--text3);letter-spacing:0.06em">YTD</span>
+      <span class="cib-ytd ${ytdClass}">${ytdStr}</span>
+    </div>
+  `;
+
+  bar.dataset.populated = '1';
+  if (chartInfoBarVisible) {
+    bar.classList.add('visible');
+    document.getElementById('btn-toggle-info-bar')?.classList.add('active');
   }
 }
 
@@ -8273,6 +8485,7 @@ function renderGlanceView() {
                 style="font-size:11px;padding:0 3px;margin:0 2px">${r.isStarred ? '★' : '☆'}</button>
         <span class="glance-card-score ${colorClass}">${sc}%</span>
       </div>
+      ${r.sectorName ? `<div class="glance-card-sector">${r.sectorName}</div>` : ''}
       <div style="display:flex;align-items:center;justify-content:space-between;padding:2px 8px 2px;font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3)">
         <span>$${Number(r.price).toFixed(2)}</span>
         <span style="color:${chgColor}">${chgSign}${r.change}%</span>
