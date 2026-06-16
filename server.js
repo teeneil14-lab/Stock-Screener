@@ -366,7 +366,8 @@ const server = http.createServer(async (req, res) => {
     }
 
     const FINVIZ_TTL   = 15 * 60 * 1000;
-    const FINVIZ_TOKEN = 'aef22707-59f4-492a-be23-ed3f64945fcb';
+    // Full st= value from the Elite export URL — do not modify
+    const FINVIZ_ST    = 'd1aef22707-59f4-492a-be23-ed3f64945fcb';
 
     if (!server._finvizCache) server._finvizCache = new Map();
     const cached = server._finvizCache.get(type);
@@ -432,8 +433,8 @@ const server = http.createServer(async (req, res) => {
     }
 
     try {
-      // st=w1 + token = weekly 1-week performance view
-      const qs  = `/grp_export?g=${type}&v=210&o=name&st=w1${FINVIZ_TOKEN}`;
+      // v=110 = standard performance view with Perf Week column; st= exact value from Elite export URL
+      const qs  = `/grp_export?g=${type}&v=110&o=name&st=${FINVIZ_ST}`;
       let raw   = await finvizEliteGet(qs);
 
       // Follow up to 3 redirects
