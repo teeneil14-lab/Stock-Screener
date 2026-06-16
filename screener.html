@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CTS Global Screener</title>
 <link rel="preload" href="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js" as="script">
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
@@ -2496,6 +2497,23 @@
   }
   .tweekly-refresh-btn:hover    { opacity: 0.85; }
   .tweekly-refresh-btn:disabled { opacity: 0.5; cursor: default; }
+  .tweekly-toolbar-right { display: flex; align-items: center; gap: 8px; }
+  .tweekly-cam-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: 5px;
+    color: var(--text2);
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+    flex-shrink: 0;
+  }
+  .tweekly-cam-btn:hover    { background: var(--green-dim); border-color: var(--accent); color: var(--accent); }
+  .tweekly-cam-btn:disabled { opacity: 0.5; cursor: default; }
   .tweekly-body {
     flex: 1;
     overflow-y: auto;
@@ -3069,9 +3087,17 @@
         <div class="tweekly-title">Tweekly</div>
         <div class="tweekly-updated" id="tweekly-updated">Not loaded</div>
       </div>
-      <button class="tweekly-refresh-btn" id="tweekly-refresh-btn" onclick="loadTweekly(true)">↻ REFRESH</button>
+      <div class="tweekly-toolbar-right">
+        <button class="tweekly-cam-btn" id="tweekly-cam-btn" onclick="screenshotTweekly()" title="Screenshot to clipboard">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+            <circle cx="12" cy="13" r="4"/>
+          </svg>
+        </button>
+        <button class="tweekly-refresh-btn" id="tweekly-refresh-btn" onclick="loadTweekly(true)">↻ REFRESH</button>
+      </div>
     </div>
-    <div class="tweekly-body">
+    <div class="tweekly-body" id="tweekly-body">
       <div class="tweekly-cols">
         <div class="tweekly-section">
           <div class="tweekly-section-title">Sector Performance — 1 Week</div>
@@ -8603,6 +8629,30 @@ function renderTweeklySection(container, rows) {
       <div class="tweekly-pct ${cls}">${sign}${pct.toFixed(2)}%</div>
     </div>`;
   }).join('');
+}
+
+async function screenshotTweekly() {
+  const target = document.getElementById('tweekly-body');
+  const btn    = document.getElementById('tweekly-cam-btn');
+  if (!target || typeof html2canvas === 'undefined') {
+    showToast('Screenshot library not loaded yet — try again in a moment.', 'error');
+    return;
+  }
+  btn.disabled = true;
+  try {
+    const canvas = await html2canvas(target, {
+      backgroundColor: '#f5f6f8',
+      scale: 2,
+      useCORS: true,
+      logging: false,
+    });
+    const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
+    await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+    showToast('Screenshot copied to clipboard — paste into Google Slides!');
+  } catch (e) {
+    showToast('Screenshot failed: ' + e.message, 'error');
+  }
+  btn.disabled = false;
 }
 
 // ── IMAP Glance ────────────────────────────────────────────────────────────

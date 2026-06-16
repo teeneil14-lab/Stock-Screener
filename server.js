@@ -413,18 +413,32 @@ const server = http.createServer(async (req, res) => {
       return results.length > 0 ? results : null;
     }
 
-    try {
-      const raw = await rawHttpsGet({
-        hostname: 'finviz.com',
-        path:     `/groups.ashx?g=${type}&o=-perf1w`,
+    function finvizGet(hostname, path) {
+      return rawHttpsGet({
+        hostname,
+        path,
         headers: {
           'User-Agent':      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
           'Accept':          'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
           'Accept-Language': 'en-US,en;q=0.9',
-          'Referer':         'https://finviz.com/',
+          'Referer':         'https://www.finviz.com/',
           'Connection':      'keep-alive',
         },
       });
+    }
+
+    try {
+      const qs  = `/groups.ashx?g=${type}&o=-perf1w`;
+      let raw   = await finvizGet('www.finviz.com', qs);
+
+      // Follow one redirect (301/302) in case of domain change
+      if ((raw.status === 301 || raw.status === 302) && raw.headers.location) {
+        try {
+          const loc = new URL(raw.headers.location);
+          raw = await finvizGet(loc.hostname, loc.pathname + loc.search);
+        } catch {}
+      }
+
       if (raw.status !== 200) {
         res.writeHead(502, { 'Content-Type': 'application/json' });
         return res.end(JSON.stringify({ error: `Finviz returned HTTP ${raw.status}` }));
