@@ -7237,6 +7237,7 @@ async function loadSectorBreadth() {
   Object.keys(SP500_CONSTITUENTS).forEach(etf => {
     totals[etf] = { ema20: 0, ema50: 0, ema100: 0, ema200: 0, total: 0 };
   });
+  totals['__SP500__'] = { ema20: 0, ema50: 0, ema100: 0, ema200: 0, total: 0 };
 
   const CONCURRENCY = 60;
   let done = 0;
@@ -7277,6 +7278,12 @@ async function loadSectorBreadth() {
                 if (ema50  > 0 && price > ema50)  b.ema50++;
                 if (ema100 > 0 && price > ema100) b.ema100++;
                 if (ema200 > 0 && price > ema200) b.ema200++;
+                const sp = totals['__SP500__'];
+                sp.total++;
+                if (ema20  > 0 && price > ema20)  sp.ema20++;
+                if (ema50  > 0 && price > ema50)  sp.ema50++;
+                if (ema100 > 0 && price > ema100) sp.ema100++;
+                if (ema200 > 0 && price > ema200) sp.ema200++;
               }
             }
           } catch {}
@@ -7377,6 +7384,16 @@ function renderSectorTable(rows) {
   } else if (!hasBreadth) {
     breadthHTML += `<div class="breadth-loading-msg">Click Refresh to load EMA breadth data</div>`;
   } else {
+    const sp500b = sectorEMABreadth['__SP500__'];
+    const sp500Row = sp500b ? `<tr style="background:rgba(10,124,78,0.06);font-weight:600;border-bottom:2px solid rgba(10,124,78,0.2)">
+      <td style="color:#0a7c4e">S&amp;P 500 (All)</td>
+      <td>${breadthCell(sp500b.ema20)}</td>
+      <td>${breadthCell(sp500b.ema50)}</td>
+      <td>${breadthCell(sp500b.ema100)}</td>
+      <td>${breadthCell(sp500b.ema200)}</td>
+      <td style="color:var(--text3);font-size:10px">${sp500b.total}</td>
+    </tr>` : '';
+
     const bRows = SECTORS.filter(s => s.group === 'sector').map(s => {
       const b = sectorEMABreadth[s.ticker];
       return `<tr class="sgo-row" onclick="openSectorGlance('${s.ticker}')">
@@ -7398,7 +7415,7 @@ function renderSectorTable(rows) {
         <th>EMA 200</th>
         <th style="color:var(--text3)">Stocks</th>
       </tr></thead>
-      <tbody>${bRows}</tbody>
+      <tbody>${sp500Row}${bRows}</tbody>
     </table>`;
   }
 
