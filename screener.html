@@ -8934,6 +8934,67 @@ async function loadTweeklyYTD(force) {
   btn.disabled = false;
 }
 
+// Place a floating ticker label at the last visible point of each line series.
+// Labels are sorted by y-position and pushed apart so they don't stack.
+function _addChartEndLabels(chart, seriesList, containerEl) {
+  containerEl.style.position = 'relative';
+
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;overflow:hidden;z-index:2;';
+  containerEl.appendChild(overlay);
+
+  function draw() {
+    overlay.innerHTML = '';
+    const h = containerEl.offsetHeight;
+    const items = [];
+
+    seriesList.forEach(({ series, lastTime, lastValue, label, color }) => {
+      try {
+        const x = chart.timeScale().timeToCoordinate(lastTime);
+        const y = series.priceToCoordinate(lastValue);
+        if (x == null || y == null || isNaN(x) || isNaN(y)) return;
+        const yn = Math.round(y);
+        if (yn < 0 || yn > h) return;
+        items.push({ x: Math.round(x), y: yn, label, color });
+      } catch {}
+    });
+
+    if (!items.length) return;
+
+    // Sort by y and push overlapping labels apart
+    items.sort((a, b) => a.y - b.y);
+    const GAP = 13;
+    for (let i = 1; i < items.length; i++) {
+      if (items[i].y < items[i - 1].y + GAP) items[i].y = items[i - 1].y + GAP;
+    }
+
+    items.forEach(({ x, y, label, color }) => {
+      const el = document.createElement('div');
+      el.style.cssText = [
+        'position:absolute',
+        `left:${x - 3}px`,
+        `top:${y - 7}px`,
+        'transform:translateX(-100%)',
+        'font-size:8.5px',
+        'font-weight:700',
+        "font-family:'IBM Plex Mono',monospace",
+        `color:${color}`,
+        'white-space:nowrap',
+        'line-height:1',
+        'background:rgba(255,255,255,0.82)',
+        'padding:1px 2px',
+        'border-radius:2px',
+      ].join(';');
+      el.textContent = label;
+      overlay.appendChild(el);
+    });
+  }
+
+  // Initial render (slight delay lets the chart finish its first paint)
+  setTimeout(draw, 120);
+  chart.timeScale().subscribeVisibleTimeRangeChange(draw);
+}
+
 function renderTweeklyYTD(seriesData) {
   const chartEl      = document.getElementById('tweekly-ytd-chart-container');
   const mo1ChartEl   = document.getElementById('tweekly-1mo-chart');
@@ -9003,7 +9064,8 @@ function renderTweeklyYTD(seriesData) {
   });
   if (sortedDates.length) zeroLine.setData(sortedDates.map(t => ({ time: t, value: 0 })));
 
-  // One line per ticker
+  // One line per ticker — collect instances for end-labels
+  const ytdSeriesList = [];
   seriesData.forEach(s => {
     if (!s.ytdData || !s.ytdData.length) return;
     const line = _tweeklyYTDChart.addLineSeries({
@@ -9020,6 +9082,13 @@ function renderTweeklyYTD(seriesData) {
       },
     });
     line.setData(s.ytdData);
+    ytdSeriesList.push({
+      series:    line,
+      lastTime:  s.ytdData[s.ytdData.length - 1].time,
+      lastValue: s.ytdData[s.ytdData.length - 1].value,
+      label:     s.label,
+      color:     s.color,
+    });
   });
 
   _tweeklyYTDChart.timeScale().fitContent();
@@ -9031,6 +9100,7 @@ function renderTweeklyYTD(seriesData) {
     if (w) _tweeklyYTDChart.applyOptions({ width: w });
   });
   _tweeklyYTDChartRO.observe(chartEl);
+  _addChartEndLabels(_tweeklyYTDChart, ytdSeriesList, chartEl);
 
   // Vertical ranking sidebar — sorted by YTD (best first), showing YTD + 1-month
   if (perfLegendEl) {
@@ -9099,6 +9169,7 @@ function renderTweeklyYTD(seriesData) {
     });
     if (moSortedDates.length) moZeroLine.setData(moSortedDates.map(t => ({ time: t, value: 0 })));
 
+    const moSeriesList = [];
     seriesData.forEach(s => {
       if (!s.mo1Data || !s.mo1Data.length) return;
       const line = _tweeklyMOChart.addLineSeries({
@@ -9115,6 +9186,13 @@ function renderTweeklyYTD(seriesData) {
         },
       });
       line.setData(s.mo1Data);
+      moSeriesList.push({
+        series:    line,
+        lastTime:  s.mo1Data[s.mo1Data.length - 1].time,
+        lastValue: s.mo1Data[s.mo1Data.length - 1].value,
+        label:     s.label,
+        color:     s.color,
+      });
     });
 
     _tweeklyMOChart.timeScale().fitContent();
@@ -9125,6 +9203,7 @@ function renderTweeklyYTD(seriesData) {
       if (w) _tweeklyMOChart.applyOptions({ width: w });
     });
     _tweeklyMOChartRO.observe(mo1ChartEl);
+    _addChartEndLabels(_tweeklyMOChart, moSeriesList, mo1ChartEl);
   }
 
 }
