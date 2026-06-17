@@ -8858,13 +8858,19 @@ async function loadTweekly(force) {
   secWrap.innerHTML = '<div style="padding:12px;color:var(--text3);font-size:12px;">Loading sectors…</div>';
   indWrap.innerHTML = '<div style="padding:12px;color:var(--text3);font-size:12px;">Loading industries…</div>';
 
+  async function safeJson(r) {
+    const text = await r.text();
+    try { return JSON.parse(text); }
+    catch { throw new Error(r.ok ? `Invalid response: ${text.substring(0, 80)}` : `Server unavailable (${r.status})`); }
+  }
+
   try {
     const [sRes, iRes] = await Promise.all([
       fetch('/api/finviz-groups?type=sector'),
       fetch('/api/finviz-groups?type=industry'),
     ]);
-    const sectors    = await sRes.json();
-    const industries = await iRes.json();
+    const sectors    = await safeJson(sRes);
+    const industries = await safeJson(iRes);
 
     if (!Array.isArray(sectors))    throw new Error(sectors.error    || 'Bad sector data');
     if (!Array.isArray(industries)) throw new Error(industries.error || 'Bad industry data');
