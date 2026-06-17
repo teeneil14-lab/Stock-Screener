@@ -2589,7 +2589,7 @@
   }
   .tweekly-bar {
     height: 24px;
-    border-radius: 0 3px 3px 0;
+    border-radius: 3px;
     flex-shrink: 0;
     min-width: 2px;
     transition: width 0.4s ease;
@@ -2606,6 +2606,74 @@
     flex-shrink: 0;
     min-width: 58px;
     font-variant-numeric: tabular-nums;
+  }
+  .tweekly-1mo-section { display: flex; flex-direction: column; gap: 12px; }
+  /* ── TWEEKLY SUB-TABS ─────────────────────────────────────────────────────── */
+  .tweekly-subtabs {
+    display: flex;
+    padding: 0 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg2);
+    flex-shrink: 0;
+  }
+  .tweekly-subtab-btn {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text3);
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 10px 16px;
+    margin-bottom: -1px;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
+    white-space: nowrap;
+  }
+  .tweekly-subtab-btn:hover  { color: var(--text2); }
+  .tweekly-subtab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tweekly-subtab-content    { flex: 1; overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
+  .tweekly-ytd-layout {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 20px;
+    display: flex;
+    gap: 16px;
+    min-height: 0;
+    align-items: flex-start;
+  }
+  .tweekly-ytd-section {
+    flex: 2;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .tweekly-1mo-section {
+    flex: 1;
+    min-width: 0;
+  }
+  .tweekly-ytd-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 12px;
+    padding: 2px 0 4px;
+  }
+  .tweekly-ytd-leg-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 10px;
+    font-family: 'IBM Plex Mono', monospace;
+    white-space: nowrap;
+  }
+  .tweekly-ytd-leg-swatch {
+    width: 14px;
+    height: 3px;
+    border-radius: 2px;
+    flex-shrink: 0;
   }
 </style>
 <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
@@ -3093,18 +3161,45 @@
             <circle cx="12" cy="13" r="4"/>
           </svg>
         </button>
-        <button class="tweekly-refresh-btn" id="tweekly-refresh-btn" onclick="loadTweekly(true)">↻ REFRESH</button>
+        <button class="tweekly-refresh-btn" id="tweekly-refresh-btn" onclick="refreshActiveTweeklyTab()">↻ REFRESH</button>
       </div>
     </div>
-    <div class="tweekly-body" id="tweekly-body">
-      <div class="tweekly-cols">
-        <div class="tweekly-section">
-          <div class="tweekly-section-title">Sector Performance — 1 Week</div>
-          <div id="tweekly-sectors-wrap"></div>
+    <!-- Sub-tab buttons -->
+    <div class="tweekly-subtabs">
+      <button class="tweekly-subtab-btn active" id="tweekly-stab-weekly" onclick="switchTweeklyTab('weekly')">Weekly Performance</button>
+      <button class="tweekly-subtab-btn" id="tweekly-stab-ytd" onclick="switchTweeklyTab('ytd')">YTD &amp; 1 Month Performance</button>
+    </div>
+    <!-- Weekly Performance content -->
+    <div class="tweekly-subtab-content" id="tweekly-content-weekly">
+      <div class="tweekly-body" id="tweekly-body">
+        <div class="tweekly-cols">
+          <div class="tweekly-section">
+            <div class="tweekly-section-title">Sector Performance — 1 Week</div>
+            <div id="tweekly-sectors-wrap"></div>
+          </div>
+          <div class="tweekly-section">
+            <div class="tweekly-section-title">Top 10 Industries — 1 Week</div>
+            <div id="tweekly-industries-wrap"></div>
+          </div>
         </div>
-        <div class="tweekly-section">
-          <div class="tweekly-section-title">Top 10 Industries — 1 Week</div>
-          <div id="tweekly-industries-wrap"></div>
+      </div>
+    </div>
+    <!-- YTD & 1 Month Performance content -->
+    <div class="tweekly-subtab-content" id="tweekly-content-ytd" style="display:none">
+      <div class="tweekly-ytd-layout">
+        <div class="tweekly-ytd-section">
+          <div class="tweekly-section">
+            <div class="tweekly-section-title">YTD Performance — % Change From Jan 1</div>
+            <div id="tweekly-ytd-chart-container" style="width:100%;height:400px;"></div>
+          </div>
+          <div class="tweekly-ytd-legend" id="tweekly-ytd-legend"></div>
+        </div>
+        <div class="tweekly-1mo-section">
+          <div class="tweekly-section">
+            <div class="tweekly-section-title">1 Month Performance — % Change From 1 Mo Ago</div>
+            <div id="tweekly-1mo-chart" style="width:100%;height:400px;"></div>
+          </div>
+          <div class="tweekly-ytd-legend" id="tweekly-1mo-legend"></div>
         </div>
       </div>
     </div>
@@ -7519,8 +7614,14 @@ async function loadPickPerformance(entry) {
   }
 }
 
-let sectorsLoaded  = false;
-let tweeklyLoaded  = false;
+let sectorsLoaded      = false;
+let tweeklyLoaded      = false;
+let tweeklyYTDLoaded   = false;
+let _tweeklyActiveTab  = 'weekly';
+let _tweeklyYTDChart   = null;
+let _tweeklyYTDChartRO = null;
+let _tweeklyMOChart    = null;
+let _tweeklyMOChartRO  = null;
 
 function switchTab(tab) {
   ['screener','sectors','imap','picks','tweekly'].forEach(t => {
@@ -7556,9 +7657,18 @@ function switchMarket(mode) {
     const btn = document.getElementById(`tab-btn-${t}`);
     if (btn) btn.style.display = mode === 'PH' ? 'none' : '';
   });
-  sectorsLoaded  = false;
-  imapLoaded     = false;
-  tweeklyLoaded  = false;
+  sectorsLoaded     = false;
+  imapLoaded        = false;
+  tweeklyLoaded     = false;
+  tweeklyYTDLoaded  = false;
+  _tweeklyActiveTab = 'weekly';
+  // Reset sub-tab UI back to Weekly Performance
+  const stWeekly = document.getElementById('tweekly-stab-weekly');
+  const stYTD    = document.getElementById('tweekly-stab-ytd');
+  const cWeekly  = document.getElementById('tweekly-content-weekly');
+  const cYTD     = document.getElementById('tweekly-content-ytd');
+  if (stWeekly) { stWeekly.classList.add('active'); stYTD.classList.remove('active'); }
+  if (cWeekly)  { cWeekly.style.display = ''; cYTD.style.display = 'none'; }
 
   // Swap sidebar setup selector vs PH label
   document.getElementById('setup-type-section').style.display = mode === 'PH' ? 'none' : '';
@@ -8629,8 +8739,371 @@ function renderTweeklySection(container, rows) {
   }).join('');
 }
 
+// ── Tweekly sub-tab switching ───────────────────────────────────────────────
+
+function switchTweeklyTab(tab) {
+  _tweeklyActiveTab = tab;
+  ['weekly', 'ytd'].forEach(t => {
+    document.getElementById(`tweekly-content-${t}`).style.display = t === tab ? '' : 'none';
+    document.getElementById(`tweekly-stab-${t}`).classList.toggle('active', t === tab);
+  });
+  if (tab === 'ytd' && !tweeklyYTDLoaded) loadTweeklyYTD(false);
+}
+
+function refreshActiveTweeklyTab() {
+  if (_tweeklyActiveTab === 'weekly') loadTweekly(true);
+  else loadTweeklyYTD(true);
+}
+
+// ── YTD & 1-Month Performance ───────────────────────────────────────────────
+
+const YTD_PERF_TICKERS = [
+  { label: 'XLK',    yf: 'XLK'    },
+  { label: 'XLF',    yf: 'XLF'    },
+  { label: 'XLE',    yf: 'XLE'    },
+  { label: 'XLY',    yf: 'XLY'    },
+  { label: 'XLP',    yf: 'XLP'    },
+  { label: 'XLI',    yf: 'XLI'    },
+  { label: 'XLB',    yf: 'XLB'    },
+  { label: 'XLU',    yf: 'XLU'    },
+  { label: 'XLRE',   yf: 'XLRE'   },
+  { label: 'XLV',    yf: 'XLV'    },
+  { label: 'XLC',    yf: 'XLC'    },
+  { label: 'SPY',    yf: 'SPY'    },
+  { label: 'RUT',    yf: '^RUT'   },
+  { label: 'XRT',    yf: 'XRT'    },
+  { label: 'EWY',    yf: 'EWY'    },
+  { label: 'SMH',    yf: 'SMH'    },
+  { label: 'COPX',   yf: 'COPX'   },
+  { label: 'XME',    yf: 'XME'    },
+  { label: 'TAN',    yf: 'TAN'    },
+  { label: 'URA',    yf: 'URA'    },
+  { label: 'EEM',    yf: 'EEM'    },
+  { label: 'XAUUSD', yf: 'GC=F'   },
+  { label: 'XAGUSD', yf: 'SI=F'   },
+  { label: 'USO',    yf: 'USO'    },
+  { label: 'XOP',    yf: 'XOP'    },
+  { label: 'XBI',    yf: 'XBI'    },
+  { label: 'USOIL',  yf: 'CL=F'   },
+  { label: 'KIE',    yf: 'KIE'    },
+  { label: 'UNG',    yf: 'UNG'    },
+  { label: 'PBJ',    yf: 'PBJ'    },
+  { label: 'VNM',    yf: 'VNM'    },
+  { label: 'IWM',    yf: 'IWM'    },
+];
+
+const YTD_COLORS = [
+  '#1565c0', '#c62828', '#2e7d32', '#e65100', '#6a1b9a',
+  '#00695c', '#ad1457', '#4e342e', '#37474f', '#f9a825',
+  '#0277bd', '#558b2f', '#4527a0', '#00838f', '#6d4c41',
+  '#283593', '#bf360c', '#1b5e20', '#880e4f', '#e53935',
+  '#1976d2', '#388e3c', '#7b1fa2', '#0097a7', '#5d4037',
+  '#303f9f', '#d84315', '#00796b', '#c2185b', '#455a64',
+  '#f57f17', '#6f42c1',
+];
+
+function _destroyTweeklyYTDChart() {
+  if (_tweeklyYTDChartRO) { _tweeklyYTDChartRO.disconnect(); _tweeklyYTDChartRO = null; }
+  if (_tweeklyYTDChart)   { try { _tweeklyYTDChart.remove(); } catch {} _tweeklyYTDChart = null; }
+  if (_tweeklyMOChartRO)  { _tweeklyMOChartRO.disconnect();  _tweeklyMOChartRO  = null; }
+  if (_tweeklyMOChart)    { try { _tweeklyMOChart.remove();  } catch {} _tweeklyMOChart  = null; }
+}
+
+async function loadTweeklyYTD(force) {
+  tweeklyYTDLoaded = true;
+  const updated  = document.getElementById('tweekly-updated');
+  const chartEl  = document.getElementById('tweekly-ytd-chart-container');
+  const mo1El    = document.getElementById('tweekly-1mo-bars');
+  const legendEl = document.getElementById('tweekly-ytd-legend');
+  const btn      = document.getElementById('tweekly-refresh-btn');
+
+  const CACHE_KEY = 'cts_tweekly_ytd_v1';
+  const CACHE_TTL = 15 * 60 * 1000;
+
+  if (!force) {
+    try {
+      const raw = sessionStorage.getItem(CACHE_KEY);
+      if (raw) {
+        const cached = JSON.parse(raw);
+        if (Date.now() - cached.ts < CACHE_TTL) {
+          renderTweeklyYTD(cached.seriesData);
+          updated.textContent = 'Cached ' + new Date(cached.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          return;
+        }
+      }
+    } catch {}
+  }
+
+  btn.disabled = true;
+  updated.textContent = 'Loading…';
+  _destroyTweeklyYTDChart();
+  const loadingMsg = `<div style="display:flex;align-items:center;justify-content:center;height:400px;
+    color:var(--text3);font-size:11px;font-family:'IBM Plex Mono',monospace;letter-spacing:0.05em;">
+    LOADING PERFORMANCE DATA (${YTD_PERF_TICKERS.length} TICKERS)…</div>`;
+  chartEl.innerHTML = loadingMsg;
+  if (legendEl) legendEl.innerHTML = '';
+  const mo1ChartLoading = document.getElementById('tweekly-1mo-chart');
+  const mo1LegendLoading = document.getElementById('tweekly-1mo-legend');
+  if (mo1ChartLoading)  mo1ChartLoading.innerHTML  = loadingMsg;
+  if (mo1LegendLoading) mo1LegendLoading.innerHTML = '';
+
+  const results = await Promise.allSettled(
+    YTD_PERF_TICKERS.map(({ yf }) => fetchYF(yf, '1y', '1d'))
+  );
+
+  const now      = new Date();
+  const ytdStart = new Date(now.getFullYear(), 0, 1).getTime();
+  const moStart  = Date.now() - 32 * 24 * 60 * 60 * 1000;
+
+  const seriesData = [];
+  for (let i = 0; i < results.length; i++) {
+    if (results[i].status !== 'fulfilled') continue;
+    const bars = results[i].value?.bars;
+    if (!bars || !bars.length) continue;
+
+    const ytdBars = bars.filter(b => b.t >= ytdStart);
+    if (!ytdBars.length) continue;
+    const ytdBase = ytdBars[0].c;
+    const ytdData = ytdBars.map(b => ({
+      time:  new Date(b.t).toISOString().slice(0, 10),
+      value: ((b.c / ytdBase) - 1) * 100,
+    }));
+
+    const moBars  = bars.filter(b => b.t >= moStart);
+    const mo1Data = moBars.length >= 2
+      ? moBars.map(b => ({
+          time:  new Date(b.t).toISOString().slice(0, 10),
+          value: ((b.c / moBars[0].c) - 1) * 100,
+        }))
+      : [];
+    const mo1Pct  = mo1Data.length ? mo1Data[mo1Data.length - 1].value : null;
+
+    seriesData.push({
+      label:  YTD_PERF_TICKERS[i].label,
+      color:  YTD_COLORS[i % YTD_COLORS.length],
+      ytdData,
+      ytdPct: ytdData.length ? ytdData[ytdData.length - 1].value : null,
+      mo1Data,
+      mo1Pct,
+    });
+  }
+
+  try {
+    sessionStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), seriesData }));
+  } catch {}
+
+  renderTweeklyYTD(seriesData);
+  updated.textContent = 'Updated ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  btn.disabled = false;
+}
+
+function renderTweeklyYTD(seriesData) {
+  const chartEl    = document.getElementById('tweekly-ytd-chart-container');
+  const legendEl   = document.getElementById('tweekly-ytd-legend');
+  const mo1ChartEl = document.getElementById('tweekly-1mo-chart');
+  const mo1LegEl   = document.getElementById('tweekly-1mo-legend');
+
+  _destroyTweeklyYTDChart();
+  chartEl.innerHTML    = '';
+  if (legendEl)   legendEl.innerHTML   = '';
+  if (mo1ChartEl) mo1ChartEl.innerHTML = '';
+  if (mo1LegEl)   mo1LegEl.innerHTML   = '';
+
+  if (!seriesData || !seriesData.length) {
+    chartEl.innerHTML = '<div style="color:var(--red);font-size:12px;padding:16px;">No data available.</div>';
+    if (mo1ChartEl) mo1ChartEl.innerHTML = '<div style="color:var(--red);font-size:12px;padding:16px;">No data available.</div>';
+    return;
+  }
+
+  if (typeof LightweightCharts === 'undefined') {
+    chartEl.innerHTML = '<div style="color:var(--red);font-size:12px;padding:16px;">Chart library not loaded — refresh the page and try again.</div>';
+    return;
+  }
+
+  const chartWidth = chartEl.getBoundingClientRect().width || chartEl.offsetWidth || 600;
+
+  _tweeklyYTDChart = LightweightCharts.createChart(chartEl, {
+    width:  chartWidth,
+    height: 400,
+    layout: {
+      background: { color: '#ffffff' },
+      textColor:  '#555',
+      fontFamily: "'IBM Plex Mono', monospace",
+      fontSize:   10,
+    },
+    grid: {
+      vertLines: { color: '#ebebeb', style: 1 },
+      horzLines: { color: '#ebebeb', style: 1 },
+    },
+    rightPriceScale: {
+      borderVisible: false,
+      scaleMargins: { top: 0.08, bottom: 0.08 },
+    },
+    timeScale: {
+      borderVisible: false,
+      fixLeftEdge:   true,
+      fixRightEdge:  true,
+    },
+    crosshair: {
+      mode: 1,
+      vertLine: { color: '#bbb', labelBackgroundColor: '#555' },
+      horzLine: { color: '#bbb', labelBackgroundColor: '#555' },
+    },
+    handleScroll: { mouseWheel: true, pressedMouseMove: true },
+    handleScale:  { mouseWheel: true, pinch: true },
+  });
+
+  // Dashed zero reference line spanning full date range
+  const allDates = new Set();
+  seriesData.forEach(s => { if (s.ytdData) s.ytdData.forEach(d => allDates.add(d.time)); });
+  const sortedDates = [...allDates].sort();
+
+  const zeroLine = _tweeklyYTDChart.addLineSeries({
+    color:                  '#ccc',
+    lineWidth:              1,
+    lineStyle:              2,
+    priceLineVisible:       false,
+    lastValueVisible:       false,
+    crosshairMarkerVisible: false,
+  });
+  if (sortedDates.length) zeroLine.setData(sortedDates.map(t => ({ time: t, value: 0 })));
+
+  // One line per ticker
+  seriesData.forEach(s => {
+    if (!s.ytdData || !s.ytdData.length) return;
+    const line = _tweeklyYTDChart.addLineSeries({
+      color:                  s.color,
+      lineWidth:              1.5,
+      priceLineVisible:       false,
+      lastValueVisible:       false,
+      crosshairMarkerVisible: true,
+      crosshairMarkerRadius:  3,
+      priceFormat: {
+        type:      'custom',
+        formatter: v => (v >= 0 ? '+' : '') + v.toFixed(1) + '%',
+        minMove:   0.01,
+      },
+    });
+    line.setData(s.ytdData);
+  });
+
+  _tweeklyYTDChart.timeScale().fitContent();
+
+  // Keep chart width in sync with container
+  _tweeklyYTDChartRO = new ResizeObserver(entries => {
+    if (!_tweeklyYTDChart) return;
+    const w = entries[0]?.contentRect?.width;
+    if (w) _tweeklyYTDChart.applyOptions({ width: w });
+  });
+  _tweeklyYTDChartRO.observe(chartEl);
+
+  // Legend sorted by YTD performance (best first)
+  if (legendEl) {
+    const sorted = [...seriesData].sort((a, b) => (b.ytdPct ?? -Infinity) - (a.ytdPct ?? -Infinity));
+    legendEl.innerHTML = sorted.map(s => {
+      const pct      = s.ytdPct != null ? (s.ytdPct >= 0 ? '+' : '') + s.ytdPct.toFixed(1) + '%' : '—';
+      const pctColor = (s.ytdPct ?? 0) >= 0 ? '#2e7d32' : '#c62828';
+      return `<div class="tweekly-ytd-leg-item">
+        <div class="tweekly-ytd-leg-swatch" style="background:${s.color}"></div>
+        <span style="font-weight:700;color:var(--text)">${s.label}</span>
+        <span style="color:${pctColor}">${pct}</span>
+      </div>`;
+    }).join('');
+  }
+
+  // ── 1-Month line chart ───────────────────────────────────────────────────────
+  if (mo1ChartEl) {
+    const moWidth = mo1ChartEl.getBoundingClientRect().width || mo1ChartEl.offsetWidth || 400;
+
+    _tweeklyMOChart = LightweightCharts.createChart(mo1ChartEl, {
+      width:  moWidth,
+      height: 400,
+      layout: {
+        background: { color: '#ffffff' },
+        textColor:  '#555',
+        fontFamily: "'IBM Plex Mono', monospace",
+        fontSize:   10,
+      },
+      grid: {
+        vertLines: { color: '#ebebeb', style: 1 },
+        horzLines: { color: '#ebebeb', style: 1 },
+      },
+      rightPriceScale: {
+        borderVisible: false,
+        scaleMargins: { top: 0.08, bottom: 0.08 },
+      },
+      timeScale: {
+        borderVisible: false,
+        fixLeftEdge:   true,
+        fixRightEdge:  true,
+      },
+      crosshair: {
+        mode: 1,
+        vertLine: { color: '#bbb', labelBackgroundColor: '#555' },
+        horzLine: { color: '#bbb', labelBackgroundColor: '#555' },
+      },
+      handleScroll: { mouseWheel: true, pressedMouseMove: true },
+      handleScale:  { mouseWheel: true, pinch: true },
+    });
+
+    // Dashed zero reference line
+    const moAllDates = new Set();
+    seriesData.forEach(s => { if (s.mo1Data) s.mo1Data.forEach(d => moAllDates.add(d.time)); });
+    const moSortedDates = [...moAllDates].sort();
+
+    const moZeroLine = _tweeklyMOChart.addLineSeries({
+      color: '#ccc', lineWidth: 1, lineStyle: 2,
+      priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
+    });
+    if (moSortedDates.length) moZeroLine.setData(moSortedDates.map(t => ({ time: t, value: 0 })));
+
+    seriesData.forEach(s => {
+      if (!s.mo1Data || !s.mo1Data.length) return;
+      const line = _tweeklyMOChart.addLineSeries({
+        color:                  s.color,
+        lineWidth:              1.5,
+        priceLineVisible:       false,
+        lastValueVisible:       false,
+        crosshairMarkerVisible: true,
+        crosshairMarkerRadius:  3,
+        priceFormat: {
+          type:      'custom',
+          formatter: v => (v >= 0 ? '+' : '') + v.toFixed(1) + '%',
+          minMove:   0.01,
+        },
+      });
+      line.setData(s.mo1Data);
+    });
+
+    _tweeklyMOChart.timeScale().fitContent();
+
+    _tweeklyMOChartRO = new ResizeObserver(entries => {
+      if (!_tweeklyMOChart) return;
+      const w = entries[0]?.contentRect?.width;
+      if (w) _tweeklyMOChart.applyOptions({ width: w });
+    });
+    _tweeklyMOChartRO.observe(mo1ChartEl);
+  }
+
+  // 1-Month legend sorted best first
+  if (mo1LegEl) {
+    const moSorted = [...seriesData]
+      .filter(s => s.mo1Pct != null)
+      .sort((a, b) => (b.mo1Pct ?? -Infinity) - (a.mo1Pct ?? -Infinity));
+    mo1LegEl.innerHTML = moSorted.map(s => {
+      const pct      = s.mo1Pct != null ? (s.mo1Pct >= 0 ? '+' : '') + s.mo1Pct.toFixed(1) + '%' : '—';
+      const pctColor = (s.mo1Pct ?? 0) >= 0 ? '#2e7d32' : '#c62828';
+      return `<div class="tweekly-ytd-leg-item">
+        <div class="tweekly-ytd-leg-swatch" style="background:${s.color}"></div>
+        <span style="font-weight:700;color:var(--text)">${s.label}</span>
+        <span style="color:${pctColor}">${pct}</span>
+      </div>`;
+    }).join('');
+  }
+}
+
 async function screenshotTweekly() {
-  const target = document.getElementById('tweekly-body');
+  const target = document.getElementById(`tweekly-content-${_tweeklyActiveTab}`);
   const btn    = document.getElementById('tweekly-cam-btn');
   if (!target || typeof html2canvas === 'undefined') {
     showToast('Screenshot library not loaded yet — try again in a moment.', 'error');
