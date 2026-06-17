@@ -3415,6 +3415,7 @@ let listVisible   = true;
 let chartVisible  = true;
 let chartDebounceTimer = null;
 let lastChartKey = '';
+let lastTvSymbol = '';      // tracks the symbol currently shown in the TV chart
 let sidebarVisible = true;
 let panesFlipped   = false;
 let activeCriteriaFilters = new Set();
@@ -5649,6 +5650,56 @@ function updateChartInfoBar(r) {
   }
 }
 
+function showChartInfoBarEmpty(ticker) {
+  const bar = document.getElementById('chart-info-bar');
+  if (!bar) return;
+  bar.innerHTML = `
+    <div style="display:flex;flex-direction:column;min-width:90px">
+      <span class="cib-ticker">${ticker}</span>
+      <span class="cib-name" style="color:var(--text3);font-style:italic">not in scan</span>
+    </div>
+    <div class="cib-divider"></div>
+    <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3)">— no scan data for this ticker —</span>
+  `;
+  bar.dataset.populated = '1';
+  if (chartInfoBarVisible) {
+    bar.classList.add('visible');
+    document.getElementById('btn-toggle-info-bar')?.classList.add('active');
+  }
+}
+
+// Listen for symbol changes that happen inside the TradingView chart widget.
+// TradingView sends postMessage events whenever quote data arrives for the active
+// symbol — we use the symbol field to detect a ticker change and refresh the info bar.
+window.addEventListener('message', function(e) {
+  let data = e.data;
+  if (typeof data === 'string') {
+    try { data = JSON.parse(data); } catch { return; }
+  }
+  if (!data || typeof data !== 'object') return;
+
+  // TradingView quoteData event carries the currently-displayed symbol
+  const sym = data.name === 'quoteData' ? data.message?.s : null;
+  if (!sym) return;
+
+  const ticker = sym.includes(':') ? sym.split(':')[1] : sym;
+  if (ticker === lastTvSymbol) return;   // same symbol, ignore repeated ticks
+  lastTvSymbol = ticker;
+
+  // Keep the header label in sync
+  document.getElementById('chart-symbol-label').textContent = sym;
+
+  // Look up the ticker in the current scan results
+  const result = sortedResults.find(r => r.ticker === ticker);
+  if (result) {
+    updateChartInfoBar(result);
+  } else if (sortedResults.length > 0) {
+    // Scan has been run but this ticker wasn't in it
+    showChartInfoBarEmpty(ticker);
+  }
+  // If no scan has run yet, leave the info bar as-is
+});
+
 // ============================================================
 //  TRADINGVIEW CHART
 // ============================================================
@@ -5675,6 +5726,7 @@ function loadChart(stock) {
   const chartKey = `${symbol}|${chartMode}|${chartRange}`;
   if (chartKey === lastChartKey) return;
   lastChartKey = chartKey;
+  lastTvSymbol = stock.ticker; // pre-set so the postMessage listener doesn't re-fire on first tick
 
   document.getElementById('chart-symbol-label').textContent = symbol;
 
