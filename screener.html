@@ -2647,14 +2647,48 @@
   .tweekly-ytd-section {
     flex: 2;
     min-width: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
   }
   .tweekly-1mo-section {
     flex: 1;
     min-width: 0;
   }
+  /* Vertical ranking panel to the right of both charts */
+  .tweekly-perf-legend-panel {
+    width: 196px;
+    min-width: 196px;
+    flex-shrink: 0;
+    align-self: flex-start;
+  }
+  .tweekly-perf-legend-card {
+    display: flex;
+    flex-direction: column;
+    max-height: 482px;
+  }
+  .tweekly-perf-legend-list {
+    overflow-y: auto;
+    flex: 1;
+  }
+  .tweekly-leg-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 7px;
+    padding: 5px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .tweekly-leg-row:last-child { border-bottom: none; }
+  .tweekly-leg-swatch {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .tweekly-leg-info    { flex: 1; min-width: 0; }
+  .tweekly-leg-top     { display: flex; justify-content: space-between; align-items: baseline; gap: 4px; }
+  .tweekly-leg-ticker  { font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 700; color: var(--text); }
+  .tweekly-leg-ytd     { font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600; white-space: nowrap; }
+  .tweekly-leg-1mo     { font-family: 'IBM Plex Mono', monospace; font-size: 9px; color: var(--text3); margin-top: 1px; }
+  /* Legacy horizontal legend classes — kept for re-use elsewhere */
   .tweekly-ytd-legend {
     display: flex;
     flex-wrap: wrap;
@@ -3192,14 +3226,18 @@
             <div class="tweekly-section-title">YTD Performance — % Change From Jan 1</div>
             <div id="tweekly-ytd-chart-container" style="width:100%;height:400px;"></div>
           </div>
-          <div class="tweekly-ytd-legend" id="tweekly-ytd-legend"></div>
         </div>
         <div class="tweekly-1mo-section">
           <div class="tweekly-section">
             <div class="tweekly-section-title">1 Month Performance — % Change From 1 Mo Ago</div>
             <div id="tweekly-1mo-chart" style="width:100%;height:400px;"></div>
           </div>
-          <div class="tweekly-ytd-legend" id="tweekly-1mo-legend"></div>
+        </div>
+        <div class="tweekly-perf-legend-panel">
+          <div class="tweekly-section tweekly-perf-legend-card">
+            <div class="tweekly-section-title">YTD Ranking</div>
+            <div id="tweekly-perf-legend" class="tweekly-perf-legend-list"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -8841,11 +8879,10 @@ async function loadTweeklyYTD(force) {
     color:var(--text3);font-size:11px;font-family:'IBM Plex Mono',monospace;letter-spacing:0.05em;">
     LOADING PERFORMANCE DATA (${YTD_PERF_TICKERS.length} TICKERS)…</div>`;
   chartEl.innerHTML = loadingMsg;
-  if (legendEl) legendEl.innerHTML = '';
-  const mo1ChartLoading = document.getElementById('tweekly-1mo-chart');
-  const mo1LegendLoading = document.getElementById('tweekly-1mo-legend');
-  if (mo1ChartLoading)  mo1ChartLoading.innerHTML  = loadingMsg;
-  if (mo1LegendLoading) mo1LegendLoading.innerHTML = '';
+  const mo1ChartLoading  = document.getElementById('tweekly-1mo-chart');
+  const perfLegLoading   = document.getElementById('tweekly-perf-legend');
+  if (mo1ChartLoading) mo1ChartLoading.innerHTML = loadingMsg;
+  if (perfLegLoading)  perfLegLoading.innerHTML  = '';
 
   const results = await Promise.allSettled(
     YTD_PERF_TICKERS.map(({ yf }) => fetchYF(yf, '1y', '1d'))
@@ -8898,16 +8935,14 @@ async function loadTweeklyYTD(force) {
 }
 
 function renderTweeklyYTD(seriesData) {
-  const chartEl    = document.getElementById('tweekly-ytd-chart-container');
-  const legendEl   = document.getElementById('tweekly-ytd-legend');
-  const mo1ChartEl = document.getElementById('tweekly-1mo-chart');
-  const mo1LegEl   = document.getElementById('tweekly-1mo-legend');
+  const chartEl      = document.getElementById('tweekly-ytd-chart-container');
+  const mo1ChartEl   = document.getElementById('tweekly-1mo-chart');
+  const perfLegendEl = document.getElementById('tweekly-perf-legend');
 
   _destroyTweeklyYTDChart();
-  chartEl.innerHTML    = '';
-  if (legendEl)   legendEl.innerHTML   = '';
-  if (mo1ChartEl) mo1ChartEl.innerHTML = '';
-  if (mo1LegEl)   mo1LegEl.innerHTML   = '';
+  chartEl.innerHTML = '';
+  if (mo1ChartEl)   mo1ChartEl.innerHTML   = '';
+  if (perfLegendEl) perfLegendEl.innerHTML = '';
 
   if (!seriesData || !seriesData.length) {
     chartEl.innerHTML = '<div style="color:var(--red);font-size:12px;padding:16px;">No data available.</div>';
@@ -8997,16 +9032,23 @@ function renderTweeklyYTD(seriesData) {
   });
   _tweeklyYTDChartRO.observe(chartEl);
 
-  // Legend sorted by YTD performance (best first)
-  if (legendEl) {
-    const sorted = [...seriesData].sort((a, b) => (b.ytdPct ?? -Infinity) - (a.ytdPct ?? -Infinity));
-    legendEl.innerHTML = sorted.map(s => {
-      const pct      = s.ytdPct != null ? (s.ytdPct >= 0 ? '+' : '') + s.ytdPct.toFixed(1) + '%' : '—';
-      const pctColor = (s.ytdPct ?? 0) >= 0 ? '#2e7d32' : '#c62828';
-      return `<div class="tweekly-ytd-leg-item">
-        <div class="tweekly-ytd-leg-swatch" style="background:${s.color}"></div>
-        <span style="font-weight:700;color:var(--text)">${s.label}</span>
-        <span style="color:${pctColor}">${pct}</span>
+  // Vertical ranking sidebar — sorted by YTD (best first), showing YTD + 1-month
+  if (perfLegendEl) {
+    const ranked = [...seriesData].sort((a, b) => (b.ytdPct ?? -Infinity) - (a.ytdPct ?? -Infinity));
+    perfLegendEl.innerHTML = ranked.map(s => {
+      const ytdStr   = s.ytdPct != null ? (s.ytdPct >= 0 ? '+' : '') + s.ytdPct.toFixed(1) + '%' : '—';
+      const mo1Str   = s.mo1Pct != null ? (s.mo1Pct >= 0 ? '+' : '') + s.mo1Pct.toFixed(1) + '%' : '—';
+      const ytdColor = (s.ytdPct ?? 0) >= 0 ? '#2e7d32' : '#c62828';
+      const moColor  = (s.mo1Pct ?? 0) >= 0 ? '#2e7d32' : '#c62828';
+      return `<div class="tweekly-leg-row">
+        <div class="tweekly-leg-swatch" style="background:${s.color}"></div>
+        <div class="tweekly-leg-info">
+          <div class="tweekly-leg-top">
+            <span class="tweekly-leg-ticker">${s.label}</span>
+            <span class="tweekly-leg-ytd" style="color:${ytdColor}">${ytdStr}</span>
+          </div>
+          <div class="tweekly-leg-1mo" style="color:${moColor}">1mo ${mo1Str}</div>
+        </div>
       </div>`;
     }).join('');
   }
@@ -9085,21 +9127,6 @@ function renderTweeklyYTD(seriesData) {
     _tweeklyMOChartRO.observe(mo1ChartEl);
   }
 
-  // 1-Month legend sorted best first
-  if (mo1LegEl) {
-    const moSorted = [...seriesData]
-      .filter(s => s.mo1Pct != null)
-      .sort((a, b) => (b.mo1Pct ?? -Infinity) - (a.mo1Pct ?? -Infinity));
-    mo1LegEl.innerHTML = moSorted.map(s => {
-      const pct      = s.mo1Pct != null ? (s.mo1Pct >= 0 ? '+' : '') + s.mo1Pct.toFixed(1) + '%' : '—';
-      const pctColor = (s.mo1Pct ?? 0) >= 0 ? '#2e7d32' : '#c62828';
-      return `<div class="tweekly-ytd-leg-item">
-        <div class="tweekly-ytd-leg-swatch" style="background:${s.color}"></div>
-        <span style="font-weight:700;color:var(--text)">${s.label}</span>
-        <span style="color:${pctColor}">${pct}</span>
-      </div>`;
-    }).join('');
-  }
 }
 
 async function screenshotTweekly() {
