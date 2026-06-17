@@ -8713,6 +8713,18 @@ async function loadTweekly(force) {
   const CACHE_KEY = 'cts_tweekly_v6';
   const CACHE_TTL = 15 * 60 * 1000;
 
+  // Pre-warm YTD batch in background if sessionStorage cache is stale
+  if (!force) {
+    try {
+      const ytdRaw    = sessionStorage.getItem('cts_tweekly_ytd_v1');
+      const ytdParsed = ytdRaw ? JSON.parse(ytdRaw) : null;
+      if (!ytdParsed || Date.now() - ytdParsed.ts >= CACHE_TTL) {
+        const tix = YTD_PERF_TICKERS.map(t => t.yf).join(',');
+        fetch(`/api/yf-batch?tickers=${encodeURIComponent(tix)}&range=1y&interval=1d`).catch(() => {});
+      }
+    } catch { /* ignore */ }
+  }
+
   if (!force) {
     try {
       const raw = sessionStorage.getItem(CACHE_KEY);
@@ -8892,18 +8904,17 @@ async function loadTweeklyYTD(force) {
   if (perfLegLoading)  perfLegLoading.innerHTML  = '';
   if (mo1LegLoading)   mo1LegLoading.innerHTML   = '';
 
-  const results = await Promise.allSettled(
-    YTD_PERF_TICKERS.map(({ yf }) => fetchYF(yf, '1y', '1d'))
-  );
+  const batchTickers = YTD_PERF_TICKERS.map(t => t.yf).join(',');
+  const batchRes  = await fetch(`/api/yf-batch?tickers=${encodeURIComponent(batchTickers)}&range=1y&interval=1d`);
+  const batchData = batchRes.ok ? await batchRes.json() : {};
 
   const now      = new Date();
   const ytdStart = new Date(now.getFullYear(), 0, 1).getTime();
   const moStart  = Date.now() - 32 * 24 * 60 * 60 * 1000;
 
   const seriesData = [];
-  for (let i = 0; i < results.length; i++) {
-    if (results[i].status !== 'fulfilled') continue;
-    const bars = results[i].value?.bars;
+  for (let i = 0; i < YTD_PERF_TICKERS.length; i++) {
+    const bars = batchData[YTD_PERF_TICKERS[i].yf]?.bars;
     if (!bars || !bars.length) continue;
 
     const ytdBars = bars.filter(b => b.t >= ytdStart);

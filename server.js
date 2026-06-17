@@ -161,10 +161,56 @@ async function proxyYahoo(ticker, range, interval) {
   });
 }
 
+// Extract just {t,c} bars from a raw Yahoo Finance chart response body
+function parseYFBars(body) {
+  try {
+    const d      = JSON.parse(body);
+    const result = d?.chart?.result?.[0];
+    if (!result) return null;
+    const ts     = result.timestamp || [];
+    const closes = result.indicators?.quote?.[0]?.close || [];
+    const bars   = [];
+    for (let i = 0; i < ts.length; i++) {
+      if (closes[i] == null) continue;
+      bars.push({ t: ts[i] * 1000, c: closes[i] });
+    }
+    return bars.length ? bars : null;
+  } catch { return null; }
+}
+
 const server = http.createServer(async (req, res) => {
   const reqUrl = new URL(req.url, `http://localhost:${PORT}`);
 
   res.setHeader('Access-Control-Allow-Origin', '*');
+
+  // Batch endpoint: one request → parallel server-side fetches → one response
+  if (reqUrl.pathname === '/api/yf-batch') {
+    const tickersParam = reqUrl.searchParams.get('tickers');
+    const range        = reqUrl.searchParams.get('range')    || '1y';
+    const interval     = reqUrl.searchParams.get('interval') || '1d';
+
+    if (!tickersParam) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: 'Missing tickers parameter' }));
+    }
+
+    const tickers = tickersParam.split(',').map(s => s.trim()).filter(Boolean);
+    const settled = await Promise.allSettled(
+      tickers.map(t => proxyYahoo(t, range, interval))
+    );
+
+    const out = {};
+    for (let i = 0; i < tickers.length; i++) {
+      const r = settled[i];
+      if (r.status === 'fulfilled' && r.value.status === 200) {
+        const bars = parseYFBars(r.value.body);
+        if (bars) out[tickers[i]] = { bars };
+      }
+    }
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify(out));
+  }
 
   if (reqUrl.pathname === '/api/yf') {
     const ticker   = reqUrl.searchParams.get('ticker');
