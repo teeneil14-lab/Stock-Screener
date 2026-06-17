@@ -3637,7 +3637,9 @@ function loadSavedWatchlists() {
   for (let i = 0; i < 3; i++) {
     try {
       const raw = localStorage.getItem(`cts_wl_${i}`);
-      if (raw) savedWatchlists[i] = JSON.parse(raw);
+      if (!raw) continue;
+      const str = LZString.decompressFromBase64(raw) || raw; // fallback for old uncompressed entries
+      savedWatchlists[i] = JSON.parse(str);
     } catch(e) {}
   }
   renderSlots();
@@ -3646,7 +3648,7 @@ function loadSavedWatchlists() {
 
 function saveSlotToStorage(i) {
   if (savedWatchlists[i]) {
-    localStorage.setItem(`cts_wl_${i}`, JSON.stringify(savedWatchlists[i]));
+    localStorage.setItem(`cts_wl_${i}`, LZString.compressToBase64(JSON.stringify(savedWatchlists[i])));
   } else {
     localStorage.removeItem(`cts_wl_${i}`);
   }
@@ -8271,10 +8273,23 @@ function saveScanAvg(setupId, dateStr, avgScore, count) {
   try {
     const data = loadScanAvgs(setupId);
     data[dateStr] = { avgScore, count };
+    // Keep only the 180 most recent dates so this never grows unboundedly
+    const keys = Object.keys(data).sort();
+    if (keys.length > 180) keys.slice(0, keys.length - 180).forEach(k => delete data[k]);
     localStorage.setItem(`cts_scan_avg_${setupId}`, JSON.stringify(data));
   } catch (e) {
     console.error('[saveScanAvg] localStorage write failed:', e);
   }
+}
+
+// Bars are stored as compact arrays [t,o,h,l,c] to save space, but used in memory as {t,o,h,l,c} objects.
+function _compactBars(bars) {
+  if (!bars || !bars.length) return bars;
+  return bars.map(b => Array.isArray(b) ? b : [b.t, b.o, b.h, b.l, b.c]);
+}
+function _expandBars(bars) {
+  if (!bars || !bars.length) return bars;
+  return bars.map(b => Array.isArray(b) ? { t:b[0], o:b[1], h:b[2], l:b[3], c:b[4] } : b);
 }
 
 function loadLiked(setupId) {
@@ -8282,13 +8297,24 @@ function loadLiked(setupId) {
     const raw = localStorage.getItem(`cts_liked_setup_${setupId}`) || '[]';
     // Decompress if compressed (decompressFromBase64 returns null for plain JSON)
     const str = LZString.decompressFromBase64(raw) || raw;
-    return JSON.parse(str);
+    return JSON.parse(str).map(e => ({
+      ...e,
+      dailyBars:   _expandBars(e.dailyBars),
+      weeklyBars:  _expandBars(e.weeklyBars),
+      monthlyBars: _expandBars(e.monthlyBars),
+    }));
   } catch { return []; }
 }
 
 function saveLiked(setupId, arr) {
   try {
-    localStorage.setItem(`cts_liked_setup_${setupId}`, LZString.compressToBase64(JSON.stringify(arr)));
+    const compact = arr.map(e => ({
+      ...e,
+      dailyBars:   _compactBars(e.dailyBars),
+      weeklyBars:  _compactBars(e.weeklyBars),
+      monthlyBars: _compactBars(e.monthlyBars),
+    }));
+    localStorage.setItem(`cts_liked_setup_${setupId}`, LZString.compressToBase64(JSON.stringify(compact)));
     return true;
   } catch (e) {
     console.error('[saveLiked] localStorage write failed:', e);
