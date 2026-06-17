@@ -2662,7 +2662,7 @@
   .tweekly-perf-legend-card {
     display: flex;
     flex-direction: column;
-    max-height: 482px;
+    max-height: 602px;
   }
   .tweekly-perf-legend-list {
     overflow-y: auto;
@@ -3224,7 +3224,7 @@
         <div class="tweekly-ytd-section">
           <div class="tweekly-section">
             <div class="tweekly-section-title">YTD Performance</div>
-            <div id="tweekly-ytd-chart-container" style="width:100%;height:400px;"></div>
+            <div id="tweekly-ytd-chart-container" style="width:100%;height:520px;"></div>
           </div>
         </div>
         <div class="tweekly-perf-legend-panel">
@@ -3236,7 +3236,7 @@
         <div class="tweekly-1mo-section">
           <div class="tweekly-section">
             <div class="tweekly-section-title">1 Month Performance</div>
-            <div id="tweekly-1mo-chart" style="width:100%;height:400px;"></div>
+            <div id="tweekly-1mo-chart" style="width:100%;height:520px;"></div>
           </div>
         </div>
         <div class="tweekly-perf-legend-panel">
@@ -8881,7 +8881,7 @@ async function loadTweeklyYTD(force) {
   btn.disabled = true;
   updated.textContent = 'Loading…';
   _destroyTweeklyYTDChart();
-  const loadingMsg = `<div style="display:flex;align-items:center;justify-content:center;height:400px;
+  const loadingMsg = `<div style="display:flex;align-items:center;justify-content:center;height:520px;
     color:var(--text3);font-size:11px;font-family:'IBM Plex Mono',monospace;letter-spacing:0.05em;">
     LOADING PERFORMANCE DATA (${YTD_PERF_TICKERS.length} TICKERS)…</div>`;
   chartEl.innerHTML = loadingMsg;
@@ -8951,19 +8951,27 @@ function _addChartEndLabels(chart, seriesList, containerEl) {
   overlay.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;overflow:hidden;z-index:2;';
   containerEl.appendChild(overlay);
 
+  // All labels share the same x (global max date) so they always land in the
+  // rightOffset empty zone even when individual tickers have different last dates.
+  // Times are 'YYYY-MM-DD' strings — sort lexicographically to find the latest.
+  const globalLastTime = seriesList.map(s => s.lastTime).sort().at(-1);
+
   function draw() {
     overlay.innerHTML = '';
     const h = containerEl.offsetHeight;
-    const items = [];
 
-    seriesList.forEach(({ series, lastTime, lastValue, label, color }) => {
+    const sharedX = chart.timeScale().timeToCoordinate(globalLastTime);
+    if (sharedX == null || isNaN(sharedX)) return;
+    const xn = Math.round(sharedX);
+
+    const items = [];
+    seriesList.forEach(({ series, lastValue, label, color }) => {
       try {
-        const x = chart.timeScale().timeToCoordinate(lastTime);
         const y = series.priceToCoordinate(lastValue);
-        if (x == null || y == null || isNaN(x) || isNaN(y)) return;
+        if (y == null || isNaN(y)) return;
         const yn = Math.round(y);
         if (yn < 0 || yn > h) return;
-        items.push({ x: Math.round(x), y: yn, label, color });
+        items.push({ y: yn, label, color });
       } catch {}
     });
 
@@ -8976,11 +8984,11 @@ function _addChartEndLabels(chart, seriesList, containerEl) {
       if (items[i].y < items[i - 1].y + GAP) items[i].y = items[i - 1].y + GAP;
     }
 
-    items.forEach(({ x, y, label, color }) => {
+    items.forEach(({ y, label, color }) => {
       const el = document.createElement('div');
       el.style.cssText = [
         'position:absolute',
-        `left:${x + 5}px`,
+        `left:${xn + 5}px`,
         `top:${y - 7}px`,
         'font-size:8.5px',
         'font-weight:700',
@@ -9036,7 +9044,7 @@ function renderTweeklyYTD(seriesData) {
 
   _tweeklyYTDChart = LightweightCharts.createChart(chartEl, {
     width:  chartWidth,
-    height: 400,
+    height: 520,
     layout: {
       background: { color: '#ffffff' },
       textColor:  '#555',
@@ -9145,7 +9153,7 @@ function renderTweeklyYTD(seriesData) {
 
     _tweeklyMOChart = LightweightCharts.createChart(mo1ChartEl, {
       width:  moWidth,
-      height: 400,
+      height: 520,
       layout: {
         background: { color: '#ffffff' },
         textColor:  '#555',
