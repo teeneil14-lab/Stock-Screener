@@ -3223,13 +3223,13 @@
       <div class="tweekly-ytd-layout">
         <div class="tweekly-ytd-section">
           <div class="tweekly-section">
-            <div class="tweekly-section-title">YTD Performance — % Change From Jan 1</div>
+            <div class="tweekly-section-title">YTD Performance</div>
             <div id="tweekly-ytd-chart-container" style="width:100%;height:400px;"></div>
           </div>
         </div>
         <div class="tweekly-1mo-section">
           <div class="tweekly-section">
-            <div class="tweekly-section-title">1 Month Performance — % Change From 1 Mo Ago</div>
+            <div class="tweekly-section-title">1 Month Performance</div>
             <div id="tweekly-1mo-chart" style="width:100%;height:400px;"></div>
           </div>
         </div>
@@ -8972,9 +8972,8 @@ function _addChartEndLabels(chart, seriesList, containerEl) {
       const el = document.createElement('div');
       el.style.cssText = [
         'position:absolute',
-        `left:${x - 3}px`,
+        `left:${x + 5}px`,
         `top:${y - 7}px`,
-        'transform:translateX(-100%)',
         'font-size:8.5px',
         'font-weight:700',
         "font-family:'IBM Plex Mono',monospace",
@@ -9018,6 +9017,13 @@ function renderTweeklyYTD(seriesData) {
 
   const chartWidth = chartEl.getBoundingClientRect().width || chartEl.offsetWidth || 600;
 
+  // Compute date range first so we can size the right-margin for end-labels
+  const allDates = new Set();
+  seriesData.forEach(s => { if (s.ytdData) s.ytdData.forEach(d => allDates.add(d.time)); });
+  const sortedDates = [...allDates].sort();
+  const ytdBarW    = (chartWidth - 62) / Math.max(sortedDates.length, 1);
+  const ytdRightOff = Math.max(2, Math.ceil(72 / ytdBarW));
+
   _tweeklyYTDChart = LightweightCharts.createChart(chartEl, {
     width:  chartWidth,
     height: 400,
@@ -9036,9 +9042,10 @@ function renderTweeklyYTD(seriesData) {
       scaleMargins: { top: 0.08, bottom: 0.08 },
     },
     timeScale: {
-      borderVisible: false,
-      fixLeftEdge:   true,
-      fixRightEdge:  true,
+      borderVisible:  false,
+      fixLeftEdge:    true,
+      fixRightEdge:   true,
+      rightOffset:    ytdRightOff,
     },
     crosshair: {
       mode: 1,
@@ -9048,11 +9055,6 @@ function renderTweeklyYTD(seriesData) {
     handleScroll: { mouseWheel: true, pressedMouseMove: true },
     handleScale:  { mouseWheel: true, pinch: true },
   });
-
-  // Dashed zero reference line spanning full date range
-  const allDates = new Set();
-  seriesData.forEach(s => { if (s.ytdData) s.ytdData.forEach(d => allDates.add(d.time)); });
-  const sortedDates = [...allDates].sort();
 
   const zeroLine = _tweeklyYTDChart.addLineSeries({
     color:                  '#ccc',
@@ -9127,6 +9129,13 @@ function renderTweeklyYTD(seriesData) {
   if (mo1ChartEl) {
     const moWidth = mo1ChartEl.getBoundingClientRect().width || mo1ChartEl.offsetWidth || 400;
 
+    // Pre-compute dates for right-offset sizing
+    const moAllDates = new Set();
+    seriesData.forEach(s => { if (s.mo1Data) s.mo1Data.forEach(d => moAllDates.add(d.time)); });
+    const moSortedDates = [...moAllDates].sort();
+    const moBarW     = (moWidth - 62) / Math.max(moSortedDates.length, 1);
+    const moRightOff = Math.max(2, Math.ceil(72 / moBarW));
+
     _tweeklyMOChart = LightweightCharts.createChart(mo1ChartEl, {
       width:  moWidth,
       height: 400,
@@ -9145,9 +9154,10 @@ function renderTweeklyYTD(seriesData) {
         scaleMargins: { top: 0.08, bottom: 0.08 },
       },
       timeScale: {
-        borderVisible: false,
-        fixLeftEdge:   true,
-        fixRightEdge:  true,
+        borderVisible:  false,
+        fixLeftEdge:    true,
+        fixRightEdge:   true,
+        rightOffset:    moRightOff,
       },
       crosshair: {
         mode: 1,
@@ -9157,11 +9167,6 @@ function renderTweeklyYTD(seriesData) {
       handleScroll: { mouseWheel: true, pressedMouseMove: true },
       handleScale:  { mouseWheel: true, pinch: true },
     });
-
-    // Dashed zero reference line
-    const moAllDates = new Set();
-    seriesData.forEach(s => { if (s.mo1Data) s.mo1Data.forEach(d => moAllDates.add(d.time)); });
-    const moSortedDates = [...moAllDates].sort();
 
     const moZeroLine = _tweeklyMOChart.addLineSeries({
       color: '#ccc', lineWidth: 1, lineStyle: 2,
