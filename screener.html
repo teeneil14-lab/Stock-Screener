@@ -403,6 +403,8 @@
     user-select: none;
   }
   .sectors-breadth-table th:first-child { text-align: left; }
+  .sectors-breadth-table th[onclick]:hover { color: var(--text2); }
+  .sectors-breadth-table th.sort-active { color: var(--accent); }
   .sectors-breadth-table td {
     padding: 7px 10px;
     border-bottom: 1px solid var(--border);
@@ -7868,6 +7870,8 @@ let sectorSortCol      = '1m';
 let sectorSortDir      = -1;
 let sectorRows         = null;
 let sectorEMABreadth   = {};     // ETF ticker → { ema20, ema50, ema100, ema200 (%), total }
+let breadthSortCol     = null;   // null = default order
+let breadthSortDir     = -1;     // -1 = high→low, 1 = low→high
 let sectorBreadthLoading = false;
 
 const SECTORS_CACHE_KEY = 'cts_sectors_v1';
@@ -8174,8 +8178,29 @@ function renderSectorTable(rows) {
       <td style="color:var(--text3);font-size:10px">${sp500b.total}</td>
     </tr>` : '';
 
-    const bRows = SECTORS.filter(s => s.group === 'sector').map(s => {
-      const b = sectorEMABreadth[s.ticker];
+    const bColKey = { 'ema20':'ema20','ema50':'ema50','ema100':'ema100','ema200':'ema200' };
+    let sectorBreadthList = SECTORS.filter(s => s.group === 'sector').map(s => ({
+      ...s, b: sectorEMABreadth[s.ticker] || null
+    }));
+    if (breadthSortCol && bColKey[breadthSortCol]) {
+      const bk = bColKey[breadthSortCol];
+      sectorBreadthList.sort((a, b) => {
+        const av = a.b ? (a.b[bk] ?? -Infinity) : -Infinity;
+        const bv = b.b ? (b.b[bk] ?? -Infinity) : -Infinity;
+        return breadthSortDir * (av - bv);
+      });
+    }
+
+    function bthArrow(col) {
+      if (breadthSortCol !== col) return '';
+      return breadthSortDir === -1 ? ' ↓' : ' ↑';
+    }
+    function bthCls(col) {
+      return breadthSortCol === col ? ' class="sort-active"' : '';
+    }
+
+    const bRows = sectorBreadthList.map(s => {
+      const b = s.b;
       return `<tr class="sgo-row" onclick="openSectorGlance('${s.ticker}')">
         <td>${s.name}</td>
         <td>${b ? breadthCell(b.ema20)  : '<span class="breadth-cell breadth-na">—</span>'}</td>
@@ -8189,11 +8214,11 @@ function renderSectorTable(rows) {
     breadthHTML += `<table class="sectors-breadth-table">
       <thead><tr>
         <th style="text-align:left;cursor:default">Sector</th>
-        <th>EMA 20</th>
-        <th>EMA 50</th>
-        <th>EMA 100</th>
-        <th>EMA 200</th>
-        <th style="color:var(--text3)">Stocks</th>
+        <th${bthCls('ema20')} style="cursor:pointer" onclick="sortBreadth('ema20')">EMA 20${bthArrow('ema20')}</th>
+        <th${bthCls('ema50')} style="cursor:pointer" onclick="sortBreadth('ema50')">EMA 50${bthArrow('ema50')}</th>
+        <th${bthCls('ema100')} style="cursor:pointer" onclick="sortBreadth('ema100')">EMA 100${bthArrow('ema100')}</th>
+        <th${bthCls('ema200')} style="cursor:pointer" onclick="sortBreadth('ema200')">EMA 200${bthArrow('ema200')}</th>
+        <th style="color:var(--text3);cursor:default">Stocks</th>
       </tr></thead>
       <tbody>${sp500Row}${bRows}</tbody>
     </table>`;
@@ -8747,6 +8772,16 @@ function sortSectors(col) {
   } else {
     sectorSortCol = col;
     sectorSortDir = -1;
+  }
+  if (sectorRows) renderSectorTable(sectorRows);
+}
+
+function sortBreadth(col) {
+  if (breadthSortCol === col) {
+    breadthSortDir *= -1;
+  } else {
+    breadthSortCol = col;
+    breadthSortDir = -1;
   }
   if (sectorRows) renderSectorTable(sectorRows);
 }
