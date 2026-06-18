@@ -5530,9 +5530,17 @@ async function loadRSStocks() {
   const input = document.getElementById('tab-search-input');
 
   if (!sp500StockEMACache.length) {
-    if (btn) { btn.textContent = 'No breadth data'; btn.disabled = true; }
-    setTimeout(() => { if (btn) { btn.textContent = 'RS'; btn.disabled = false; } }, 2000);
-    return;
+    if (btn) { btn.textContent = 'Scanning…'; btn.disabled = true; }
+    if (!sectorBreadthLoading) loadSectorBreadth();
+    const ok = await new Promise(resolve => {
+      const start = Date.now();
+      const poll = setInterval(() => {
+        if (sp500StockEMACache.length) { clearInterval(poll); resolve(true); }
+        else if (Date.now() - start > 120000) { clearInterval(poll); resolve(false); }
+      }, 500);
+    });
+    if (btn) { btn.textContent = 'RS'; btn.disabled = false; }
+    if (!ok) { showToast('Breadth scan timed out', 'warn'); return; }
   }
 
   const EMA_KEYS = ['ema20', 'ema50', 'ema100', 'ema200'];
