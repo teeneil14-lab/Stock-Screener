@@ -10753,7 +10753,9 @@ function renderPSEPanels(data) {
   const { stocks, dates } = data;
   const multiDay = dates.length > 1;
 
-  const liquid   = stocks.filter(s => s.latestValue != null && s.latestValue >= 1_500_000);
+  const liquid   = stocks.filter(s =>
+    s.latestValue != null && s.latestValue >= 1_500_000 &&
+    !/pref/i.test(s.symbol) && !/pref/i.test(s.name));
   const nearHigh = liquid
     .filter(s => s.rangePos >= 75 && s.weekHigh != null && s.weekLow != null && s.weekHigh > s.weekLow)
     .sort((a, b) => b.rangePos - a.rangePos).slice(0, 30);
