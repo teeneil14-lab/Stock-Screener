@@ -105,7 +105,8 @@ async function runPSEHistoryBuild() {
   console.log(`[PSE history] Building: ${missing.length} days to fetch`);
 
   for (const dateStr of missing) {
-    const stocks = await fetchPSEDay(dateStr);
+    const result = await fetchPSEDay(dateStr);
+    const stocks = result ? result.stocks : null;
     if (stocks && stocks.length > 0) {
       mergeIntoPSEHistory(dateStr, stocks);
     } else {
@@ -208,6 +209,54 @@ function pdfToText(buf) {
     .then(data => data.text);
 }
 
+function pdfToPageTexts(buf) {
+  const pages = [];
+  return pdfParse(buf, {
+    pagerender: (pageData) => layoutPageRender(pageData).then(t => { pages.push(t); return t; }),
+    version: 'v2.0.550',
+  }).then(() => pages);
+}
+
+function parsePSESectorPage(text) {
+  const parseNum = v => { const n = parseFloat(v.replace(/,/g, '')); return isNaN(n) ? null : n; };
+
+  const SECTOR_RE = [
+    ['PSEi',          /psei\b|composite/i],
+    ['All Shares',    /all\s+shares/i],
+    ['Financials',    /\bfinancial\b/i],
+    ['Industrials',   /\bindustrial\b/i],
+    ['Holding Firms', /holding\s+firm/i],
+    ['Property',      /\bproperty\b/i],
+    ['Services',      /\bservice\b/i],
+    ['Mining & Oil',  /mining/i],
+  ];
+
+  const result = {};
+  const lines = text.split('\n');
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+
+    for (const [name, re] of SECTOR_RE) {
+      if (!re.test(line)) continue;
+
+      // Combine this line + next in case numbers wrap
+      const src = line + ' ' + (lines[i + 1] || '');
+      const nums = [...src.matchAll(/-?[\d,]+\.\d{2}/g)]
+        .map(m => parseNum(m[0])).filter(n => n != null);
+
+      // Columns: [prev,] open, high, low, close, change, %change
+      // close = third from last; pctChange = last
+      if (nums.length >= 3) {
+        result[name] = { close: nums[nums.length - 3], pctChange: nums[nums.length - 1] };
+      }
+      break;
+    }
+  }
+  return result;
+}
+
 function parsePSELayout(text, dateStr) {
   const stocks    = [];
   const isTicker  = (s) => /^[A-Z][A-Z0-9]{0,5}$/.test(s);
@@ -252,18 +301,21 @@ function parsePSELayout(text, dateStr) {
 
 async function fetchPSEDay(dateStr) {
   const cached = pseCache.get(dateStr);
-  if (cached && Date.now() - cached.ts < PSE_TTL) return cached.stocks;
+  if (cached && Date.now() - cached.ts < PSE_TTL)
+    return { stocks: cached.stocks, sectors: cached.sectors || {} };
 
   const label    = pseDateLabel(dateStr);
   const urlPath  = `/market_report/${label.replace(/ /g, '%20').replace(/,/g, '%2C')}-EOD.pdf`;
 
   try {
     const buf    = await downloadBuffer('documents.pse.com.ph', urlPath);
-    const text   = await pdfToText(buf);
-    const stocks = parsePSELayout(text, dateStr);
-    if (stocks.length > 0) pseCache.set(dateStr, { ts: Date.now(), stocks });
-    console.log(`[PSE] ${dateStr}: ${stocks.length} stocks parsed`);
-    return stocks;
+    const pages  = await pdfToPageTexts(buf);
+    const text   = pages.join('\n');
+    const stocks  = parsePSELayout(text, dateStr);
+    const sectors = parsePSESectorPage(pages[12] || pages[pages.length - 1] || '');
+    if (stocks.length > 0) pseCache.set(dateStr, { ts: Date.now(), stocks, sectors });
+    console.log(`[PSE] ${dateStr}: ${stocks.length} stocks, ${Object.keys(sectors).length} sector indices`);
+    return { stocks, sectors };
   } catch (e) {
     console.log(`[PSE] ${dateStr}: skipped (${e.message})`);
     return null;
@@ -819,11 +871,14 @@ const server = http.createServer(async (req, res) => {
     try {
       const days    = pseWeekDays();
       const settled = await Promise.allSettled(days.map(fetchPSEDay));
-      const weekData = {};
+      const weekData    = {};  // date -> stocks[]
+      const sectorByDay = {};  // date -> { [sectorName]: { close, pctChange } }
       days.forEach((d, i) => {
         const r = settled[i];
-        if (r.status === 'fulfilled' && r.value && r.value.length > 0)
-          weekData[d] = r.value;
+        if (r.status !== 'fulfilled' || !r.value) return;
+        const { stocks, sectors } = r.value;
+        if (stocks && stocks.length > 0) weekData[d] = stocks;
+        if (sectors && Object.keys(sectors).length > 0) sectorByDay[d] = sectors;
       });
 
       const dates = Object.keys(weekData).sort();
@@ -871,6 +926,7 @@ const server = http.createServer(async (req, res) => {
           .filter(v => v != null && v > 0)
           .reduce((a, b) => a + b, 0) || null;
 
+        const firstDay = dayEntries[0] ? dayEntries[0][1] : null;
         output.push({
           symbol: data.symbol, name: data.name, latestDate,
           close: latest.close, open: latest.open,
@@ -881,12 +937,29 @@ const server = http.createServer(async (req, res) => {
           weekValue,
           netForeign: latest.netForeign,
           daysAvailable: dayEntries.length,
+          weekFirstOpen: firstDay ? firstDay.open : null,
         });
       }
 
       output.sort((a, b) => b.rangePos - a.rangePos);
+
+      // Compute week-to-date performance for each sector index from page-13 data
+      const SECTOR_NAMES = ['PSEi','All Shares','Financials','Industrials','Holding Firms','Property','Services','Mining & Oil'];
+      const weekSectors = {};
+      const sectorDates = Object.keys(sectorByDay).sort();
+      for (const name of SECTOR_NAMES) {
+        const closes = sectorDates.map(d => sectorByDay[d]?.[name]?.close).filter(v => v != null);
+        if (closes.length === 0) continue;
+        const first = closes[0], last = closes[closes.length - 1];
+        // Multi-day: WTD from first to last close; single-day: use daily % from PDF
+        const weekPct = closes.length > 1
+          ? (last / first - 1) * 100
+          : (sectorByDay[sectorDates[0]]?.[name]?.pctChange ?? null);
+        weekSectors[name] = { close: last, weekPct, days: closes.length };
+      }
+
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      return res.end(JSON.stringify({ dates, latestDate, stocks: output }));
+      return res.end(JSON.stringify({ dates, latestDate, stocks: output, sectors: weekSectors }));
     } catch (e) {
       console.error(`[PSE] ${e.message}`);
       res.writeHead(500, { 'Content-Type': 'application/json' });
