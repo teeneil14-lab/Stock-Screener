@@ -741,11 +741,20 @@ const server = http.createServer(async (req, res) => {
     }
 
     const sortedDates = Object.keys(stock.days).sort();
+    // Days are stored as compact arrays: [open, high, low, close, volume, value, netForeign]
     const dailyBars = sortedDates
       .map(ds => {
         const d = stock.days[ds];
-        if (d.close == null) return null;
-        return { t: new Date(ds + 'T00:00:00+08:00').getTime(), o: d.open, h: d.high, l: d.low, c: d.close, v: d.volume || 0 };
+        const close = Array.isArray(d) ? d[3] : d.close;
+        if (close == null) return null;
+        return {
+          t: new Date(ds + 'T00:00:00+08:00').getTime(),
+          o: Array.isArray(d) ? d[0] : d.open,
+          h: Array.isArray(d) ? d[1] : d.high,
+          l: Array.isArray(d) ? d[2] : d.low,
+          c: close,
+          v: (Array.isArray(d) ? d[4] : d.volume) || 0,
+        };
       })
       .filter(Boolean);
 
