@@ -3456,8 +3456,8 @@
     <button class="pse-scan-btn" id="pse-scan-btn" onclick="runPSEScan()">Fetch Latest</button>
   </div>
   <div id="pse-status" class="pse-status">
-    Press <strong style="color:var(--accent)">Fetch Latest</strong> to download this week's PSE reports.<br>
-    <span style="font-size:11px">Scans for stocks closing near weekly highs, volume surges, and net foreign buying.</span>
+    Loading this week's PSE reports…<br>
+    <span style="font-size:11px;color:var(--text3)">This may take 20–30 seconds on first load.</span>
   </div>
   <div id="pse-panels" class="pse-panels" style="display:none"></div>
 </div><!-- /tab-psedaily -->
@@ -7949,6 +7949,7 @@ async function loadPickPerformance(entry) {
 let sectorsLoaded      = false;
 let tweeklyLoaded      = false;
 let tweeklyYTDLoaded   = false;
+let pseDailyLoaded     = false;
 let _tweeklyActiveTab  = 'weekly';
 let _tweeklyYTDChart   = null;
 let _tweeklyYTDChartRO = null;
@@ -7962,9 +7963,10 @@ function switchTab(tab) {
     if (page) page.style.display = tab === t ? '' : 'none';
     if (btn)  btn.classList.toggle('active', tab === t);
   });
-  if (tab === 'sectors'  && !sectorsLoaded  && marketMode !== 'PH') loadSectors();
-  if (tab === 'imap'     && !imapLoaded     && marketMode !== 'PH') loadIndustryMap(false);
-  if (tab === 'tweekly'  && !tweeklyLoaded  && marketMode !== 'PH') loadTweekly(false);
+  if (tab === 'sectors'   && !sectorsLoaded   && marketMode !== 'PH') loadSectors();
+  if (tab === 'imap'      && !imapLoaded      && marketMode !== 'PH') loadIndustryMap(false);
+  if (tab === 'tweekly'   && !tweeklyLoaded   && marketMode !== 'PH') loadTweekly(false);
+  if (tab === 'psedaily'  && !pseDailyLoaded)  runPSEScan();
   if (tab === 'picks') {
     _destroyAnalyticsCharts();
     _syncPicksToolbar();
@@ -10737,6 +10739,7 @@ async function runPSEScan() {
 
     status.style.display = 'none';
     panels.style.display = 'grid';
+    pseDailyLoaded = true;
   } catch (e) {
     status.innerHTML = `<span style="color:var(--red)">Error: ${e.message}</span><br>
       <span style="font-size:11px;color:var(--text3)">Make sure the server is running (node server.js).</span>`;
