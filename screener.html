@@ -10164,12 +10164,6 @@ async function openSectorGlance(etf) {
 }
 
 async function openSP500RelativeStrength() {
-  const sp500b = sectorEMABreadth['__SP500__'];
-  if (!sp500b || !sp500StockEMACache.length) {
-    showToast('Run a breadth scan first', 'warn');
-    return;
-  }
-
   const overlay = document.getElementById('sgo-overlay');
   overlay.classList.add('open');
   document.getElementById('sgo-grid').innerHTML = '';
@@ -10178,7 +10172,34 @@ async function openSP500RelativeStrength() {
   const loading     = document.getElementById('sgo-loading');
   const loadingText = document.getElementById('sgo-loading-text');
   loading.classList.add('visible');
+
+  if (!sp500StockEMACache.length) {
+    loadingText.textContent = 'Running breadth scan…';
+    if (!sectorBreadthLoading) loadSectorBreadth();
+    await new Promise((resolve, reject) => {
+      const start = Date.now();
+      const poll = setInterval(() => {
+        if (sp500StockEMACache.length) { clearInterval(poll); resolve(); }
+        else if (Date.now() - start > 120000) { clearInterval(poll); reject(new Error('timeout')); }
+      }, 500);
+    }).catch(() => {
+      loading.classList.remove('visible');
+      overlay.classList.remove('open');
+      showToast('Breadth scan timed out', 'warn');
+      return;
+    });
+    if (!sp500StockEMACache.length) return;
+  }
+
   loadingText.textContent = 'Filtering stocks…';
+
+  const sp500b = sectorEMABreadth['__SP500__'];
+  if (!sp500b) {
+    loading.classList.remove('visible');
+    overlay.classList.remove('open');
+    showToast('No breadth data available', 'warn');
+    return;
+  }
 
   Object.keys(_sgoCharts).forEach(t => { try { _sgoCharts[t].remove(); } catch {} delete _sgoCharts[t]; });
   sgoStocks = [];
