@@ -134,6 +134,10 @@ function pseWeekDays() {
   const mon = new Date(now);
   mon.setDate(now.getDate() - (dow === 0 ? 6 : dow - 1));
   mon.setHours(0, 0, 0, 0);
+
+  // On Mondays the current week has only one day — use last week instead
+  if (dow === 1) mon.setDate(mon.getDate() - 7);
+
   const days = [];
   for (let d = 0; d < 5; d++) {
     const day = new Date(mon);
@@ -802,12 +806,19 @@ const server = http.createServer(async (req, res) => {
         const avgPrevVol  = prevVols.length ? Math.round(prevVols.reduce((a, b) => a + b, 0) / prevVols.length) : null;
         const volumeRatio = avgPrevVol && latest.volume ? Math.round(latest.volume / avgPrevVol * 10) / 10 : null;
 
+        const weekValue   = dayEntries
+          .map(([, d]) => d.value)
+          .filter(v => v != null && v > 0)
+          .reduce((a, b) => a + b, 0) || null;
+
         output.push({
           symbol: data.symbol, name: data.name, latestDate,
           close: latest.close, open: latest.open,
           high: latest.high, low: latest.low,
           weekHigh, weekLow, rangePos,
           volume: latest.volume, avgPrevVol, volumeRatio,
+          latestValue: latest.value || null,
+          weekValue,
           netForeign: latest.netForeign,
           daysAvailable: dayEntries.length,
         });

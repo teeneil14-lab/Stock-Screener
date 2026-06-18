@@ -276,8 +276,11 @@ function render(data) {
   const { stocks, dates } = data;
   const multiDay = dates.length > 1;
 
-  // Liquidity: must have traded with at least 10,000 shares today
-  const liquid = stocks.filter(s => s.volume != null && s.volume >= 10000);
+  // Liquidity: PHP 10M+ traded across the week, OR PHP 1M+ on the latest day
+  const liquid = stocks.filter(s =>
+    (s.weekValue != null && s.weekValue >= 10_000_000) ||
+    (s.latestValue != null && s.latestValue >= 1_000_000)
+  );
 
   // Panel 1: Near weekly high — close in top 25% of week range (rangePos >= 75)
   const nearHigh = liquid
