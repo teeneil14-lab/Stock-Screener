@@ -2,6 +2,8 @@ const http  = require('http');
 const https = require('https');
 const fs    = require('fs');
 const path  = require('path');
+const os    = require('os');
+const { exec }  = require('child_process');
 const { URL, URLSearchParams } = require('url');
 
 const PORT = process.env.PORT || 3000;
@@ -27,6 +29,124 @@ function getCached(key) {
 }
 function setCache(key, status, body) {
   yfCache.set(key, { ts: Date.now(), status, body });
+}
+
+// ─── PSE EOD PDF scraper ─────────────────────────────────────────────────────
+
+const pseCache = new Map(); // key = 'YYYY-MM-DD', value = { ts, stocks }
+const PSE_TTL  = 60 * 60 * 1000; // 1 hour
+
+function pseWeekDays() {
+  const now = new Date();
+  const dow = now.getDay(); // 0=Sun … 6=Sat
+  const mon = new Date(now);
+  mon.setDate(now.getDate() - (dow === 0 ? 6 : dow - 1));
+  mon.setHours(0, 0, 0, 0);
+  const days = [];
+  for (let d = 0; d < 5; d++) {
+    const day = new Date(mon);
+    day.setDate(mon.getDate() + d);
+    if (day > now) break;
+    days.push(day.toISOString().split('T')[0]);
+  }
+  return days;
+}
+
+function pseDateLabel(dateStr) {
+  // 'YYYY-MM-DD' → 'June 17, 2026'
+  const months = ['January','February','March','April','May','June',
+                  'July','August','September','October','November','December'];
+  const [yr, mo, dd] = dateStr.split('-');
+  return `${months[parseInt(mo) - 1]} ${dd}, ${yr}`;
+}
+
+function downloadBuffer(hostname, urlPath) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    const req = https.get({ hostname, path: urlPath, headers: { 'User-Agent': 'Mozilla/5.0' } }, (res) => {
+      if (res.statusCode !== 200) { res.resume(); return reject(new Error(`HTTP ${res.statusCode}`)); }
+      res.on('data', c => chunks.push(c));
+      res.on('end',  () => resolve(Buffer.concat(chunks)));
+    });
+    req.on('error', reject);
+    req.setTimeout(20000, () => req.destroy(new Error('timeout')));
+  });
+}
+
+function pdfToText(buf, tmpFile) {
+  return new Promise((resolve, reject) => {
+    fs.writeFile(tmpFile, buf, (err) => {
+      if (err) return reject(err);
+      exec(`pdftotext -layout "${tmpFile}" -`, { maxBuffer: 4 * 1024 * 1024 }, (err2, stdout) => {
+        fs.unlink(tmpFile, () => {});
+        if (err2) return reject(err2);
+        resolve(stdout);
+      });
+    });
+  });
+}
+
+function parsePSELayout(text, dateStr) {
+  const stocks    = [];
+  const isTicker  = (s) => /^[A-Z][A-Z0-9]{0,5}$/.test(s);
+  const parseNum  = (v) => {
+    if (!v || v === '-') return null;
+    const n = parseFloat(v.replace(/,/g, '').replace(/^\((.+)\)$/, '-$1'));
+    return isNaN(n) ? null : n;
+  };
+
+  for (const line of text.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    if (/^\*|SECTOR TOTAL|Issue Name|The Philippine|Daily Quotation|MAIN BOARD|ETB BOARD/.test(trimmed)) continue;
+
+    const parts = trimmed.split(/\s{2,}/);
+    if (parts.length < 4) continue;
+    const sym = parts[1];
+    if (!isTicker(sym)) continue;
+
+    // Values after the symbol: Bid Ask Open High Low Close Volume Value NetForeign
+    const vals = parts.slice(2);
+    if (vals.length < 6) continue;
+
+    const close = parseNum(vals[5]);
+    if (close == null) continue; // stock did not trade
+
+    stocks.push({
+      symbol:     sym,
+      name:       parts[0].trim(),
+      date:       dateStr,
+      open:       parseNum(vals[2]),
+      high:       parseNum(vals[3]),
+      low:        parseNum(vals[4]),
+      close,
+      volume:     vals.length > 6 ? parseNum(vals[6]) : null,
+      value:      vals.length > 7 ? parseNum(vals[7]) : null,
+      netForeign: vals.length > 8 ? parseNum(vals[8]) : null,
+    });
+  }
+  return stocks;
+}
+
+async function fetchPSEDay(dateStr) {
+  const cached = pseCache.get(dateStr);
+  if (cached && Date.now() - cached.ts < PSE_TTL) return cached.stocks;
+
+  const label    = pseDateLabel(dateStr);
+  const urlPath  = `/market_report/${label.replace(/ /g, '%20').replace(/,/g, '%2C')}-EOD.pdf`;
+  const tmpFile  = path.join(os.tmpdir(), `pse_${dateStr}.pdf`);
+
+  try {
+    const buf    = await downloadBuffer('documents.pse.com.ph', urlPath);
+    const text   = await pdfToText(buf, tmpFile);
+    const stocks = parsePSELayout(text, dateStr);
+    if (stocks.length > 0) pseCache.set(dateStr, { ts: Date.now(), stocks });
+    console.log(`[PSE] ${dateStr}: ${stocks.length} stocks parsed`);
+    return stocks;
+  } catch (e) {
+    console.log(`[PSE] ${dateStr}: skipped (${e.message})`);
+    return null;
+  }
 }
 
 // ─── Yahoo Finance crumb management ─────────────────────────────────────────
@@ -486,6 +606,79 @@ const server = http.createServer(async (req, res) => {
       res.end(JSON.stringify({ error: e.message }));
     }
     return;
+  }
+
+  // ── PSE EOD weekly scan ──────────────────────────────────────────────────────
+  if (reqUrl.pathname === '/api/pse/week') {
+    try {
+      const days    = pseWeekDays();
+      const settled = await Promise.allSettled(days.map(fetchPSEDay));
+      const weekData = {};
+      days.forEach((d, i) => {
+        const r = settled[i];
+        if (r.status === 'fulfilled' && r.value && r.value.length > 0)
+          weekData[d] = r.value;
+      });
+
+      const dates = Object.keys(weekData).sort();
+      if (dates.length === 0) {
+        res.writeHead(503, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: 'No PSE data available for this week yet' }));
+      }
+
+      const latestDate = dates[dates.length - 1];
+      const stockMap   = {};
+
+      for (const [dateStr, stocks] of Object.entries(weekData)) {
+        for (const s of stocks) {
+          if (!stockMap[s.symbol])
+            stockMap[s.symbol] = { symbol: s.symbol, name: s.name, days: {} };
+          stockMap[s.symbol].days[dateStr] = {
+            open: s.open, high: s.high, low: s.low, close: s.close,
+            volume: s.volume, value: s.value, netForeign: s.netForeign,
+          };
+        }
+      }
+
+      const output = [];
+      for (const data of Object.values(stockMap)) {
+        const dayEntries = Object.entries(data.days).sort(([a], [b]) => a.localeCompare(b));
+        const latest = data.days[latestDate];
+        if (!latest || latest.close == null) continue;
+
+        const highs   = dayEntries.map(([, d]) => d.high).filter(v => v != null);
+        const lows    = dayEntries.map(([, d]) => d.low).filter(v => v != null);
+        const weekHigh = highs.length ? Math.max(...highs) : latest.high;
+        const weekLow  = lows.length  ? Math.min(...lows)  : latest.low;
+        const range    = (weekHigh != null && weekLow != null) ? weekHigh - weekLow : 0;
+        const rangePos = range > 0 ? Math.round((latest.close - weekLow) / range * 100) : 50;
+
+        const prevVols = dayEntries
+          .filter(([d]) => d !== latestDate)
+          .map(([, d]) => d.volume)
+          .filter(v => v != null && v > 0);
+        const avgPrevVol  = prevVols.length ? Math.round(prevVols.reduce((a, b) => a + b, 0) / prevVols.length) : null;
+        const volumeRatio = avgPrevVol && latest.volume ? Math.round(latest.volume / avgPrevVol * 10) / 10 : null;
+
+        output.push({
+          symbol: data.symbol, name: data.name, latestDate,
+          close: latest.close, open: latest.open,
+          high: latest.high, low: latest.low,
+          weekHigh, weekLow, rangePos,
+          volume: latest.volume, avgPrevVol, volumeRatio,
+          netForeign: latest.netForeign,
+          daysAvailable: dayEntries.length,
+        });
+      }
+
+      output.sort((a, b) => b.rangePos - a.rangePos);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ dates, latestDate, stocks: output }));
+    } catch (e) {
+      console.error(`[PSE] ${e.message}`);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: e.message }));
+    }
   }
 
   // Static file server

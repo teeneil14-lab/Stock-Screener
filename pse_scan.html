@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PSE Daily Scan</title>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'IBM Plex Sans', sans-serif;
+      background: #f4f5f7;
+      color: #1a1a2e;
+      font-size: 13px;
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      background: #fff;
+      border-bottom: 2px solid #0a7c4e;
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .header-brand { display: flex; flex-direction: column; gap: 2px; }
+    .header-brand h1 { font-size: 16px; font-weight: 700; color: #0a7c4e; letter-spacing: -0.02em; }
+    .header-meta {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      color: #888;
+    }
+    .header-actions { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+    .nav-link {
+      font-size: 12px;
+      color: #555;
+      text-decoration: none;
+      padding: 6px 12px;
+      border-radius: 6px;
+      border: 1px solid #e0e0e0;
+      background: #fff;
+      font-weight: 500;
+      transition: background 0.15s;
+    }
+    .nav-link:hover { background: #f4f5f7; }
+    .btn {
+      background: #0a7c4e;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 8px 18px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      font-family: 'IBM Plex Sans', sans-serif;
+      transition: background 0.15s;
+    }
+    .btn:hover { background: #08603c; }
+    .btn:disabled { background: #b0b0b0; cursor: default; }
+
+    /* ── Main layout ── */
+    main { max-width: 1440px; margin: 0 auto; padding: 20px 24px 40px; }
+
+    /* ── Status ── */
+    .status-area {
+      text-align: center;
+      padding: 60px 20px;
+      color: #888;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    .status-area strong { color: #0a7c4e; }
+
+    /* ── Panels grid ── */
+    .panels {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 18px;
+      align-items: start;
+    }
+    @media (max-width: 1100px) { .panels { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 700px)  { .panels { grid-template-columns: 1fr; } }
+
+    /* ── Panel card ── */
+    .panel {
+      background: #fff;
+      border: 1px solid #e4e4e4;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    .panel-head {
+      padding: 13px 16px;
+      border-bottom: 1px solid #eeeeee;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .panel-icon {
+      width: 28px; height: 28px;
+      border-radius: 7px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+    .icon-green  { background: #e8f5ee; }
+    .icon-blue   { background: #e8f0ff; }
+    .icon-purple { background: #f3eeff; }
+
+    .panel-title { font-size: 13px; font-weight: 700; color: #1a1a2e; }
+    .panel-sub   { font-size: 11px; color: #aaa; font-family: 'IBM Plex Mono', monospace; margin-top: 1px; }
+    .panel-badge {
+      margin-left: auto;
+      background: #f0f0f0;
+      color: #555;
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      padding: 2px 9px;
+      border-radius: 10px;
+      font-weight: 600;
+    }
+
+    .panel-empty {
+      padding: 36px 20px;
+      text-align: center;
+      color: #bbb;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+
+    /* ── Tables ── */
+    .panel-table-wrap { max-height: 520px; overflow-y: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    thead { position: sticky; top: 0; background: #fff; z-index: 1; }
+    th {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #aaa;
+      font-weight: 600;
+      padding: 8px 14px;
+      text-align: right;
+      border-bottom: 1px solid #f0f0f0;
+      white-space: nowrap;
+    }
+    th:first-child { text-align: left; }
+    td {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 12px;
+      padding: 9px 14px;
+      text-align: right;
+      border-bottom: 1px solid #f8f8f8;
+      color: #333;
+      vertical-align: middle;
+    }
+    td:first-child { text-align: left; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #f8fdfb; }
+
+    .sym  { font-weight: 700; color: #0a7c4e; font-size: 12px; display: block; }
+    .co   { font-family: 'IBM Plex Sans', sans-serif; font-size: 11px; color: #aaa; display: block; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 160px; }
+
+    /* Range bar */
+    .bar-row { display: flex; align-items: center; gap: 6px; justify-content: flex-end; }
+    .bar-bg   { width: 48px; height: 5px; background: #eee; border-radius: 3px; flex-shrink: 0; }
+    .bar-fill { height: 5px; border-radius: 3px; background: #0a7c4e; }
+
+    /* Badges */
+    .chip {
+      font-size: 10px;
+      font-family: 'IBM Plex Mono', monospace;
+      padding: 2px 7px;
+      border-radius: 10px;
+      font-weight: 600;
+      display: inline-block;
+    }
+    .chip-blue   { background: #dbeafe; color: #1d4ed8; }
+    .chip-red    { background: #fee2e2; color: #b91c1c; }
+    .chip-green  { background: #dcfce7; color: #15803d; }
+    .chip-amber  { background: #fef9c3; color: #92400e; }
+
+    .pos  { color: #15803d; }
+    .neg  { color: #b91c1c; }
+    .mute { color: #aaa; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="header-brand">
+    <h1>PSE Daily Scan</h1>
+    <div class="header-meta" id="metaLabel">Philippine Stock Exchange · Week scan</div>
+  </div>
+  <div class="header-actions">
+    <a class="nav-link" href="/screener.html">US Screener</a>
+    <button class="btn" id="scanBtn" onclick="runScan()">Fetch Latest</button>
+  </div>
+</header>
+
+<main>
+  <div id="statusArea" class="status-area">
+    Press <strong>Fetch Latest</strong> to download this week's PSE reports.<br>
+    <span style="font-size:12px;color:#bbb">Scans for stocks closing near weekly highs, volume surges, and net foreign buying.</span>
+  </div>
+  <div id="panels" class="panels" style="display:none"></div>
+</main>
+
+<script>
+const fmt = (n, d = 2) => n == null ? '–' : n.toLocaleString('en-PH', { minimumFractionDigits: d, maximumFractionDigits: d });
+const fmtVol = (n) => {
+  if (n == null) return '–';
+  if (n >= 1e6) return (n / 1e6).toFixed(2) + 'M';
+  if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
+  return n.toLocaleString();
+};
+const fmtMoney = (n) => {
+  if (n == null) return '–';
+  const abs = Math.abs(n);
+  const sign = n < 0 ? '-' : '+';
+  if (abs >= 1e9) return sign + (abs / 1e9).toFixed(2) + 'B';
+  if (abs >= 1e6) return sign + (abs / 1e6).toFixed(2) + 'M';
+  if (abs >= 1e3) return sign + (abs / 1e3).toFixed(1) + 'K';
+  return sign + abs.toFixed(0);
+};
+const pct = (open, close) => {
+  if (open == null || close == null || open === 0) return null;
+  return ((close - open) / open * 100);
+};
+const pctHtml = (v) => {
+  if (v == null) return '<span class="mute">–</span>';
+  const cls = v >= 0 ? 'pos' : 'neg';
+  const sign = v >= 0 ? '+' : '';
+  return `<span class="${cls}">${sign}${v.toFixed(2)}%</span>`;
+};
+
+async function runScan() {
+  const btn        = document.getElementById('scanBtn');
+  const statusArea = document.getElementById('statusArea');
+  const panelsDiv  = document.getElementById('panels');
+
+  btn.disabled    = true;
+  btn.textContent = 'Fetching…';
+  statusArea.style.display = 'block';
+  statusArea.innerHTML     = 'Downloading this week\'s PSE reports…<br><span style="font-size:12px;color:#bbb">This may take 20–30 seconds on first load.</span>';
+  panelsDiv.style.display  = 'none';
+
+  try {
+    const resp = await fetch('/api/pse/week');
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.error || `Server returned HTTP ${resp.status}`);
+    }
+    const data = await resp.json();
+    render(data);
+
+    const d0 = data.dates[0], d1 = data.latestDate;
+    const dayWord = data.dates.length === 1 ? '1 trading day' : `${data.dates.length} trading days`;
+    document.getElementById('metaLabel').textContent = `${d0}${d0 !== d1 ? ' → ' + d1 : ''} · ${dayWord} · ${data.stocks.length} issues scanned`;
+
+    statusArea.style.display = 'none';
+    panelsDiv.style.display  = 'grid';
+  } catch (e) {
+    statusArea.innerHTML = `<span style="color:#b91c1c">Error: ${e.message}</span><br><span style="font-size:12px;color:#bbb">Make sure the server is running on port 3000.</span>`;
+  } finally {
+    btn.disabled    = false;
+    btn.textContent = 'Refresh';
+  }
+}
+
+function render(data) {
+  const { stocks, dates } = data;
+  const multiDay = dates.length > 1;
+
+  // Liquidity: must have traded with at least 10,000 shares today
+  const liquid = stocks.filter(s => s.volume != null && s.volume >= 10000);
+
+  // Panel 1: Near weekly high — close in top 25% of week range (rangePos >= 75)
+  const nearHigh = liquid
+    .filter(s => s.rangePos >= 75 && s.weekHigh != null && s.weekLow != null && s.weekHigh > s.weekLow)
+    .sort((a, b) => b.rangePos - a.rangePos)
+    .slice(0, 30);
+
+  // Panel 2: Volume surge — today's vol >= 2x weekly average (needs 2+ days)
+  const volSurge = multiDay
+    ? liquid
+        .filter(s => s.volumeRatio != null && s.volumeRatio >= 2.0 && s.avgPrevVol != null && s.avgPrevVol >= 10000)
+        .sort((a, b) => b.volumeRatio - a.volumeRatio)
+        .slice(0, 30)
+    : [];
+
+  // Panel 3: Net foreign buying — top positive flow today
+  const netBuying = liquid
+    .filter(s => s.netForeign != null && s.netForeign > 0)
+    .sort((a, b) => b.netForeign - a.netForeign)
+    .slice(0, 30);
+
+  document.getElementById('panels').innerHTML =
+    panelHigh(nearHigh) + panelVol(volSurge, multiDay) + panelForeign(netBuying);
+}
+
+function panelHigh(stocks) {
+  const rows = stocks.map(s => {
+    const chg  = pct(s.open, s.close);
+    const fill = Math.max(0, Math.min(100, s.rangePos));
+    return `<tr>
+      <td><span class="sym">${s.symbol}</span><span class="co">${s.name}</span></td>
+      <td>${fmt(s.close)}</td>
+      <td>${pctHtml(chg)}</td>
+      <td>
+        <div class="bar-row">
+          <span style="font-size:11px;min-width:28px;text-align:right">${s.rangePos}%</span>
+          <div class="bar-bg"><div class="bar-fill" style="width:${fill}%"></div></div>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+
+  return `<div class="panel">
+    <div class="panel-head">
+      <div class="panel-icon icon-green">📈</div>
+      <div>
+        <div class="panel-title">Near Weekly High</div>
+        <div class="panel-sub">Closed in top 25% of week range</div>
+      </div>
+      <div class="panel-badge">${stocks.length}</div>
+    </div>
+    ${stocks.length === 0
+      ? '<div class="panel-empty">No issues closed near their weekly high today.</div>'
+      : `<div class="panel-table-wrap"><table>
+          <thead><tr><th>Issue</th><th>Close</th><th>Chg</th><th>Wk Position</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table></div>`}
+  </div>`;
+}
+
+function panelVol(stocks, multiDay) {
+  if (!multiDay) {
+    return `<div class="panel">
+      <div class="panel-head">
+        <div class="panel-icon icon-blue">🔊</div>
+        <div>
+          <div class="panel-title">Volume Surge</div>
+          <div class="panel-sub">Today vs. weekly average</div>
+        </div>
+        <div class="panel-badge">0</div>
+      </div>
+      <div class="panel-empty">Need 2+ trading days to compare volume.<br>Check back tomorrow.</div>
+    </div>`;
+  }
+
+  const rows = stocks.map(s => {
+    const chg     = pct(s.open, s.close);
+    const chipCls = s.volumeRatio >= 5 ? 'chip-red' : s.volumeRatio >= 3 ? 'chip-amber' : 'chip-blue';
+    return `<tr>
+      <td><span class="sym">${s.symbol}</span><span class="co">${s.name}</span></td>
+      <td>${fmtVol(s.volume)}</td>
+      <td class="mute">${fmtVol(s.avgPrevVol)}</td>
+      <td>${pctHtml(chg)}</td>
+      <td><span class="chip ${chipCls}">${s.volumeRatio}×</span></td>
+    </tr>`;
+  }).join('');
+
+  return `<div class="panel">
+    <div class="panel-head">
+      <div class="panel-icon icon-blue">🔊</div>
+      <div>
+        <div class="panel-title">Volume Surge</div>
+        <div class="panel-sub">Today vol vs. weekly average</div>
+      </div>
+      <div class="panel-badge">${stocks.length}</div>
+    </div>
+    ${stocks.length === 0
+      ? '<div class="panel-empty">No significant volume surges today.</div>'
+      : `<div class="panel-table-wrap"><table>
+          <thead><tr><th>Issue</th><th>Today Vol</th><th>Wk Avg</th><th>Chg</th><th>Ratio</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table></div>`}
+  </div>`;
+}
+
+function panelForeign(stocks) {
+  const rows = stocks.map(s => {
+    const chg = pct(s.open, s.close);
+    return `<tr>
+      <td><span class="sym">${s.symbol}</span><span class="co">${s.name}</span></td>
+      <td>${fmt(s.close)}</td>
+      <td>${pctHtml(chg)}</td>
+      <td class="pos">${fmtMoney(s.netForeign)}</td>
+    </tr>`;
+  }).join('');
+
+  return `<div class="panel">
+    <div class="panel-head">
+      <div class="panel-icon icon-purple">🌐</div>
+      <div>
+        <div class="panel-title">Net Foreign Buying</div>
+        <div class="panel-sub">Today's positive foreign flow (PHP)</div>
+      </div>
+      <div class="panel-badge">${stocks.length}</div>
+    </div>
+    ${stocks.length === 0
+      ? '<div class="panel-empty">No net foreign buying recorded today.</div>'
+      : `<div class="panel-table-wrap"><table>
+          <thead><tr><th>Issue</th><th>Close</th><th>Chg</th><th>Net Foreign</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table></div>`}
+  </div>`;
+}
+</script>
+
+</body>
+</html>
