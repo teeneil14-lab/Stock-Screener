@@ -4357,7 +4357,7 @@ async function runScan() {
   const total     = tickers.length;
   const scanStart = Date.now();
 
-  const SCAN_CONCURRENCY = 5; // fetch this many stocks at once (5 × 3 YF calls = 15 concurrent — safe ceiling)
+  const SCAN_CONCURRENCY = 10; // fetch this many stocks at once; Phase 1 = 10 daily calls, Phase 2 = 20 (weekly+monthly)
 
   // ── PHASE 1: Daily-only scan for the full ticker list ────────────────────
   // Applies EMA50, volume, BB, and midline hard filters immediately.
@@ -4865,21 +4865,17 @@ async function fetchStockData(ticker) {
   if (closes.length >= 146) {
     const WINDOW = 126;
     const widths = [];
+    const lastBBs = [];
     for (let i = closes.length - WINDOW; i < closes.length; i++) {
-      const bb = calcBB(closes.slice(0, i + 1));
-      widths.push(bb ? bb.width : 0);  // normalised: (upper-lower)/middle
+      const bb = calcBB(closes.slice(i - 19, i + 1));
+      widths.push(bb ? bb.width : 0);
+      if (i >= closes.length - 3) lastBBs.push({ bb, close: closes[i] });
     }
     const currentWidth = widths[widths.length - 1];
     const sorted       = [...widths].sort((a, b) => a - b);
     const p75          = sorted[Math.floor(sorted.length * 0.75)];
     const wideEnough   = currentWidth > 0 && currentWidth >= p75;
-
-    // Also require close touching or above the upper BB for 3 consecutive days
-    const touchingUpper3d = wideEnough && [0, 1, 2].every(daysBack => {
-      const bb    = calcBB(closes.slice(0, closes.length - daysBack));
-      const close = closes[closes.length - 1 - daysBack];
-      return bb && close >= bb.upper;
-    });
+    const touchingUpper3d = wideEnough && lastBBs.every(({ bb, close }) => bb && close >= bb.upper);
     bb_widest_6m = touchingUpper3d;
   }
 
@@ -5001,19 +4997,18 @@ async function fetchDailyOnly(ticker) {
   if (closes.length >= 146) {
     const WINDOW = 126;
     const widths = [];
+    const lastBBs = []; // store last 3 full BB objects for the touchingUpper3d check
     for (let i = closes.length - WINDOW; i < closes.length; i++) {
-      const bb = calcBB(closes.slice(0, i + 1));
+      // Pass only the 20 elements calcBB actually uses (it calls slice(-20) internally)
+      const bb = calcBB(closes.slice(i - 19, i + 1));
       widths.push(bb ? bb.width : 0);
+      if (i >= closes.length - 3) lastBBs.push({ bb, close: closes[i] });
     }
     const currentWidth = widths[widths.length - 1];
     const sorted       = [...widths].sort((a, b) => a - b);
     const p75          = sorted[Math.floor(sorted.length * 0.75)];
     const wideEnough   = currentWidth > 0 && currentWidth >= p75;
-    const touchingUpper3d = wideEnough && [0, 1, 2].every(daysBack => {
-      const bb    = calcBB(closes.slice(0, closes.length - daysBack));
-      const close = closes[closes.length - 1 - daysBack];
-      return bb && close >= bb.upper;
-    });
+    const touchingUpper3d = wideEnough && lastBBs.every(({ bb, close }) => bb && close >= bb.upper);
     bb_widest_6m = touchingUpper3d;
   }
 
