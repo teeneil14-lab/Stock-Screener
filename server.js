@@ -2,9 +2,8 @@ const http  = require('http');
 const https = require('https');
 const fs    = require('fs');
 const path  = require('path');
-const os    = require('os');
-const { exec }  = require('child_process');
 const { URL, URLSearchParams } = require('url');
+const pdfParse = require('pdf-parse');
 
 const PORT = process.env.PORT || 3000;
 
@@ -166,17 +165,43 @@ function downloadBuffer(hostname, urlPath) {
   });
 }
 
-function pdfToText(buf, tmpFile) {
-  return new Promise((resolve, reject) => {
-    fs.writeFile(tmpFile, buf, (err) => {
-      if (err) return reject(err);
-      exec(`pdftotext -layout "${tmpFile}" -`, { maxBuffer: 4 * 1024 * 1024 }, (err2, stdout) => {
-        fs.unlink(tmpFile, () => {});
-        if (err2) return reject(err2);
-        resolve(stdout);
-      });
-    });
+function layoutPageRender(pageData) {
+  return pageData.getTextContent({ normalizeWhitespace: false }).then(tc => {
+    const rows = new Map();
+    for (const item of tc.items) {
+      if (!item.str) continue;
+      const y = Math.round(item.transform[5] * 10) / 10;
+      let rowKey = null;
+      for (const k of rows.keys()) {
+        if (Math.abs(k - y) <= 1.5) { rowKey = k; break; }
+      }
+      if (rowKey === null) { rowKey = y; rows.set(rowKey, []); }
+      rows.get(rowKey).push({ x: item.transform[4], str: item.str, width: item.width || 0 });
+    }
+    const sortedRows = [...rows.entries()].sort((a, b) => b[0] - a[0]);
+    const lines = [];
+    for (const [, items] of sortedRows) {
+      items.sort((a, b) => a.x - b.x);
+      let line = '';
+      let prevEnd = null;
+      for (const item of items) {
+        if (prevEnd !== null) {
+          const gap = item.x - prevEnd;
+          const spaces = Math.max(gap > 3 ? 2 : 1, Math.floor(gap / 6));
+          line += ' '.repeat(Math.min(spaces, 20));
+        }
+        line += item.str;
+        prevEnd = item.x + (item.width > 0 ? item.width : item.str.length * 5.5);
+      }
+      if (line.trim()) lines.push(line);
+    }
+    return lines.join('\n');
   });
+}
+
+function pdfToText(buf) {
+  return pdfParse(buf, { pagerender: layoutPageRender, version: 'v2.0.550' })
+    .then(data => data.text);
 }
 
 function parsePSELayout(text, dateStr) {
@@ -227,11 +252,10 @@ async function fetchPSEDay(dateStr) {
 
   const label    = pseDateLabel(dateStr);
   const urlPath  = `/market_report/${label.replace(/ /g, '%20').replace(/,/g, '%2C')}-EOD.pdf`;
-  const tmpFile  = path.join(os.tmpdir(), `pse_${dateStr}.pdf`);
 
   try {
     const buf    = await downloadBuffer('documents.pse.com.ph', urlPath);
-    const text   = await pdfToText(buf, tmpFile);
+    const text   = await pdfToText(buf);
     const stocks = parsePSELayout(text, dateStr);
     if (stocks.length > 0) pseCache.set(dateStr, { ts: Date.now(), stocks });
     console.log(`[PSE] ${dateStr}: ${stocks.length} stocks parsed`);
