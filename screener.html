@@ -7867,6 +7867,7 @@ let sectorSortCol      = '1m';
 let sectorSortDir      = -1;
 let sectorRows         = null;
 let sectorEMABreadth   = {};     // ETF ticker → { ema20, ema50, ema100, ema200 (%), total }
+let sp500StockEMACache = [];     // per-stock EMA status, populated during breadth scan
 let breadthSortCol     = null;   // null = default order
 let breadthSortDir     = -1;     // -1 = high→low, 1 = low→high
 let sectorBreadthLoading = false;
@@ -8008,6 +8009,7 @@ async function loadSectorBreadth() {
   } catch {}
 
   sectorBreadthLoading = true;
+  sp500StockEMACache = [];
 
   const allStocks = [];
   Object.entries(SP500_CONSTITUENTS).forEach(([etf, tickers]) => {
@@ -8065,6 +8067,14 @@ async function loadSectorBreadth() {
                 if (ema50  > 0 && price > ema50)  sp.ema50++;
                 if (ema100 > 0 && price > ema100) sp.ema100++;
                 if (ema200 > 0 && price > ema200) sp.ema200++;
+                sp500StockEMACache.push({
+                  ticker, sector: etf,
+                  price, ema20, ema50, ema100, ema200,
+                  ema20ok:  ema20  > 0 && price > ema20,
+                  ema50ok:  ema50  > 0 && price > ema50,
+                  ema100ok: ema100 > 0 && price > ema100,
+                  ema200ok: ema200 > 0 && price > ema200,
+                });
               }
             }
           } catch {}
@@ -8166,7 +8176,7 @@ function renderSectorTable(rows) {
     breadthHTML += `<div class="breadth-loading-msg">Click Refresh to load EMA breadth data</div>`;
   } else {
     const sp500b = sectorEMABreadth['__SP500__'];
-    const sp500Row = sp500b ? `<tr style="background:rgba(10,124,78,0.06);font-weight:600;border-bottom:2px solid rgba(10,124,78,0.2)">
+    const sp500Row = sp500b ? `<tr class="sgo-row" style="background:rgba(10,124,78,0.06);font-weight:600;border-bottom:2px solid rgba(10,124,78,0.2)" onclick="openSP500RelativeStrength()">
       <td style="color:#0a7c4e">S&amp;P 500 (All)</td>
       <td>${breadthCell(sp500b.ema20)}</td>
       <td>${breadthCell(sp500b.ema50)}</td>
@@ -10093,6 +10103,116 @@ async function openSectorGlance(etf) {
 
   loading.classList.remove('visible');
   document.getElementById('sgo-subtitle').textContent = `${sgoStocks.length} stocks`;
+  renderSgoGrid();
+}
+
+async function openSP500RelativeStrength() {
+  const sp500b = sectorEMABreadth['__SP500__'];
+  if (!sp500b || !sp500StockEMACache.length) {
+    showToast('Run a breadth scan first', 'warn');
+    return;
+  }
+
+  const overlay = document.getElementById('sgo-overlay');
+  overlay.classList.add('open');
+  document.getElementById('sgo-grid').innerHTML = '';
+  document.getElementById('sgo-subtitle').textContent = '';
+
+  const loading     = document.getElementById('sgo-loading');
+  const loadingText = document.getElementById('sgo-loading-text');
+  loading.classList.add('visible');
+  loadingText.textContent = 'Filtering stocks…';
+
+  Object.keys(_sgoCharts).forEach(t => { try { _sgoCharts[t].remove(); } catch {} delete _sgoCharts[t]; });
+  sgoStocks = [];
+
+  const EMA_KEYS = ['ema20', 'ema50', 'ema100', 'ema200'];
+  const weakEMAs = EMA_KEYS.filter(e => sp500b[e] < 50);
+
+  let filtered, titleText, subtitleText;
+
+  if (weakEMAs.length === 0) {
+    // All EMAs healthy — show stocks with perfect bullish EMA stack (price above all, EMAs in order)
+    titleText = 'S&P 500 — Bullish EMA Stack';
+    filtered = sp500StockEMACache.filter(s =>
+      s.ema20ok && s.ema50ok && s.ema100ok && s.ema200ok &&
+      s.ema20 > s.ema50 && s.ema50 > s.ema100 && s.ema100 > s.ema200
+    );
+    subtitleText = `All EMAs ≥50% breadth · EMA stack 20>50>100>200 · ${filtered.length} stocks`;
+  } else {
+    // Some EMAs are weak — show stocks that are above every weak EMA
+    titleText = 'S&P 500 — Relative Strength';
+    filtered = sp500StockEMACache.filter(s => weakEMAs.every(e => s[e + 'ok']));
+    const weakLabels = weakEMAs.map(e => `EMA${e.replace('ema','')} (${sp500b[e]}%)`).join(', ');
+    subtitleText = `Weak: ${weakLabels} · ${filtered.length} stocks above all`;
+  }
+
+  document.getElementById('sgo-title').textContent = titleText;
+
+  // Sort: most EMAs above → fewest
+  filtered.sort((a, b) => {
+    const sa = (a.ema20ok?1:0)+(a.ema50ok?1:0)+(a.ema100ok?1:0)+(a.ema200ok?1:0);
+    const sb = (b.ema20ok?1:0)+(b.ema50ok?1:0)+(b.ema100ok?1:0)+(b.ema200ok?1:0);
+    return sb - sa;
+  });
+
+  const tickers = filtered.map(s => s.ticker);
+  loadingText.textContent = `Fetching ${tickers.length} stocks…`;
+
+  const BATCH = 20;
+  for (let i = 0; i < tickers.length; i += BATCH) {
+    const batch = tickers.slice(i, i + BATCH);
+    const got = await Promise.all(batch.map(async ticker => {
+      try {
+        const res    = await fetch(`/api/yf?ticker=${encodeURIComponent(ticker)}&range=1y&interval=1d`);
+        const json   = await res.json();
+        const result = json?.chart?.result?.[0];
+        if (!result) return null;
+        const q    = result.indicators.quote[0];
+        const ts   = result.timestamp || [];
+        const meta = result.meta || {};
+        const d = [];
+        for (let j = 0; j < ts.length; j++) {
+          if (q.close[j] != null) d.push({
+            t: ts[j] * 1000,
+            o: q.open[j]  ?? q.close[j],
+            h: q.high[j]  ?? q.close[j],
+            l: q.low[j]   ?? q.close[j],
+            c: q.close[j],
+          });
+        }
+        if (d.length < 21) return null;
+        const closes = d.map(b => b.c);
+        const price  = meta.regularMarketPrice ?? closes[closes.length - 1];
+        const prev   = closes[closes.length - 2] ?? price;
+        const change = prev ? Math.round(((price - prev) / prev) * 10000) / 100 : 0;
+        const ema20  = calcEMA(closes, 20);
+        const ema50  = calcEMA(closes, 50);
+        const ema100 = calcEMA(closes, Math.min(100, closes.length));
+        const ema200 = calcEMA(closes, Math.min(200, closes.length));
+        return {
+          ticker, price, change,
+          ema20ok:  ema20  > 0 && price > ema20,
+          ema50ok:  ema50  > 0 && price > ema50,
+          ema100ok: ema100 > 0 && price > ema100,
+          ema200ok: ema200 > 0 && price > ema200,
+          d,
+          w: resampleToWeekly(d),
+        };
+      } catch { return null; }
+    }));
+    got.forEach(r => { if (r) sgoStocks.push(r); });
+    loadingText.textContent = `Fetching ${tickers.length} stocks… ${Math.min(i + BATCH, tickers.length)} / ${tickers.length}`;
+  }
+
+  sgoStocks.sort((a, b) => {
+    const sa = (a.ema20ok?1:0)+(a.ema50ok?1:0)+(a.ema100ok?1:0)+(a.ema200ok?1:0);
+    const sb = (b.ema20ok?1:0)+(b.ema50ok?1:0)+(b.ema100ok?1:0)+(b.ema200ok?1:0);
+    return sb - sa;
+  });
+
+  loading.classList.remove('visible');
+  document.getElementById('sgo-subtitle').textContent = subtitleText;
   renderSgoGrid();
 }
 
