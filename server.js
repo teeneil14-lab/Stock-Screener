@@ -36,6 +36,99 @@ function setCache(key, status, body) {
 const pseCache = new Map(); // key = 'YYYY-MM-DD', value = { ts, stocks }
 const PSE_TTL  = 60 * 60 * 1000; // 1 hour
 
+// ── Persistent history (pse_history.json) ────────────────────────────────────
+const PSE_HIST_FILE = path.join(__dirname, 'pse_history.json');
+
+// In-memory history: { dates: string[], stocks: { [sym]: { name, days: { [date]: [o,h,l,c,v,val,nf] } } } }
+let pseHistory = { dates: [], stocks: {} };
+
+// Build state (one concurrent build allowed)
+let pseBuild = { running: false, total: 0, done: 0, failed: 0, latest: '' };
+
+function loadPSEHistory() {
+  try {
+    const raw = fs.readFileSync(PSE_HIST_FILE, 'utf8');
+    pseHistory = JSON.parse(raw);
+    pseHistory.dates = pseHistory.dates || [];
+    pseHistory.stocks = pseHistory.stocks || {};
+    console.log(`[PSE history] Loaded: ${pseHistory.dates.length} days`);
+  } catch { /* file doesn't exist yet */ }
+}
+
+function savePSEHistory() {
+  try { fs.writeFileSync(PSE_HIST_FILE, JSON.stringify(pseHistory)); }
+  catch (e) { console.error('[PSE history] Save failed:', e.message); }
+}
+
+// All weekdays (Mon–Fri) going back `days` calendar days from today
+function pastWeekdays(calDays) {
+  const result = [];
+  const now = new Date();
+  for (let i = calDays; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(now.getDate() - i);
+    const dow = d.getDay();
+    if (dow === 0 || dow === 6) continue; // skip weekends
+    result.push(d.toISOString().split('T')[0]);
+  }
+  return result;
+}
+
+// Merge one day's parsed stocks into the history store
+function mergeIntoPSEHistory(dateStr, stocks) {
+  if (!pseHistory.dates.includes(dateStr)) pseHistory.dates.push(dateStr);
+  for (const s of stocks) {
+    if (!pseHistory.stocks[s.symbol])
+      pseHistory.stocks[s.symbol] = { name: s.name, days: {} };
+    // compact: [open, high, low, close, volume, value, netForeign]
+    pseHistory.stocks[s.symbol].days[dateStr] =
+      [s.open, s.high, s.low, s.close, s.volume, s.value, s.netForeign];
+  }
+}
+
+async function runPSEHistoryBuild() {
+  if (pseBuild.running) return;
+
+  const targets = pastWeekdays(365);
+  const missing = targets.filter(d => !pseHistory.dates.includes(d));
+
+  if (missing.length === 0) {
+    console.log('[PSE history] Already up to date');
+    return;
+  }
+
+  pseBuild.running = true;
+  pseBuild.total   = missing.length;
+  pseBuild.done    = 0;
+  pseBuild.failed  = 0;
+  pseBuild.latest  = '';
+
+  console.log(`[PSE history] Building: ${missing.length} days to fetch`);
+
+  for (const dateStr of missing) {
+    const stocks = await fetchPSEDay(dateStr);
+    if (stocks && stocks.length > 0) {
+      mergeIntoPSEHistory(dateStr, stocks);
+    } else {
+      pseBuild.failed++;
+    }
+    pseBuild.done++;
+    pseBuild.latest = dateStr;
+
+    if (pseBuild.done % 20 === 0) {
+      savePSEHistory();
+      console.log(`[PSE history] ${pseBuild.done}/${pseBuild.total} done`);
+    }
+
+    await new Promise(r => setTimeout(r, 300)); // polite delay
+  }
+
+  pseHistory.dates.sort();
+  savePSEHistory();
+  pseBuild.running = false;
+  console.log(`[PSE history] Build complete: ${pseHistory.dates.length} days total`);
+}
+
 function pseWeekDays() {
   const now = new Date();
   const dow = now.getDay(); // 0=Sun … 6=Sat
@@ -606,6 +699,31 @@ const server = http.createServer(async (req, res) => {
       res.end(JSON.stringify({ error: e.message }));
     }
     return;
+  }
+
+  // ── PSE history: start build ─────────────────────────────────────────────────
+  if (reqUrl.pathname === '/api/pse/build-history' && req.method === 'POST') {
+    if (!pseBuild.running) runPSEHistoryBuild().catch(e => console.error('[PSE build]', e.message));
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({ started: true }));
+  }
+
+  // ── PSE history: status ───────────────────────────────────────────────────────
+  if (reqUrl.pathname === '/api/pse/history-status') {
+    const dates   = pseHistory.dates.sort();
+    const oldest  = dates[0]       || null;
+    const newest  = dates[dates.length - 1] || null;
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({
+      cached:  dates.length,
+      oldest,
+      newest,
+      running: pseBuild.running,
+      total:   pseBuild.total,
+      done:    pseBuild.done,
+      failed:  pseBuild.failed,
+      latest:  pseBuild.latest,
+    }));
   }
 
   // ── PSE EOD weekly scan ──────────────────────────────────────────────────────
