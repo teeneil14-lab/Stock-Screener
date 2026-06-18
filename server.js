@@ -729,6 +729,57 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // ── PSE bars: historical OHLCV from pse_history (daily / weekly / monthly) ───
+  if (reqUrl.pathname === '/api/pse/bars') {
+    const symbol   = (reqUrl.searchParams.get('symbol') || '').toUpperCase();
+    const interval = reqUrl.searchParams.get('interval') || 'd'; // d | w | m
+
+    const stock = symbol && pseHistory.stocks[symbol];
+    if (!stock) {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: `No PSE history for ${symbol}` }));
+    }
+
+    const sortedDates = Object.keys(stock.days).sort();
+    const dailyBars = sortedDates
+      .map(ds => {
+        const d = stock.days[ds];
+        if (d.close == null) return null;
+        return { t: new Date(ds + 'T00:00:00+08:00').getTime(), o: d.open, h: d.high, l: d.low, c: d.close, v: d.volume || 0 };
+      })
+      .filter(Boolean);
+
+    if (interval === 'd') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ bars: dailyBars }));
+    }
+
+    // Aggregate to weekly (Monday-keyed) or monthly (YYYY-MM keyed)
+    const getKey = interval === 'w'
+      ? (t) => { const d = new Date(t); const day = d.getDay() || 7; d.setDate(d.getDate() - day + 1); return d.toISOString().slice(0, 10); }
+      : (t) => new Date(t).toISOString().slice(0, 7);
+
+    const grouped = new Map();
+    for (const bar of dailyBars) {
+      const k = getKey(bar.t);
+      if (!grouped.has(k)) grouped.set(k, []);
+      grouped.get(k).push(bar);
+    }
+    const aggBars = [...grouped.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([, bars]) => ({
+        t: bars[0].t,
+        o: bars[0].o,
+        h: Math.max(...bars.map(b => b.h)),
+        l: Math.min(...bars.map(b => b.l)),
+        c: bars[bars.length - 1].c,
+        v: bars.reduce((s, b) => s + b.v, 0),
+      }));
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({ bars: aggBars }));
+  }
+
   // ── PSE history: start build ─────────────────────────────────────────────────
   if (reqUrl.pathname === '/api/pse/build-history' && req.method === 'POST') {
     if (!pseBuild.running) runPSEHistoryBuild().catch(e => console.error('[PSE build]', e.message));

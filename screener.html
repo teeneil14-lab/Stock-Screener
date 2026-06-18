@@ -4951,18 +4951,14 @@ async function ensureSPXBars() {
   }
 }
 
-// ── Stooq fetch helper (for Philippine / PSE stocks) ─────────────────────────
-// Stooq uses .ph suffix for PSE-listed stocks (e.g. jfc.ph, sm.ph, ali.ph)
-async function fetchStooq(ticker, interval, days) {
-  const symbol = ticker.toLowerCase() + '.ph';
-  const d2     = new Date();
-  const d1     = new Date(d2.getTime() - days * 86400000);
-  const fmt    = d => d.toISOString().slice(0, 10).replace(/-/g, '');
-  const url    = `/api/stooq?symbol=${encodeURIComponent(symbol)}&interval=${interval}&d1=${fmt(d1)}&d2=${fmt(d2)}`;
-  const res    = await fetch(url);
-  if (!res.ok) throw new Error(`Stooq HTTP ${res.status}`);
-  const json   = await res.json();
-  if (!json.bars?.length) throw new Error(`No Stooq data for ${symbol}`);
+// ── PSE history bars (replaces Stooq for PH mode) ────────────────────────────
+// Fetches OHLCV bars from the server's pse_history.json (built from PSE PDFs).
+async function fetchPSEBars(ticker, interval) {
+  const url  = `/api/pse/bars?symbol=${encodeURIComponent(ticker)}&interval=${interval}`;
+  const res  = await fetch(url);
+  if (!res.ok) throw new Error(`PSE bars HTTP ${res.status}`);
+  const json = await res.json();
+  if (!json.bars?.length) throw new Error(`No PSE history for ${ticker}`);
   return json.bars;
 }
 
@@ -4971,27 +4967,15 @@ async function fetchStockData(ticker) {
   let daily = null, weekly = null, monthly = null;
 
   if (marketMode === 'PH') {
-    // PH mode — Stooq.com (Yahoo Finance does not carry PSE bar data)
-    try {
-      const [d, w, m] = await Promise.all([
-        fetchStooq(ticker, 'd', 400),   // ~1 yr + buffer of daily bars
-        fetchStooq(ticker, 'w', 800),   // ~2 yrs of weekly bars
-        fetchStooq(ticker, 'm', 2000),  // ~5 yrs of monthly bars
-      ]);
-      daily   = { bars: d, meta: null };
-      weekly  = { bars: w, meta: null };
-      monthly = { bars: m, meta: null };
-    } catch (err) {
-      console.warn(`[${ticker}] Stooq parallel error (${err.message}), retrying in parallel`);
-      const [rd, rw, rm] = await Promise.all([
-        fetchStooq(ticker, 'd', 400).catch(e  => { console.warn(`[${ticker}] Stooq daily failed: ${e.message}`);   return null; }),
-        fetchStooq(ticker, 'w', 800).catch(e  => { console.warn(`[${ticker}] Stooq weekly failed: ${e.message}`);  return null; }),
-        fetchStooq(ticker, 'm', 2000).catch(e => { console.warn(`[${ticker}] Stooq monthly failed: ${e.message}`); return null; }),
-      ]);
-      if (rd) daily   = { bars: rd, meta: null };
-      if (rw) weekly  = { bars: rw, meta: null };
-      if (rm) monthly = { bars: rm, meta: null };
-    }
+    // PH mode — PSE history (built from PSE EOD PDFs)
+    const [rd, rw, rm] = await Promise.all([
+      fetchPSEBars(ticker, 'd').catch(e => { console.warn(`[${ticker}] PSE daily failed: ${e.message}`);   return null; }),
+      fetchPSEBars(ticker, 'w').catch(e => { console.warn(`[${ticker}] PSE weekly failed: ${e.message}`);  return null; }),
+      fetchPSEBars(ticker, 'm').catch(e => { console.warn(`[${ticker}] PSE monthly failed: ${e.message}`); return null; }),
+    ]);
+    if (rd) daily   = { bars: rd, meta: null };
+    if (rw) weekly  = { bars: rw, meta: null };
+    if (rm) monthly = { bars: rm, meta: null };
   } else {
     // US mode — Yahoo Finance
     try {
@@ -5152,14 +5136,8 @@ async function fetchDailyOnly(ticker) {
   let daily = null;
 
   if (marketMode === 'PH') {
-    try {
-      const d = await fetchStooq(ticker, 'd', 400);
-      daily = { bars: d, meta: null };
-    } catch (err) {
-      console.warn(`[${ticker}] Stooq daily failed (${err.message})`);
-      const d = await fetchStooq(ticker, 'd', 400).catch(() => null);
-      if (d) daily = { bars: d, meta: null };
-    }
+    const d = await fetchPSEBars(ticker, 'd').catch(e => { console.warn(`[${ticker}] PSE daily failed: ${e.message}`); return null; });
+    if (d) daily = { bars: d, meta: null };
   } else {
     daily = await fetchYF(yTicker, '1y', '1d').catch(() => null);
   }
@@ -5271,8 +5249,8 @@ async function fetchWeeklyMonthlyData(ticker, dailyResult) {
 
   if (marketMode === 'PH') {
     const [w, m] = await Promise.all([
-      fetchStooq(ticker, 'w', 800).catch(e  => { console.warn(`[${ticker}] Stooq weekly failed: ${e.message}`);  return null; }),
-      fetchStooq(ticker, 'm', 2000).catch(e => { console.warn(`[${ticker}] Stooq monthly failed: ${e.message}`); return null; }),
+      fetchPSEBars(ticker, 'w').catch(e => { console.warn(`[${ticker}] PSE weekly failed: ${e.message}`);  return null; }),
+      fetchPSEBars(ticker, 'm').catch(e => { console.warn(`[${ticker}] PSE monthly failed: ${e.message}`); return null; }),
     ]);
     if (w) weekly  = { bars: w, meta: null };
     if (m) monthly = { bars: m, meta: null };
