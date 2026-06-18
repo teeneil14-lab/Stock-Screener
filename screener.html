@@ -4599,7 +4599,7 @@ async function runScan() {
       const statusEl = document.getElementById('status-' + t.ticker);
       if (dailyResult._noData) noDataCount++;
 
-      if (!dailyResult.above_ema50) {
+      if (marketMode !== 'PH' && !dailyResult.above_ema50) {
         filteredOut.push({ ...t, ...dailyResult, reason: 'Below daily EMA50' });
         if (statusEl) { statusEl.textContent='✗'; statusEl.className='t-status'; statusEl.style.cssText='font-size:9px;padding:1px 5px;color:var(--red);border:1px solid rgba(200,41,58,0.3);background:var(--red-dim);border-radius:2px'; }
       } else if (marketMode !== 'PH' && (dailyResult.avg_vol_30 || 0) < 500000) {
@@ -5350,9 +5350,9 @@ function renderResults() {
     );
   }
 
-  lowScoreResults = filtered.filter(r => !r._manual && r.score <= 50);
+  lowScoreResults = marketMode === 'PH' ? [] : filtered.filter(r => !r._manual && r.score <= 50);
   const lowScoreHidden = lowScoreResults.length;
-  filtered = filtered.filter(r => r._manual || r.score > 50);
+  if (marketMode !== 'PH') filtered = filtered.filter(r => r._manual || r.score > 50);
 
   if (!filtered.length) {
     area.innerHTML = `<div class="empty-state">
