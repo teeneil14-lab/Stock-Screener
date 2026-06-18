@@ -5561,6 +5561,9 @@ async function loadRSStocks() {
   input.value = tickers.join(', ');
   input.classList.remove('found', 'not-found', 'loading');
   await tabSearchGo();
+
+  const countLabel = document.getElementById('list-count-label');
+  if (countLabel) countLabel.textContent = results.length + ' tickers';
 }
 
 function removeManualResult(ticker) {
