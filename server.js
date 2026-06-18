@@ -224,10 +224,10 @@ function parsePSESectorPage(text) {
     ['PSEi',          /psei\b|composite/i],
     ['All Shares',    /all\s+shares/i],
     ['Financials',    /\bfinancial\b/i],
-    ['Industrials',   /\bindustrial\b/i],
+    ['Industrials',   /\bindustrial/i],   // no closing \b — matches INDUSTRIALS
     ['Holding Firms', /holding\s+firm/i],
     ['Property',      /\bproperty\b/i],
-    ['Services',      /\bservice\b/i],
+    ['Services',      /\bservice/i],      // no closing \b — matches SERVICES
     ['Mining & Oil',  /mining/i],
   ];
 
@@ -239,17 +239,25 @@ function parsePSESectorPage(text) {
     if (!line) continue;
 
     for (const [name, re] of SECTOR_RE) {
-      if (!re.test(line)) continue;
+      if (result[name] || !re.test(line)) continue;
 
-      // Combine this line + next in case numbers wrap
+      // Combine this line + next in case numbers wrap to the next line
       const src = line + ' ' + (lines[i + 1] || '');
-      const nums = [...src.matchAll(/-?[\d,]+\.\d{2}/g)]
+      const allNums = [...src.matchAll(/-?[\d,]+\.\d{2}/g)]
         .map(m => parseNum(m[0])).filter(n => n != null);
 
-      // Columns: [prev,] open, high, low, close, change, %change
-      // close = third from last; pctChange = last
-      if (nums.length >= 3) {
-        result[name] = { close: nums[nums.length - 3], pctChange: nums[nums.length - 1] };
+      // PSE sector index values are always > 100 (PSEi ~6k–7k, Mining ~200+).
+      // % change and absolute change are always < 50.
+      // Using magnitude instead of column position avoids being wrong if the
+      // PDF adds or removes columns (e.g. volume, value, net foreign).
+      const indexNums = allNums.filter(n => n > 100);
+      const pctNums   = allNums.filter(n => Math.abs(n) <= 50);
+
+      if (indexNums.length > 0) {
+        result[name] = {
+          close:     indexNums[indexNums.length - 1],          // last large number = close
+          pctChange: pctNums.length > 0 ? pctNums[pctNums.length - 1] : null,
+        };
       }
       break;
     }
@@ -312,7 +320,12 @@ async function fetchPSEDay(dateStr) {
     const pages  = await pdfToPageTexts(buf);
     const text   = pages.join('\n');
     const stocks  = parsePSELayout(text, dateStr);
-    const sectors = parsePSESectorPage(pages[12] || pages[pages.length - 1] || '');
+    const SECTOR_HITS = [/psei\b|composite/i, /all\s+shares/i, /holding\s+firm/i, /\bproperty\b/i, /mining/i];
+    const sectorPage = pages.reduce((best, pg, i) => {
+      const hits = SECTOR_HITS.filter(re => re.test(pg)).length;
+      return hits > best.hits ? { hits, i } : best;
+    }, { hits: 0, i: -1 });
+    const sectors = sectorPage.hits >= 4 ? parsePSESectorPage(pages[sectorPage.i]) : {};
     if (stocks.length > 0) pseCache.set(dateStr, { ts: Date.now(), stocks, sectors });
     console.log(`[PSE] ${dateStr}: ${stocks.length} stocks, ${Object.keys(sectors).length} sector indices`);
     return { stocks, sectors };
