@@ -10140,11 +10140,11 @@ async function openSP500RelativeStrength() {
     );
     subtitleText = `All EMAs ≥50% breadth · EMA stack 20>50>100>200 · ${filtered.length} stocks`;
   } else {
-    // Some EMAs are weak — show stocks that are above every weak EMA
+    // Some EMAs are weak — show stocks that are above ALL four EMAs (weak and strong)
     titleText = 'S&P 500 — Relative Strength';
-    filtered = sp500StockEMACache.filter(s => weakEMAs.every(e => s[e + 'ok']));
+    filtered = sp500StockEMACache.filter(s => EMA_KEYS.every(e => s[e + 'ok']));
     const weakLabels = weakEMAs.map(e => `EMA${e.replace('ema','')} (${sp500b[e]}%)`).join(', ');
-    subtitleText = `Weak: ${weakLabels} · ${filtered.length} stocks above all`;
+    subtitleText = `Weak: ${weakLabels} · ${filtered.length} stocks above all EMAs`;
   }
 
   document.getElementById('sgo-title').textContent = titleText;
