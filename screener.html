@@ -895,6 +895,30 @@
     margin-top: 5px;
     letter-spacing: 0.03em;
   }
+  .ph-source-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0 4px;
+  }
+  .ph-source-status {
+    flex: 1;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    line-height: 1.5;
+  }
+  .ph-source-refresh-btn {
+    background: none;
+    border: 1px solid var(--border2);
+    border-radius: 4px;
+    color: var(--text3);
+    cursor: pointer;
+    font-size: 13px;
+    padding: 2px 8px;
+    flex-shrink: 0;
+    font-family: inherit;
+  }
+  .ph-source-refresh-btn:hover { color: var(--accent); border-color: var(--accent); }
 
   /* TICKER LIST PREVIEW */
   .ticker-preview {
@@ -2959,43 +2983,56 @@
     <!-- Upload -->
     <div class="sidebar-section">
       <div class="section-header-row">
-        <div class="section-label" style="margin-bottom:0">Watchlist (.txt)</div>
+        <div class="section-label" id="watchlist-section-label" style="margin-bottom:0">Watchlist (.txt)</div>
         <button class="section-toggle-btn" id="arrow-watchlist" onclick="toggleSection('watchlist')" title="Collapse">▾</button>
       </div>
       <div id="body-watchlist">
-        <div class="wl-slots">
-          <div class="wl-slot" id="wl-slot-0" onclick="triggerSlotLoad(0)">
-            <label class="wl-slot-check" onclick="event.stopPropagation()">
-              <input type="checkbox" id="wl-check-0" checked onchange="updateActiveSlots()">
-            </label>
-            <span class="wl-slot-letter">A</span>
-            <span class="wl-slot-name empty" id="wl-name-0">empty — click to load</span>
-            <span class="wl-slot-count" id="wl-count-0"></span>
-            <button class="wl-slot-clear" id="wl-clear-0" onclick="event.stopPropagation(); clearSlot(0)" style="display:none" title="Clear slot A">✕</button>
-            <input type="file" accept=".txt" id="wl-input-0" style="display:none" onchange="handleSlotFile(event, 0)">
+        <!-- US mode: manual .txt slot upload -->
+        <div id="us-wl-slots">
+          <div class="wl-slots">
+            <div class="wl-slot" id="wl-slot-0" onclick="triggerSlotLoad(0)">
+              <label class="wl-slot-check" onclick="event.stopPropagation()">
+                <input type="checkbox" id="wl-check-0" checked onchange="updateActiveSlots()">
+              </label>
+              <span class="wl-slot-letter">A</span>
+              <span class="wl-slot-name empty" id="wl-name-0">empty — click to load</span>
+              <span class="wl-slot-count" id="wl-count-0"></span>
+              <button class="wl-slot-clear" id="wl-clear-0" onclick="event.stopPropagation(); clearSlot(0)" style="display:none" title="Clear slot A">✕</button>
+              <input type="file" accept=".txt" id="wl-input-0" style="display:none" onchange="handleSlotFile(event, 0)">
+            </div>
+            <div class="wl-slot" id="wl-slot-1" onclick="triggerSlotLoad(1)">
+              <label class="wl-slot-check" onclick="event.stopPropagation()">
+                <input type="checkbox" id="wl-check-1" checked onchange="updateActiveSlots()">
+              </label>
+              <span class="wl-slot-letter">B</span>
+              <span class="wl-slot-name empty" id="wl-name-1">empty — click to load</span>
+              <span class="wl-slot-count" id="wl-count-1"></span>
+              <button class="wl-slot-clear" id="wl-clear-1" onclick="event.stopPropagation(); clearSlot(1)" style="display:none" title="Clear slot B">✕</button>
+              <input type="file" accept=".txt" id="wl-input-1" style="display:none" onchange="handleSlotFile(event, 1)">
+            </div>
+            <div class="wl-slot" id="wl-slot-2" onclick="triggerSlotLoad(2)">
+              <label class="wl-slot-check" onclick="event.stopPropagation()">
+                <input type="checkbox" id="wl-check-2" checked onchange="updateActiveSlots()">
+              </label>
+              <span class="wl-slot-letter">C</span>
+              <span class="wl-slot-name empty" id="wl-name-2">empty — click to load</span>
+              <span class="wl-slot-count" id="wl-count-2"></span>
+              <button class="wl-slot-clear" id="wl-clear-2" onclick="event.stopPropagation(); clearSlot(2)" style="display:none" title="Clear slot C">✕</button>
+              <input type="file" accept=".txt" id="wl-input-2" style="display:none" onchange="handleSlotFile(event, 2)">
+            </div>
           </div>
-          <div class="wl-slot" id="wl-slot-1" onclick="triggerSlotLoad(1)">
-            <label class="wl-slot-check" onclick="event.stopPropagation()">
-              <input type="checkbox" id="wl-check-1" checked onchange="updateActiveSlots()">
-            </label>
-            <span class="wl-slot-letter">B</span>
-            <span class="wl-slot-name empty" id="wl-name-1">empty — click to load</span>
-            <span class="wl-slot-count" id="wl-count-1"></span>
-            <button class="wl-slot-clear" id="wl-clear-1" onclick="event.stopPropagation(); clearSlot(1)" style="display:none" title="Clear slot B">✕</button>
-            <input type="file" accept=".txt" id="wl-input-1" style="display:none" onchange="handleSlotFile(event, 1)">
-          </div>
-          <div class="wl-slot" id="wl-slot-2" onclick="triggerSlotLoad(2)">
-            <label class="wl-slot-check" onclick="event.stopPropagation()">
-              <input type="checkbox" id="wl-check-2" checked onchange="updateActiveSlots()">
-            </label>
-            <span class="wl-slot-letter">C</span>
-            <span class="wl-slot-name empty" id="wl-name-2">empty — click to load</span>
-            <span class="wl-slot-count" id="wl-count-2"></span>
-            <button class="wl-slot-clear" id="wl-clear-2" onclick="event.stopPropagation(); clearSlot(2)" style="display:none" title="Clear slot C">✕</button>
-            <input type="file" accept=".txt" id="wl-input-2" style="display:none" onchange="handleSlotFile(event, 2)">
+          <div class="wl-load-hint">Click slot or drag &amp; drop .txt onto it</div>
+        </div>
+
+        <!-- PH mode: auto-sourced from PSE daily report -->
+        <div id="ph-wl-source" style="display:none">
+          <div class="ph-source-row">
+            <div id="ph-source-status" class="ph-source-status">
+              <span style="color:var(--text3)">Loading PSE daily data…</span>
+            </div>
+            <button class="ph-source-refresh-btn" onclick="loadPHTickersFromDaily()" title="Re-fetch PSE daily data">↻</button>
           </div>
         </div>
-        <div class="wl-load-hint">Click slot or drag &amp; drop .txt onto it</div>
 
         <div class="ticker-count-row" id="ticker-count-row" style="display:none">
           <div class="ticker-count"><span id="ticker-count-num">0</span> tickers selected</div>
@@ -8013,21 +8050,32 @@ function switchMarket(mode) {
     document.getElementById('tab-s2').classList.remove('active');
   }
 
+  // Toggle watchlist section between US (.txt slots) and PH (auto-source)
+  const usSlots   = document.getElementById('us-wl-slots');
+  const phSource  = document.getElementById('ph-wl-source');
+  const wlLabel   = document.getElementById('watchlist-section-label');
+  if (usSlots)  usSlots.style.display  = mode === 'PH' ? 'none' : '';
+  if (phSource) phSource.style.display = mode === 'PH' ? '' : 'none';
+  if (wlLabel)  wlLabel.textContent    = mode === 'PH' ? 'PSE Market Source' : 'Watchlist (.txt)';
+
   // Navigate to appropriate tab
   switchTab(mode === 'PH' ? 'psedaily' : 'screener');
   updateTickerDisplay();
   document.getElementById('results-area').innerHTML = `
     <div class="empty-state">
       <div class="empty-icon">⊡</div>
-      <div class="empty-title">AWAITING WATCHLIST</div>
+      <div class="empty-title">${mode === 'PH' ? 'LOADING PSE TICKERS…' : 'AWAITING WATCHLIST'}</div>
       <div class="empty-desc">${mode === 'PH'
-        ? 'Upload a TradingView .txt with PSE tickers, then press Run Scan.'
+        ? 'Fetching all PSE issues from the daily report. Switch to the Screener tab and press Run Scan when ready.'
         : 'Upload a TradingView .txt watchlist, select Setup A or B, then press Run Scan.'
       }</div>
     </div>`;
   document.getElementById('result-count-label').textContent = 'Ranked results will appear here';
   document.getElementById('list-count-label').textContent   = '0 tickers';
   document.getElementById('download-btn').style.display     = 'none';
+
+  // PH mode: auto-populate tickers from PSE daily data — no .txt needed
+  if (mode === 'PH') loadPHTickersFromDaily();
 }
 
 // ============================================================
@@ -10638,6 +10686,52 @@ function setSgoCols(n) {
 // ============================================================
 //  PSE DAILY SCAN
 // ============================================================
+async function loadPHTickersFromDaily() {
+  const statusEl = document.getElementById('ph-source-status');
+  const scanBtn  = document.getElementById('scan-btn');
+  if (statusEl) statusEl.innerHTML = '<span style="color:var(--text3)">Loading PSE daily data…</span>';
+  if (scanBtn)  scanBtn.disabled = true;
+
+  try {
+    const resp = await fetch('/api/pse/week');
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.error || `HTTP ${resp.status}`);
+    }
+    const data = await resp.json();
+
+    tickers = data.stocks.map(s => ({ ticker: s.symbol, exchange: 'PSE', name: s.name || '' }));
+
+    const latestDate = data.latestDate || (data.dates && data.dates[data.dates.length - 1]) || '';
+    if (statusEl) {
+      statusEl.innerHTML =
+        `<span style="color:var(--accent);font-weight:600">${tickers.length} PSE issues</span>` +
+        (latestDate ? ` <span style="color:var(--text3)">as of ${latestDate}</span>` : '');
+    }
+
+    // Clear the "loading" empty state so the screener tab is ready
+    const resultsArea = document.getElementById('results-area');
+    if (resultsArea && resultsArea.querySelector('.empty-title')?.textContent === 'LOADING PSE TICKERS…') {
+      resultsArea.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">⊡</div>
+          <div class="empty-title">PSE TICKERS READY</div>
+          <div class="empty-desc">${tickers.length} issues loaded from the PSE daily report. Press Run Scan to score them.</div>
+        </div>`;
+    }
+
+    updateTickerDisplay();
+  } catch (e) {
+    tickers = [];
+    if (statusEl) {
+      statusEl.innerHTML =
+        `<span style="color:var(--red)">Error: ${e.message}</span><br>` +
+        `<span style="font-size:9px;color:var(--text3)">Make sure the server is running (node server.js)</span>`;
+    }
+    updateTickerDisplay();
+  }
+}
+
 async function runPSEScan() {
   const btn    = document.getElementById('pse-scan-btn');
   const status = document.getElementById('pse-status');
