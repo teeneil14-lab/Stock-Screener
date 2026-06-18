@@ -178,6 +178,24 @@
   .todays-picks-btn:hover { opacity: 0.85; }
   .todays-picks-btn:disabled { opacity: 0.5; cursor: default; }
 
+  .rs-load-btn {
+    font-family: 'Inter', sans-serif;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    color: #fff;
+    background: #0a7c4e;
+    border: none;
+    border-radius: 5px;
+    padding: 0 10px;
+    height: 24px;
+    cursor: pointer;
+    transition: opacity 0.15s;
+    white-space: nowrap;
+  }
+  .rs-load-btn:hover { opacity: 0.85; }
+  .rs-load-btn:disabled { opacity: 0.5; cursor: default; }
+
   /* MARKET TOGGLE (US / PH) */
   .market-toggle-wrap {
     display: flex;
@@ -2770,6 +2788,7 @@
       oninput="tabSearchOnInput()" onkeydown="if(event.key==='Enter')tabSearchGo()" />
     <button class="tab-search-btn" onclick="tabSearchGo()">Find</button>
     <button class="todays-picks-btn" id="todays-picks-btn" onclick="loadTodaysPicks()" title="Load all tickers you starred today into the screener">★ Today's Picks</button>
+    <button class="rs-load-btn" id="rs-load-btn" onclick="loadRSStocks()" title="Load S&P 500 stocks above all EMAs into the screener">RS</button>
   </div>
 </div>
 
@@ -5502,6 +5521,44 @@ async function loadTodaysPicks() {
 
   // Put them into the search input and fire the standard Find flow
   input.value = todayTickers.join(', ');
+  input.classList.remove('found', 'not-found', 'loading');
+  await tabSearchGo();
+}
+
+async function loadRSStocks() {
+  const btn = document.getElementById('rs-load-btn');
+  const input = document.getElementById('tab-search-input');
+
+  if (!sp500StockEMACache.length) {
+    if (btn) { btn.textContent = 'No breadth data'; btn.disabled = true; }
+    setTimeout(() => { if (btn) { btn.textContent = 'RS'; btn.disabled = false; } }, 2000);
+    return;
+  }
+
+  const EMA_KEYS = ['ema20', 'ema50', 'ema100', 'ema200'];
+  const sp500b = sectorEMABreadth['__SP500__'];
+  const weakEMAs = sp500b ? EMA_KEYS.filter(e => sp500b[e] < 50) : EMA_KEYS;
+
+  let filtered;
+  if (weakEMAs.length === 0) {
+    // All EMAs healthy — use bullish EMA stack filter (same as RS view)
+    filtered = sp500StockEMACache.filter(s =>
+      s.ema20ok && s.ema50ok && s.ema100ok && s.ema200ok &&
+      s.ema20 > s.ema50 && s.ema50 > s.ema100 && s.ema100 > s.ema200
+    );
+  } else {
+    // Some EMAs weak — show stocks above all four EMAs
+    filtered = sp500StockEMACache.filter(s => EMA_KEYS.every(e => s[e + 'ok']));
+  }
+
+  if (filtered.length === 0) {
+    if (btn) { btn.textContent = 'None found'; btn.disabled = true; }
+    setTimeout(() => { if (btn) { btn.textContent = 'RS'; btn.disabled = false; } }, 2000);
+    return;
+  }
+
+  const tickers = filtered.map(s => s.ticker);
+  input.value = tickers.join(', ');
   input.classList.remove('found', 'not-found', 'loading');
   await tabSearchGo();
 }
