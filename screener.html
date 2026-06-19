@@ -7027,6 +7027,10 @@ function toggleAnalyticsView() {
 function toggleCalendarView() {
   _destroyAnalyticsCharts();
   picksViewMode = picksViewMode === 'calendar' ? 'grid' : 'calendar';
+  if (picksViewMode === 'calendar' && !analyticsLiveMode) {
+    analyticsLiveMode = true;
+    document.getElementById('pa-mode-live')?.classList.add('active');
+  }
   _syncPicksToolbar();
   if (picksViewMode === 'calendar') renderPicksCalendar();
   else                              renderStarredCharts();
