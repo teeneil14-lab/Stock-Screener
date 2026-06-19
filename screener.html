@@ -3699,6 +3699,9 @@ let panesFlipped   = false;
 let activeCriteriaFilters = new Set();
 let chartMode       = 'D';   // 'D' | 'W' | 'M' | '2x' | '3x'
 let chartRange      = '12M'; // '3M' | '6M' | '12M'
+
+// Currency prefix — ₱ in PH mode, $ in US mode
+function priceSym() { return marketMode === 'PH' ? '₱' : '$'; }
 let glanceRange     = '12M'; // independent range for glance view
 let scanSummaryHTML = '';    // saved after each scan, restored when criteria filters cleared
 
@@ -4139,7 +4142,7 @@ function scoreStock(stockData, setupId) {
   if ((criteriaScores['m_close_top']?.raw||0) >= 0.75)  tags.push({ label:'MTH CLOSE TOP', cls:'momentum' });
   if ((criteriaScores['w_close_top']?.raw||0) >= 0.75)  tags.push({ label:'WK CLOSE TOP',  cls:'momentum' });
   // PH liquidity confirmation — only shown when a criterion is at full score (1.0)
-  if (setupId === 'ph' && (stockData.avg_value_traded || 0) >= 100000) {
+  if (setupId === 'ph' && (stockData.avg_value_traded || 0) >= 1_000_000) {
     const hasFullScore = SETUPS.ph.criteria.some(c => (criteriaScores[c.id]?.raw ?? 0) >= 1.0);
     if (hasFullScore) tags.push({ label: 'AV > 100K', cls: 'setup1' });
   }
@@ -4680,7 +4683,7 @@ async function runScan() {
       } else if (marketMode !== 'PH' && dailyResult.below_bb_midline) {
         filteredOut.push({ ...t, ...dailyResult, reason: 'Close below BB midline' });
         if (statusEl) { statusEl.textContent='✗'; statusEl.className='t-status'; statusEl.style.cssText='font-size:9px;padding:1px 5px;color:var(--red);border:1px solid rgba(200,41,58,0.3);background:var(--red-dim);border-radius:2px'; }
-      } else if (marketMode === 'PH' && (dailyResult.avg_value_traded || 0) < 100000) {
+      } else if (marketMode === 'PH' && (dailyResult.avg_value_traded || 0) < 1_000_000) {
         const v = dailyResult.avg_value_traded || 0;
         const vLabel = v >= 1000 ? `PHP ${Math.round(v/1000)}K` : `PHP ${Math.round(v)}`;
         filteredOut.push({ ...t, ...dailyResult, reason: `Avg value ${vLabel} < 100K` });
@@ -5528,7 +5531,7 @@ function rankRow(r, rankNum, idx) {
     </div>
     <div class="col-corr ${corrCls}">${corrDisplay}</div>
     <div class="rank-tf-scores">${tfHtml}</div>
-    <div class="rank-price">$${Number(r.price).toFixed(2)}</div>
+    <div class="rank-price">${priceSym()}${Number(r.price).toFixed(2)}</div>
     <div class="rank-change ${chgClass}">${chgSign}${r.change}%</div>
     <div class="rank-ytd ${r.ytdPct == null ? '' : r.ytdPct >= 0 ? 'up' : 'down'}">${r.ytdPct == null ? '—' : (r.ytdPct >= 0 ? '+' : '') + r.ytdPct + '%'}</div>
   </div>`;
@@ -5935,7 +5938,7 @@ function updateChartInfoBar(r) {
     <div class="cib-tf-scores">${tfHtml}</div>
     <div class="cib-divider"></div>
     <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">
-      <span class="cib-price">$${Number(r.price).toFixed(2)}</span>
+      <span class="cib-price">${priceSym()}${Number(r.price).toFixed(2)}</span>
       <span class="cib-change ${chgClass}">${chgSign}${r.change}%</span>
     </div>
     <div class="cib-divider"></div>
@@ -6012,12 +6015,22 @@ let _pseBarsCache = {};
 function renderOHLCChart(canvas, bars, opts) {
   opts = Object.assign({ showEMA: true, showBB: true, showVolume: true, maxBars: 0 }, opts);
 
-  const ctx  = canvas.getContext('2d');
-  const DPR  = window.devicePixelRatio || 1;
-  const W    = canvas.offsetWidth  || 400;
-  const H    = canvas.offsetHeight || 300;
+  const ctx = canvas.getContext('2d');
+  const DPR = window.devicePixelRatio || 1;
+
+  // Read logical display size from the parent container — more reliable than
+  // canvas.offsetWidth when the canvas has width:100% inside a flex item,
+  // because setting canvas.width can reset the element's intrinsic size.
+  const parent = canvas.parentElement;
+  const W = (parent ? parent.offsetWidth  : canvas.offsetWidth)  || 400;
+  const H = (parent ? parent.offsetHeight : canvas.offsetHeight) || 300;
+
+  // Set buffer to physical pixels and lock CSS display size so the browser
+  // doesn't scale/blur the content.
   canvas.width  = Math.round(W * DPR);
   canvas.height = Math.round(H * DPR);
+  canvas.style.width  = W + 'px';
+  canvas.style.height = H + 'px';
   ctx.scale(DPR, DPR);
 
   if (!bars || bars.length === 0) {
@@ -6226,15 +6239,21 @@ async function loadPSEChart(stock) {
       lbl.textContent = INTERVAL_LABEL[iv];
       panel.appendChild(lbl);
     }
+    // Wrapper with position:relative gives renderOHLCChart a reliable parent
+    // to measure dimensions from — avoids flex/width:100% measurement issues.
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = 'flex:1;min-height:0;min-width:0;position:relative;overflow:hidden;';
     const canvas = document.createElement('canvas');
-    canvas.style.cssText = 'flex:1;width:100%;min-height:0;display:block;';
-    panel.appendChild(canvas);
+    canvas.style.cssText = 'position:absolute;top:0;left:0;display:block;';
+    wrapper.appendChild(canvas);
+    panel.appendChild(wrapper);
     container.appendChild(panel);
     return { iv, canvas };
   });
 
   wrap.appendChild(container);
-  await new Promise(r => requestAnimationFrame(r)); // wait for layout
+  // Two rAFs: first lets the browser schedule a layout pass, second confirms it's done.
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
 
   await Promise.all(panels.map(async ({ iv, canvas }) => {
     const psiv    = ivMap[iv];
@@ -6244,13 +6263,15 @@ async function loadPSEChart(stock) {
       if (!_pseBarsCache[ckey]) _pseBarsCache[ckey] = await fetchPSEBars(stock.ticker, psiv);
       renderOHLCChart(canvas, _pseBarsCache[ckey], { maxBars });
     } catch (e) {
-      canvas.width  = canvas.offsetWidth  || 300;
-      canvas.height = canvas.offsetHeight || 200;
+      const W = canvas.parentElement?.offsetWidth  || 300;
+      const H = canvas.parentElement?.offsetHeight || 200;
+      canvas.width  = W; canvas.height = H;
+      canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
       const ctx2 = canvas.getContext('2d');
-      ctx2.fillStyle = '#f4f5f7'; ctx2.fillRect(0, 0, canvas.width, canvas.height);
+      ctx2.fillStyle = '#f4f5f7'; ctx2.fillRect(0, 0, W, H);
       ctx2.fillStyle = '#aaa'; ctx2.font = '11px "IBM Plex Mono"';
       ctx2.textAlign = 'center'; ctx2.textBaseline = 'middle';
-      ctx2.fillText(`No ${INTERVAL_LABEL[iv]} data for ${stock.ticker}`, canvas.width / 2, canvas.height / 2);
+      ctx2.fillText(`No ${INTERVAL_LABEL[iv]} data for ${stock.ticker}`, W / 2, H / 2);
     }
   }));
 }
@@ -6631,7 +6652,7 @@ function openModal(ticker) {
     </div>
     <div class="stat-card">
       <div class="stat-label">PRICE</div>
-      <div class="stat-val">$${Number(r.price).toFixed(2)}</div>
+      <div class="stat-val">${priceSym()}${Number(r.price).toFixed(2)}</div>
       <div class="stat-sub ${r.change>=0?'score-high':'score-low'}">${r.change>=0?'+':''}${r.change}% today</div>
     </div>
     <div class="stat-card">
@@ -6780,7 +6801,7 @@ function _renderFListList() {
     ${flistItems.map((f, i) => {
       const chgColor = (f.change ?? 0) >= 0 ? 'var(--green)' : 'var(--red)';
       const chgSign  = (f.change ?? 0) >= 0 ? '+' : '';
-      const price    = f.price != null ? '$' + Number(f.price).toFixed(2) : '—';
+      const price    = f.price != null ? priceSym() + Number(f.price).toFixed(2) : '—';
       const chg      = f.change != null ? `${chgSign}${f.change}%` : '—';
       return `<div class="flist-list-row" onclick="closeFList();loadChart(${JSON.stringify({ ticker: f.ticker, name: f.name || f.ticker, exchange: f.exchange || '' })})">
         <div class="flist-row-num">${i + 1}</div>
@@ -6807,7 +6828,7 @@ function _renderFListGlance() {
   grid.className = 'flist-glance-grid';
 
   flistItems.forEach((f, idx) => {
-    const price = f.price != null ? '$' + Number(f.price).toFixed(2) : '—';
+    const price = f.price != null ? priceSym() + Number(f.price).toFixed(2) : '—';
     const chgColor = (f.change ?? 0) >= 0 ? 'var(--green)' : 'var(--red)';
     const chgSign  = (f.change ?? 0) >= 0 ? '+' : '';
     const card = document.createElement('div');
@@ -7342,7 +7363,7 @@ function renderStarredCharts() {
           <span class="picks-card-date">★ ${dateStr}</span>
           <span class="picks-card-score">Score ${entry.score}%${entry.sectorBonus > 0 ? ` +${entry.sectorBonus}` : ''}</span>
           ${entry.sectorName ? `<span class="picks-card-score">${entry.sectorName}</span>` : ''}
-          <span class="picks-card-score">$${Number(entry.price).toFixed(2)}</span>
+          <span class="picks-card-score">${priceSym()}${Number(entry.price).toFixed(2)}</span>
         </div>
       </div>
       <div class="picks-chart-controls">
@@ -8162,7 +8183,7 @@ function renderPicksList() {
               </td>
               <td>
                 <div class="picks-list-date">★ ${dateStr}</div>
-                <div class="picks-list-star-price">$${Number(entry.price).toFixed(2)}</div>
+                <div class="picks-list-star-price">${priceSym()}${Number(entry.price).toFixed(2)}</div>
               </td>
               <td class="picks-list-score">${entry.score}%</td>
               <td class="picks-perf-loading" id="perf-5d-${entry.ticker}-${entry.starredAt}">…</td>
@@ -8321,6 +8342,13 @@ function switchMarket(mode) {
   if (modeLbl) modeLbl.textContent = mode === 'PH' ? 'PSE CHART' : 'TRADINGVIEW';
   _pseBarsCache = {};
   lastChartKey  = '';
+
+  // Set default chart range: 3M for PH (shows last ~60 trading days), 12M for US
+  chartRange = mode === 'PH' ? '3M' : '12M';
+  ['3M','6M','12M'].forEach(r => {
+    const el = document.getElementById('btn-range-' + r.toLowerCase());
+    if (el) el.classList.toggle('active', r === chartRange);
+  });
 
   // Toggle header labels
   document.getElementById('mkt-lbl-us').classList.toggle('active', mode === 'US');
