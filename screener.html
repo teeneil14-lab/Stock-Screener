@@ -5762,7 +5762,7 @@ async function loadRSStocks() {
     const ok = await new Promise(resolve => {
       const start = Date.now();
       const poll = setInterval(() => {
-        if (sp500StockEMACache.length) { clearInterval(poll); resolve(true); }
+        if (!sectorBreadthLoading && sp500StockEMACache.length) { clearInterval(poll); resolve(true); }
         else if (Date.now() - start > 120000) { clearInterval(poll); resolve(false); }
       }, 500);
     });
@@ -8300,19 +8300,20 @@ function breadthCell(pct) {
   return `<span class="breadth-cell ${cls}">${pct}%</span>`;
 }
 
-const BREADTH_CACHE_KEY = 'cts_breadth_v1';
+const BREADTH_CACHE_KEY = 'cts_breadth_v2';
 const BREADTH_CACHE_TTL = 60 * 60 * 1000; // 1 hour
 
 async function loadSectorBreadth() {
   if (sectorBreadthLoading) return;
 
-  // Serve from sessionStorage cache if fresh
+  // Serve from sessionStorage cache if fresh (only if per-stock data is also cached)
   try {
     const raw = sessionStorage.getItem(BREADTH_CACHE_KEY);
     if (raw) {
       const cached = JSON.parse(raw);
-      if (Date.now() - cached.ts < BREADTH_CACHE_TTL) {
-        sectorEMABreadth = cached.data;
+      if (Date.now() - cached.ts < BREADTH_CACHE_TTL && cached.stocks?.length) {
+        sectorEMABreadth    = cached.data;
+        sp500StockEMACache  = cached.stocks;
         sectorBreadthLoading = false;
         if (sectorRows) renderSectorTable(sectorRows);
         return;
@@ -8414,7 +8415,7 @@ async function loadSectorBreadth() {
   });
 
   sectorBreadthLoading = false;
-  try { sessionStorage.setItem(BREADTH_CACHE_KEY, JSON.stringify({ ts: Date.now(), data: sectorEMABreadth })); } catch {}
+  try { sessionStorage.setItem(BREADTH_CACHE_KEY, JSON.stringify({ ts: Date.now(), data: sectorEMABreadth, stocks: sp500StockEMACache })); } catch {}
   if (sectorRows) renderSectorTable(sectorRows);
 }
 
@@ -10456,7 +10457,7 @@ async function openSP500RelativeStrength() {
     await new Promise((resolve, reject) => {
       const start = Date.now();
       const poll = setInterval(() => {
-        if (sp500StockEMACache.length) { clearInterval(poll); resolve(); }
+        if (!sectorBreadthLoading && sp500StockEMACache.length) { clearInterval(poll); resolve(); }
         else if (Date.now() - start > 120000) { clearInterval(poll); reject(new Error('timeout')); }
       }, 500);
     }).catch(() => {
