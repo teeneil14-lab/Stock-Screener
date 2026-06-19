@@ -7158,7 +7158,8 @@ function setAnalyticsMode(mode) {
   if (mode === 'kicker') analyticsKickerMode = !analyticsKickerMode;
   document.getElementById('pa-mode-live')?.classList.toggle('active', analyticsLiveMode);
   document.getElementById('pa-mode-kicker')?.classList.toggle('active', analyticsKickerMode);
-  renderPicksAnalytics();
+  if (picksViewMode === 'calendar') renderPicksCalendar();
+  else                              renderPicksAnalytics();
 }
 
 function updatePicksSummary() {
@@ -7479,6 +7480,7 @@ async function renderPicksCalendar() {
       </div>
       <div class="cal-ret-row">
         ${retBtns}
+        <button class="cal-show-picks-btn${analyticsLiveMode ? ' active' : ''}" onclick="setAnalyticsMode('live')">LIVE</button>
         <button class="cal-show-picks-btn${calendarShowPicks ? ' active' : ''}" onclick="toggleCalendarShowPicks()">${showPicksLabel}</button>
       </div>
     </div>
