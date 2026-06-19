@@ -8767,6 +8767,28 @@ function toggleStar(ticker) {
   if (results.length) renderResults();
 }
 
+async function sgoStarPick(ticker) {
+  const btn = document.getElementById(`sgo-star-${ticker}`);
+  if (btn) { btn.textContent = '…'; btn.disabled = true; }
+
+  const starredAt = Date.now();
+  try {
+    await _addSinglePickWorker(ticker, starredAt);
+  } catch (e) {
+    showToast(`Could not save ${ticker} to My Picks: ${e.message}`, 'error');
+    if (btn) { btn.textContent = '☆'; btn.disabled = false; }
+    return;
+  }
+
+  showToast(`★ ${ticker} added to My Picks`);
+  if (btn) {
+    btn.textContent = '★';
+    btn.disabled    = false;
+    btn.classList.add('star-active');
+    btn.title = 'Add again as new entry (remove via My Picks tab)';
+  }
+}
+
 function clearLiked() {
   getActiveSetupIds().forEach(sid => saveLiked(sid, []));
   results.forEach(r => { r.isStarred = false; r.prefBonus = 0; r.prefSim = 0; });
@@ -10564,17 +10586,27 @@ function renderSgoGrid() {
   const badge = (ok, label) =>
     `<span class="sgo-ema-badge ${ok ? 'sgo-ema-ok' : 'sgo-ema-fail'}">${label}</span>`;
 
+  const starredSet = new Set(
+    getActiveSetupIds().flatMap(sid => loadLiked(sid).map(l => l.ticker))
+  );
+
   sgoStocks.forEach((r, idx) => {
-    const chgSign  = r.change >= 0 ? '+' : '';
-    const chgColor = r.change >= 0 ? 'var(--green)' : 'var(--red)';
+    const chgSign    = r.change >= 0 ? '+' : '';
+    const chgColor   = r.change >= 0 ? 'var(--green)' : 'var(--red)';
+    const isStarred  = starredSet.has(r.ticker);
     const card = document.createElement('div');
     card.className = 'sgo-card';
     card.innerHTML = `
       <div class="sgo-card-header">
         <span class="sgo-card-ticker">${r.ticker}</span>
-        <div class="sgo-ema-badges">
-          ${badge(r.ema20ok,'20')}${badge(r.ema50ok,'50')}${badge(r.ema100ok,'100')}${badge(r.ema200ok,'200')}
-        </div>
+        <button class="star-btn${isStarred ? ' star-active' : ''}"
+                id="sgo-star-${r.ticker}"
+                onclick="event.stopPropagation();sgoStarPick('${r.ticker}')"
+                title="${isStarred ? 'Add again as new entry (remove via My Picks tab)' : 'Add to My Picks'}"
+                style="font-size:11px;padding:0 3px">${isStarred ? '★' : '☆'}</button>
+      </div>
+      <div class="sgo-ema-badges" style="padding:0 8px 4px">
+        ${badge(r.ema20ok,'20')}${badge(r.ema50ok,'50')}${badge(r.ema100ok,'100')}${badge(r.ema200ok,'200')}
       </div>
       <div class="sgo-card-sub">
         <span>$${Number(r.price).toFixed(2)}</span>
