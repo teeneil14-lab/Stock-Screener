@@ -1061,6 +1061,10 @@ const server = http.createServer(async (req, res) => {
   });
 });
 
+// Load PSE history from disk, then fill in any missing recent days in the background
+loadPSEHistory();
+runPSEHistoryBuild().catch(() => {});
+
 // Fetch crumb at startup so the first scan request doesn't have to wait for it
 refreshYFCrumb().catch(() => {});
 // Refresh every 24 minutes to stay within the 25-min TTL

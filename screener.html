@@ -3232,7 +3232,7 @@
       <!-- CHART PANE -->
       <div class="pane-chart full" id="pane-chart">
         <div class="pane-toolbar">
-          <span class="pane-label">TRADINGVIEW — <span id="chart-symbol-label" style="color:var(--text2)">no symbol selected</span></span>
+          <span class="pane-label"><span id="chart-mode-label">TRADINGVIEW</span> — <span id="chart-symbol-label" style="color:var(--text2)">no symbol selected</span></span>
           <div class="pane-controls">
             <!-- Interval (single-chart mode) -->
             <button class="view-btn active" id="btn-mode-d" onclick="setChartMode('D')" title="Daily">D</button>
@@ -6003,6 +6003,259 @@ window.addEventListener('message', function(e) {
 });
 
 // ============================================================
+//  PSE CANVAS CHART  (used in PH market mode)
+// ============================================================
+
+// Session cache: { 'TICKER|d': bars[], ... } — avoids re-fetching on mode/range change
+let _pseBarsCache = {};
+
+function renderOHLCChart(canvas, bars, opts) {
+  opts = Object.assign({ showEMA: true, showBB: true, showVolume: true, maxBars: 0 }, opts);
+
+  const ctx  = canvas.getContext('2d');
+  const DPR  = window.devicePixelRatio || 1;
+  const W    = canvas.offsetWidth  || 400;
+  const H    = canvas.offsetHeight || 300;
+  canvas.width  = Math.round(W * DPR);
+  canvas.height = Math.round(H * DPR);
+  ctx.scale(DPR, DPR);
+
+  if (!bars || bars.length === 0) {
+    ctx.fillStyle = '#999';
+    ctx.font = '11px "IBM Plex Mono"';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('No data available', W / 2, H / 2);
+    return;
+  }
+
+  const vis = opts.maxBars > 0 ? bars.slice(-opts.maxBars) : bars;
+  const n   = vis.length;
+
+  // Layout
+  const PAD_L  = 6;
+  const PAD_R  = 56;
+  const PAD_T  = 12;
+  const PAD_B  = 22;
+  const VOL_H  = opts.showVolume ? Math.floor((H - PAD_T - PAD_B) * 0.18) : 0;
+  const GAP    = VOL_H > 0 ? 4 : 0;
+  const CW     = W - PAD_L - PAD_R;
+  const CH     = H - PAD_T - PAD_B - VOL_H - GAP;
+  const priceT = PAD_T;
+  const priceB = PAD_T + CH;
+  const volT   = priceB + GAP;
+  const volB   = volT + VOL_H;
+
+  // EMA series computed over full bar history then sliced to visible window
+  const allCloses = bars.map(b => b.c);
+  function fullEMA(period) {
+    if (allCloses.length < period) return new Array(n).fill(null);
+    const k = 2 / (period + 1);
+    const res = new Array(allCloses.length).fill(null);
+    let ema = allCloses.slice(0, period).reduce((a, b) => a + b, 0) / period;
+    res[period - 1] = ema;
+    for (let i = period; i < allCloses.length; i++) { ema = allCloses[i] * k + ema * (1 - k); res[i] = ema; }
+    return res.slice(-n);
+  }
+  const ema10s = opts.showEMA ? fullEMA(10) : [];
+  const ema20s = opts.showEMA ? fullEMA(20) : [];
+  const ema50s = opts.showEMA ? fullEMA(50) : [];
+
+  // Bollinger Bands over full history, sliced to visible
+  let bbU = new Array(n).fill(null), bbM = new Array(n).fill(null), bbL = new Array(n).fill(null);
+  if (opts.showBB && allCloses.length >= 20) {
+    const fU = [], fM = [], fL = [];
+    for (let i = 0; i < allCloses.length; i++) {
+      if (i < 19) { fU.push(null); fM.push(null); fL.push(null); continue; }
+      const sl = allCloses.slice(i - 19, i + 1);
+      const sma = sl.reduce((a, b) => a + b, 0) / 20;
+      const std = Math.sqrt(sl.reduce((s, c) => s + (c - sma) ** 2, 0) / 20);
+      fU.push(sma + 2 * std); fM.push(sma); fL.push(sma - 2 * std);
+    }
+    bbU = fU.slice(-n); bbM = fM.slice(-n); bbL = fL.slice(-n);
+  }
+
+  // Price range (include indicator values)
+  const allPrices = [...vis.map(b => b.h ?? b.c), ...vis.map(b => b.l ?? b.c),
+    ...ema10s, ...ema20s, ...ema50s, ...bbU, ...bbL].filter(v => v != null);
+  let pMin = Math.min(...allPrices), pMax = Math.max(...allPrices);
+  const pad = (pMax - pMin) * 0.05 || pMin * 0.05 || 0.1;
+  pMin -= pad; pMax += pad;
+
+  const vols   = vis.map(b => b.v || 0);
+  const volMax = Math.max(...vols, 1);
+
+  const xStep = CW / n;
+  const barW  = Math.max(1, xStep * 0.68);
+  const toX   = i => PAD_L + (i + 0.5) * xStep;
+  const toY   = p => p == null ? null : priceB - ((p - pMin) / (pMax - pMin)) * CH;
+  const toVY  = v => volB - (v / volMax) * VOL_H;
+
+  // Clear
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, W, H);
+
+  // Price grid
+  function niceGridStep(r) {
+    const mag = Math.pow(10, Math.floor(Math.log10(Math.abs(r) || 1)));
+    const n   = r / mag;
+    return (n <= 1.5 ? 1 : n <= 3 ? 2 : n <= 7 ? 5 : 10) * mag;
+  }
+  const step = niceGridStep((pMax - pMin) / 5);
+  ctx.font = '9px "IBM Plex Mono"'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  for (let p = Math.ceil(pMin / step) * step; p <= pMax; p = +(p + step).toFixed(10)) {
+    const y = toY(p);
+    if (y == null || y < priceT - 1 || y > priceB + 1) continue;
+    ctx.strokeStyle = '#efefef'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(PAD_L, y); ctx.lineTo(W - PAD_R, y); ctx.stroke();
+    ctx.fillStyle = '#bbb';
+    ctx.fillText(p < 10 ? p.toFixed(3) : p < 100 ? p.toFixed(2) : p.toFixed(0), W - PAD_R + 3, y);
+  }
+
+  // BB fill + lines
+  if (opts.showBB) {
+    ctx.beginPath();
+    let f = true;
+    for (let i = 0; i < n; i++) { const y = toY(bbU[i]); if (y == null) continue; f ? ctx.moveTo(toX(i), y) : ctx.lineTo(toX(i), y); f = false; }
+    for (let i = n - 1; i >= 0; i--) { const y = toY(bbL[i]); if (y == null) continue; ctx.lineTo(toX(i), y); }
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(10,124,78,0.07)'; ctx.fill();
+
+    function bbLine(data, color, dash) {
+      ctx.beginPath(); ctx.strokeStyle = color; ctx.lineWidth = 1; ctx.setLineDash(dash || []);
+      let f = true;
+      for (let i = 0; i < n; i++) { const y = toY(data[i]); if (y == null) continue; f ? ctx.moveTo(toX(i), y) : ctx.lineTo(toX(i), y); f = false; }
+      ctx.stroke(); ctx.setLineDash([]);
+    }
+    bbLine(bbU, 'rgba(10,124,78,0.4)');
+    bbLine(bbM, 'rgba(10,124,78,0.22)', [3, 3]);
+    bbLine(bbL, 'rgba(10,124,78,0.4)');
+  }
+
+  // EMA lines
+  if (opts.showEMA) {
+    function emaLine(data, color, lw) {
+      ctx.beginPath(); ctx.strokeStyle = color; ctx.lineWidth = lw || 1.2; let f = true;
+      for (let i = 0; i < n; i++) { const y = toY(data[i]); if (y == null) continue; f ? ctx.moveTo(toX(i), y) : ctx.lineTo(toX(i), y); f = false; }
+      ctx.stroke();
+    }
+    emaLine(ema10s, '#2563eb', 1.2);
+    emaLine(ema20s, '#d97706', 1.2);
+    emaLine(ema50s, '#dc2626', 1.5);
+  }
+
+  // Candlesticks
+  for (let i = 0; i < n; i++) {
+    const b = vis[i]; if (b.c == null) continue;
+    const x = toX(i), o = b.o ?? b.c, h = b.h ?? b.c, l = b.l ?? b.c, c = b.c;
+    const bull = c >= o;
+    const color = bull ? '#0a7c4e' : '#dc2626';
+    const yH = toY(h), yL = toY(l), yO = toY(o), yC = toY(c);
+    ctx.strokeStyle = color; ctx.fillStyle = color;
+    ctx.lineWidth = Math.max(0.5, Math.min(1.2, xStep * 0.12));
+    ctx.beginPath(); ctx.moveTo(x, yH ?? yO); ctx.lineTo(x, yL ?? yO); ctx.stroke();
+    const bTop = Math.min(yO, yC), bH = Math.max(Math.abs(yC - yO), 1);
+    ctx.fillRect(x - barW / 2, bTop, barW, bH);
+  }
+
+  // Volume bars
+  if (opts.showVolume && VOL_H > 0) {
+    ctx.strokeStyle = '#efefef'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(PAD_L, volT); ctx.lineTo(W - PAD_R, volT); ctx.stroke();
+    for (let i = 0; i < n; i++) {
+      const b = vis[i]; const v = b.v || 0; if (!v) continue;
+      const bull = (b.c ?? 0) >= (b.o ?? b.c ?? 0);
+      ctx.fillStyle = bull ? 'rgba(10,124,78,0.2)' : 'rgba(220,38,38,0.2)';
+      ctx.fillRect(toX(i) - barW / 2, toVY(v), barW, volB - toVY(v));
+    }
+  }
+
+  // Latest close dotted line
+  const lastC = vis[n - 1]?.c;
+  if (lastC != null) {
+    const y = toY(lastC);
+    ctx.setLineDash([3, 3]); ctx.strokeStyle = '#0a7c4e'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(PAD_L, y); ctx.lineTo(W - PAD_R, y); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Date labels
+  ctx.fillStyle = '#bbb'; ctx.font = '8.5px "IBM Plex Mono"';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+  const every = Math.max(1, Math.ceil(n / 8));
+  for (let i = 0; i < n; i += every) {
+    if (!vis[i]?.t) continue;
+    const d = new Date(vis[i].t);
+    ctx.fillText(`${d.getMonth() + 1}/${String(d.getDate()).padStart(2, '0')}`, toX(i), H - 4);
+  }
+
+  // Legend (EMA + BB labels, top-right corner)
+  if (opts.showEMA) {
+    const legends = [['EMA10','#2563eb'],['EMA20','#d97706'],['EMA50','#dc2626'],['BB(20)','rgba(10,124,78,0.6)']];
+    ctx.font = '8px "IBM Plex Mono"'; ctx.textAlign = 'right'; ctx.textBaseline = 'top';
+    let lx = W - PAD_R - 4;
+    legends.slice().reverse().forEach(([lbl, col]) => {
+      ctx.fillStyle = col;
+      ctx.fillText(lbl, lx, PAD_T + 2);
+      lx -= ctx.measureText(lbl).width + 8;
+    });
+  }
+}
+
+async function loadPSEChart(stock) {
+  const wrap      = document.getElementById('tv-widget-wrap');
+  const intervals = Array.isArray(CHART_INTERVALS[chartMode])
+    ? CHART_INTERVALS[chartMode] : [CHART_INTERVALS[chartMode]];
+  const ivMap     = { D: 'd', W: 'w', M: 'm' };
+  const maxBarMap = {
+    '3M':  { d: 63,  w: 13, m: 4  },
+    '6M':  { d: 126, w: 26, m: 7  },
+    '12M': { d: 252, w: 52, m: 13 },
+  };
+
+  const container = document.createElement('div');
+  container.style.cssText = 'display:flex;height:100%;gap:4px;padding:6px;box-sizing:border-box;overflow:hidden;';
+  wrap.innerHTML = '';
+
+  const panels = intervals.map(iv => {
+    const panel = document.createElement('div');
+    panel.style.cssText = 'flex:1;min-width:0;display:flex;flex-direction:column;min-height:0;overflow:hidden;';
+    if (intervals.length > 1) {
+      const lbl = document.createElement('div');
+      lbl.className = 'tv-panel-label';
+      lbl.textContent = INTERVAL_LABEL[iv];
+      panel.appendChild(lbl);
+    }
+    const canvas = document.createElement('canvas');
+    canvas.style.cssText = 'flex:1;width:100%;min-height:0;display:block;';
+    panel.appendChild(canvas);
+    container.appendChild(panel);
+    return { iv, canvas };
+  });
+
+  wrap.appendChild(container);
+  await new Promise(r => requestAnimationFrame(r)); // wait for layout
+
+  await Promise.all(panels.map(async ({ iv, canvas }) => {
+    const psiv    = ivMap[iv];
+    const maxBars = (maxBarMap[chartRange] || maxBarMap['12M'])[psiv] || 0;
+    const ckey    = `${stock.ticker}|${psiv}`;
+    try {
+      if (!_pseBarsCache[ckey]) _pseBarsCache[ckey] = await fetchPSEBars(stock.ticker, psiv);
+      renderOHLCChart(canvas, _pseBarsCache[ckey], { maxBars });
+    } catch (e) {
+      canvas.width  = canvas.offsetWidth  || 300;
+      canvas.height = canvas.offsetHeight || 200;
+      const ctx2 = canvas.getContext('2d');
+      ctx2.fillStyle = '#f4f5f7'; ctx2.fillRect(0, 0, canvas.width, canvas.height);
+      ctx2.fillStyle = '#aaa'; ctx2.font = '11px "IBM Plex Mono"';
+      ctx2.textAlign = 'center'; ctx2.textBaseline = 'middle';
+      ctx2.fillText(`No ${INTERVAL_LABEL[iv]} data for ${stock.ticker}`, canvas.width / 2, canvas.height / 2);
+    }
+  }));
+}
+
+// ============================================================
 //  TRADINGVIEW CHART
 // ============================================================
 
@@ -6029,6 +6282,13 @@ function loadChart(stock) {
   if (chartKey === lastChartKey) return;
   lastChartKey = chartKey;
   lastTvSymbol = stock.ticker; // pre-set so the postMessage listener doesn't re-fire on first tick
+
+  // PH mode: render canvas chart from PSE history bars instead of TradingView
+  if (marketMode === 'PH') {
+    document.getElementById('chart-symbol-label').textContent = stock.ticker;
+    loadPSEChart(stock).catch(e => console.warn('[PSE chart]', e.message));
+    return;
+  }
 
   document.getElementById('chart-symbol-label').textContent = symbol;
 
@@ -8055,6 +8315,12 @@ function switchTab(tab) {
 function switchMarket(mode) {
   marketMode   = mode;
   currentSetup = mode === 'PH' ? 'ph' : 1;
+
+  // Update chart pane header label and clear PSE bar cache + lastChartKey
+  const modeLbl = document.getElementById('chart-mode-label');
+  if (modeLbl) modeLbl.textContent = mode === 'PH' ? 'PSE CHART' : 'TRADINGVIEW';
+  _pseBarsCache = {};
+  lastChartKey  = '';
 
   // Toggle header labels
   document.getElementById('mkt-lbl-us').classList.toggle('active', mode === 'US');
