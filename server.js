@@ -265,6 +265,63 @@ function parsePSESectorPage(text) {
   return result;
 }
 
+// ── Live sector index data from frames.pse.com.ph/indices ────────────────────
+const PSE_FRAMES_TTL = 5 * 60 * 1000; // 5 minutes
+let pseFramesCache = null; // { ts, sectors }
+
+const PSE_FRAMES_SECTOR_MAP = {
+  'PSEI': 'PSEi',
+  'ALL':  'All Shares',
+  'FIN':  'Financials',
+  'IND':  'Industrials',
+  'HDG':  'Holding Firms',
+  'PRO':  'Property',
+  'SVC':  'Services',
+  'M-O':  'Mining & Oil',
+};
+
+async function fetchPSEFramesSectors() {
+  if (pseFramesCache && Date.now() - pseFramesCache.ts < PSE_FRAMES_TTL)
+    return pseFramesCache.sectors;
+
+  const html = await new Promise((resolve, reject) => {
+    const req = https.get({
+      hostname: 'frames.pse.com.ph',
+      path: '/indices',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html',
+        'Referer': 'https://www.pse.com.ph/',
+      },
+    }, (res) => {
+      if (res.statusCode !== 200) { res.resume(); return reject(new Error(`HTTP ${res.statusCode}`)); }
+      const chunks = [];
+      res.on('data', c => chunks.push(c));
+      res.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+    });
+    req.on('error', reject);
+    req.setTimeout(15000, () => req.destroy(new Error('timeout')));
+  });
+
+  const sectors = {};
+  const modelRe = /id="([A-Z-]+)-model"[^>]+value="([^"]+)"/g;
+  let m;
+  while ((m = modelRe.exec(html)) !== null) {
+    const name = PSE_FRAMES_SECTOR_MAP[m[1]];
+    if (!name) continue;
+    try {
+      const jsonStr = m[2].replace(/&quot;/g, '"').replace(/&#x2B;/g, '+').replace(/&amp;/g, '&');
+      const data = JSON.parse(jsonStr);
+      const close = parseFloat(data.Value);
+      const pctChange = parseFloat(data.PercentChange);
+      if (!isNaN(close)) sectors[name] = { close, pctChange: isNaN(pctChange) ? null : pctChange };
+    } catch (e) { /* skip */ }
+  }
+  if (Object.keys(sectors).length > 0)
+    pseFramesCache = { ts: Date.now(), sectors };
+  return sectors;
+}
+
 function parsePSELayout(text, dateStr) {
   const stocks    = [];
   const isTicker  = (s) => /^[A-Z][A-Z0-9]{0,5}$/.test(s);
@@ -956,19 +1013,27 @@ const server = http.createServer(async (req, res) => {
 
       output.sort((a, b) => b.rangePos - a.rangePos);
 
-      // Compute week-to-date performance for each sector index from page-13 data
-      const SECTOR_NAMES = ['PSEi','All Shares','Financials','Industrials','Holding Firms','Property','Services','Mining & Oil'];
-      const weekSectors = {};
-      const sectorDates = Object.keys(sectorByDay).sort();
-      for (const name of SECTOR_NAMES) {
-        const closes = sectorDates.map(d => sectorByDay[d]?.[name]?.close).filter(v => v != null);
-        if (closes.length === 0) continue;
-        const first = closes[0], last = closes[closes.length - 1];
-        // Multi-day: WTD from first to last close; single-day: use daily % from PDF
-        const weekPct = closes.length > 1
-          ? (last / first - 1) * 100
-          : (sectorByDay[sectorDates[0]]?.[name]?.pctChange ?? null);
-        weekSectors[name] = { close: last, weekPct, days: closes.length };
+      // Fetch live sector data from frames.pse.com.ph (primary source)
+      let weekSectors = {};
+      try {
+        const liveSectors = await fetchPSEFramesSectors();
+        for (const [name, data] of Object.entries(liveSectors))
+          weekSectors[name] = { close: data.close, weekPct: data.pctChange, days: 1 };
+        console.log(`[PSE] ${Object.keys(weekSectors).length} live sectors from frames.pse.com.ph`);
+      } catch (e) {
+        console.warn(`[PSE] frames.pse.com.ph failed (${e.message}), falling back to PDF sector data`);
+        // Fall back to PDF-derived sector data
+        const SECTOR_NAMES = ['PSEi','All Shares','Financials','Industrials','Holding Firms','Property','Services','Mining & Oil'];
+        const sectorDates = Object.keys(sectorByDay).sort();
+        for (const name of SECTOR_NAMES) {
+          const closes = sectorDates.map(d => sectorByDay[d]?.[name]?.close).filter(v => v != null);
+          if (closes.length === 0) continue;
+          const first = closes[0], last = closes[closes.length - 1];
+          const weekPct = closes.length > 1
+            ? (last / first - 1) * 100
+            : (sectorByDay[sectorDates[0]]?.[name]?.pctChange ?? null);
+          weekSectors[name] = { close: last, weekPct, days: closes.length };
+        }
       }
 
       res.writeHead(200, { 'Content-Type': 'application/json' });
