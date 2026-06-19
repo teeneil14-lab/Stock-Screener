@@ -2939,6 +2939,14 @@
   .pse-sector-pct.s-pos { color: var(--green); }
   .pse-sector-pct.s-neg { color: var(--red); }
   .pse-sector-pct.s-nil { color: var(--text3); }
+  .pse-sector-val {
+    font-size: 13px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 4px;
+    line-height: 1;
+  }
   .pse-sector-sub {
     font-size: 9px;
     font-family: 'IBM Plex Mono', monospace;
@@ -10844,14 +10852,17 @@ async function runPSEScan() {
 
 
 function renderPSESectorStrip(sectors, nDays) {
-  function box(label, entry) {
+  function box(label, entry, showValue = false) {
     const pct    = entry?.weekPct ?? null;
     const days   = entry?.days ?? nDays;
     const period = days <= 1 ? '1D' : `${days}D`;
+    const valHtml = showValue && entry?.close != null
+      ? `<div class="pse-sector-val">${entry.close.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>`
+      : '';
     if (pct == null)
       return `<div class="pse-sector-box">
         <div class="pse-sector-name">${label}</div>
-        <div class="pse-sector-pct s-nil">—</div>
+        ${valHtml}<div class="pse-sector-pct s-nil">—</div>
         <div class="pse-sector-sub">${period}</div>
       </div>`;
     const sign   = pct >= 0 ? '+' : '';
@@ -10859,12 +10870,12 @@ function renderPSESectorStrip(sectors, nDays) {
     const pctCls = pct > 0 ? 's-pos' : pct < 0 ? 's-neg' : 's-nil';
     return `<div class="pse-sector-box ${boxCls}">
       <div class="pse-sector-name">${label}</div>
-      <div class="pse-sector-pct ${pctCls}">${sign}${pct.toFixed(2)}%</div>
+      ${valHtml}<div class="pse-sector-pct ${pctCls}">${sign}${pct.toFixed(2)}%</div>
       <div class="pse-sector-sub">${period}</div>
     </div>`;
   }
   return `<div class="pse-sector-row">
-    ${box('PSEi', sectors['PSEi'])}
+    ${box('PSEi', sectors['PSEi'], true)}
     ${box('All Shares', sectors['All Shares'])}
   </div>
   <div class="pse-sector-row">
