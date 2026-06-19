@@ -7023,7 +7023,7 @@ async function _addSinglePickWorker(ticker, starredAt) {
     sectorBonus: 0,
     sectorName:  '',
     price:      r.price,
-    dailyBars:   (r.daily   || []).slice(-130).map(b => ({ t:b.t, o:b.o, h:b.h, l:b.l, c:b.c })),
+    dailyBars:   (r.daily   || []).slice(-252).map(b => ({ t:b.t, o:b.o, h:b.h, l:b.l, c:b.c })),
     weeklyBars:  (r.weekly  || []).slice(-52) .map(b => ({ t:b.t, o:b.o, h:b.h, l:b.l, c:b.c })),
     monthlyBars: (r.monthly || []).slice(-36) .map(b => ({ t:b.t, o:b.o, h:b.h, l:b.l, c:b.c })),
   };
@@ -7138,10 +7138,11 @@ function createStarredChart(container, entry, tf = 'D') {
   const toSec = t => Math.floor(t / 1000);
 
   // Build a clean, deduplicated bar array — LightweightCharts throws if two bars share a timestamp
+  // Filter to bars on or before the buy date so the chart is frozen at that moment
   const seen = new Set();
   const bars = rawBars
     .map(b => ({ t: b.t, o: b.o ?? b.c, h: b.h ?? b.c, l: b.l ?? b.c, c: b.c }))
-    .filter(b => b.c > 0)
+    .filter(b => b.c > 0 && b.t <= entry.starredAt)
     .sort((a, bv) => a.t - bv.t)
     .filter(b => { const s = toSec(b.t); return seen.has(s) ? false : (seen.add(s), true); });
 
@@ -7210,11 +7211,11 @@ function createStarredChart(container, entry, tf = 'D') {
     Math.abs(toSec(cur.t) - starSec) < Math.abs(toSec(prev.t) - starSec) ? cur : prev, bars[0]);
   candles.setMarkers([{ time: toSec(closest.t), position: 'aboveBar', color: '#d97706', shape: 'arrowDown', text: '★' }]);
 
-  // Default to showing the most recent ~60 daily / 52 weekly bars so recent action is clearly visible
-  const maxVisible = tf === 'M' ? 48 : tf === 'W' ? 52 : 60;
-  if (bars.length > maxVisible) {
+  // Show 1 year of data ending at the buy date
+  const yearBack = tf === 'M' ? 12 : tf === 'W' ? 52 : 252;
+  if (bars.length > yearBack) {
     chart.timeScale().setVisibleRange({
-      from: toSec(bars[bars.length - maxVisible].t),
+      from: toSec(bars[bars.length - yearBack].t),
       to:   toSec(bars[bars.length - 1].t),
     });
   } else {
@@ -9022,7 +9023,7 @@ function toggleStar(ticker) {
       sectorName:  r.sectorName  || '',
       price:       r.price,
       tfNorm:      { ...r.tfNorm },
-      dailyBars:   (r.daily   || []).slice(-130).map(b => ({ t:b.t, o:b.o, h:b.h, l:b.l, c:b.c })),
+      dailyBars:   (r.daily   || []).slice(-252).map(b => ({ t:b.t, o:b.o, h:b.h, l:b.l, c:b.c })),
       weeklyBars:  (r.weekly  || []).slice(-52) .map(b => ({ t:b.t, o:b.o, h:b.h, l:b.l, c:b.c })),
       monthlyBars: (r.monthly || []).slice(-36) .map(b => ({ t:b.t, o:b.o, h:b.h, l:b.l, c:b.c })),
     };
