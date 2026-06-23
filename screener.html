@@ -2616,13 +2616,10 @@
     font-size: 15px;
     font-weight: 600;
     color: var(--text);
-    width: 260px;
     min-width: 260px;
     text-align: right;
     padding-right: 16px;
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
     flex-shrink: 0;
   }
   .tweekly-bar-wrap {
@@ -10071,13 +10068,24 @@ function renderTweeklyYTD(seriesData) {
 }
 
 async function screenshotTweekly() {
-  const target = document.getElementById(`tweekly-content-${_tweeklyActiveTab}`);
-  const btn    = document.getElementById('tweekly-cam-btn');
-  if (!target || typeof html2canvas === 'undefined') {
+  const contentEl = document.getElementById(`tweekly-content-${_tweeklyActiveTab}`);
+  const btn       = document.getElementById('tweekly-cam-btn');
+  if (!contentEl || typeof html2canvas === 'undefined') {
     showToast('Screenshot library not loaded yet — try again in a moment.', 'error');
     return;
   }
   btn.disabled = true;
+
+  // For the weekly tab, capture just the inner body div so the screenshot
+  // fits tightly around the bar charts with no empty space below.
+  // For other tabs fall back to the full content element.
+  const target = contentEl.querySelector('.tweekly-body') || contentEl;
+
+  const savedOverflow = target.style.overflowY;
+  const savedHeight   = target.style.height;
+  target.style.overflowY = 'visible';
+  target.style.height    = 'auto';
+
   try {
     const canvas = await html2canvas(target, {
       backgroundColor: '#f5f6f8',
@@ -10091,6 +10099,9 @@ async function screenshotTweekly() {
   } catch (e) {
     showToast('Screenshot failed: ' + e.message, 'error');
   }
+
+  target.style.overflowY = savedOverflow;
+  target.style.height    = savedHeight;
   btn.disabled = false;
 }
 
