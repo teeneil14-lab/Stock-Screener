@@ -2605,12 +2605,14 @@
     flex-shrink: 0;
   }
   .tweekly-error { padding: 12px 0; color: var(--red); font-size: 11px; }
-  .tweekly-row {
-    display: flex;
+  #tweekly-sectors-wrap,
+  #tweekly-industries-wrap {
+    display: grid;
+    grid-template-columns: max-content 50vw;
+    row-gap: 5px;
     align-items: center;
-    margin-bottom: 5px;
   }
-  .tweekly-row:last-child { margin-bottom: 0; }
+  .tweekly-row { display: contents; }
   .tweekly-name {
     font-family: 'IBM Plex Sans', sans-serif;
     font-size: 15px;
@@ -2620,11 +2622,8 @@
     text-align: right;
     padding-right: 16px;
     white-space: nowrap;
-    flex-shrink: 0;
   }
   .tweekly-bar-wrap {
-    width: 50vw;
-    flex-shrink: 0;
     display: flex;
     align-items: center;
   }
@@ -9537,6 +9536,7 @@ async function loadTweekly(force) {
         if (Date.now() - cached.ts < CACHE_TTL) {
           renderTweeklySection(secWrap, cached.sectors);
           renderTweeklySection(indWrap, cached.industries);
+          equalizeTweeklyNameWidth();
           updated.textContent = 'Cached ' + new Date(cached.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
           return;
         }
@@ -9571,6 +9571,7 @@ async function loadTweekly(force) {
     sectors.sort((a, b) => b.perf1w - a.perf1w);
     renderTweeklySection(secWrap, sectors);
     renderTweeklySection(indWrap, top10);
+    equalizeTweeklyNameWidth();
     updated.textContent = 'Updated ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
     try {
@@ -9603,6 +9604,17 @@ function renderTweeklySection(container, rows) {
       </div>
     </div>`;
   }).join('');
+}
+
+function equalizeTweeklyNameWidth() {
+  const secWrap = document.getElementById('tweekly-sectors-wrap');
+  const indWrap = document.getElementById('tweekly-industries-wrap');
+  const secName = secWrap?.querySelector('.tweekly-name');
+  const indName = indWrap?.querySelector('.tweekly-name');
+  if (!secName && !indName) return;
+  // Each wrap already uses max-content so offsetWidth reflects widest name in section
+  const maxW = Math.max(secName ? secName.offsetWidth : 0, indName ? indName.offsetWidth : 0, 260);
+  [secWrap, indWrap].forEach(w => { if (w) w.style.gridTemplateColumns = `${maxW}px 50vw`; });
 }
 
 // ── Tweekly sub-tab switching ───────────────────────────────────────────────
