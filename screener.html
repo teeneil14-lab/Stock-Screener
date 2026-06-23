@@ -3705,6 +3705,68 @@ function priceSym() { return marketMode === 'PH' ? '₱' : '$'; }
 let glanceRange     = '12M'; // independent range for glance view
 let scanSummaryHTML = '';    // saved after each scan, restored when criteria filters cleared
 
+// Per-market state snapshots — each market (US / PH) keeps its own screener state
+// so switching between them doesn't lose results.
+let _usScreenerState = null;
+let _phScreenerState = null;
+
+function _saveMarketState(mode) {
+  const resultsArea      = document.getElementById('results-area');
+  const resultCountLabel = document.getElementById('result-count-label');
+  const listCountLabel   = document.getElementById('list-count-label');
+  const downloadBtn      = document.getElementById('download-btn');
+  const state = {
+    tickers:              tickers.slice(),
+    results:              results.map(r => Object.assign({}, r)),
+    filteredOut:          filteredOut.slice(),
+    scanSummaryHTML:      scanSummaryHTML,
+    activeRow:            activeRow,
+    activeCriteriaFilters: new Set(activeCriteriaFilters),
+    resultsAreaHTML:      resultsArea      ? resultsArea.innerHTML           : '',
+    resultCountLabelHTML: resultCountLabel ? resultCountLabel.innerHTML      : '',
+    listCountLabelText:   listCountLabel   ? listCountLabel.textContent      : '',
+    downloadBtnDisplay:   downloadBtn      ? downloadBtn.style.display       : 'none',
+  };
+  if (mode === 'US') _usScreenerState = state;
+  else               _phScreenerState = state;
+}
+
+function _restoreMarketState(mode) {
+  const state = mode === 'US' ? _usScreenerState : _phScreenerState;
+  const resultsArea      = document.getElementById('results-area');
+  const resultCountLabel = document.getElementById('result-count-label');
+  const listCountLabel   = document.getElementById('list-count-label');
+  const downloadBtn      = document.getElementById('download-btn');
+
+  if (!state) {
+    // First visit to this market — show default empty state
+    tickers = []; results = []; filteredOut = [];
+    scanSummaryHTML = ''; activeRow = -1;
+    activeCriteriaFilters.clear();
+    if (resultsArea) resultsArea.innerHTML = mode === 'PH'
+      ? `<div class="empty-state"><div class="empty-icon">⊡</div><div class="empty-title">LOADING PSE TICKERS…</div><div class="empty-desc">Fetching all PSE issues from the daily report. Switch to the Screener tab and press Run Scan when ready.</div></div>`
+      : `<div class="empty-state"><div class="empty-icon">⊡</div><div class="empty-title">AWAITING WATCHLIST</div><div class="empty-desc">Upload a TradingView .txt watchlist, select Setup A or B, then press Run Scan.</div></div>`;
+    if (resultCountLabel) resultCountLabel.textContent = 'Ranked results will appear here';
+    if (listCountLabel)   listCountLabel.textContent   = '0 tickers';
+    if (downloadBtn)      downloadBtn.style.display    = 'none';
+    updateTickerDisplay();
+    if (mode === 'PH') loadPHTickersFromDaily();
+  } else {
+    // Restore previously saved state for this market
+    tickers               = state.tickers;
+    results               = state.results;
+    filteredOut           = state.filteredOut;
+    scanSummaryHTML       = state.scanSummaryHTML;
+    activeRow             = state.activeRow;
+    activeCriteriaFilters = new Set(state.activeCriteriaFilters);
+    if (resultsArea)      resultsArea.innerHTML           = state.resultsAreaHTML;
+    if (resultCountLabel) resultCountLabel.innerHTML      = state.resultCountLabelHTML;
+    if (listCountLabel)   listCountLabel.textContent      = state.listCountLabelText;
+    if (downloadBtn)      downloadBtn.style.display       = state.downloadBtnDisplay;
+    updateTickerDisplay();
+  }
+}
+
 const _originalWeights = {};  // { setupId: { criterion_id: weight } } — captured at init
 let   _weightsAdapted  = false;
 
@@ -8335,6 +8397,9 @@ function switchTab(tab) {
 //  MARKET MODE SWITCH (US ↔ PH)
 // ============================================================
 function switchMarket(mode) {
+  // Save the current market's screener state before switching
+  _saveMarketState(marketMode);
+
   marketMode   = mode;
   currentSetup = mode === 'PH' ? 'ph' : 1;
 
@@ -8379,13 +8444,8 @@ function switchMarket(mode) {
   document.getElementById('setup-type-section').style.display = mode === 'PH' ? 'none' : '';
   document.getElementById('ph-setup-label').style.display     = mode === 'PH' ? '' : 'none';
 
-  // Reset all scan state so stale US/PH data doesn't mix
-  tickers = []; results = []; filteredOut = [];
+  // Clear sector/earnings caches — these are market-specific
   sectorRankMap = {}; tickerSectorMap = {}; earningsMap = {};
-  activeCriteriaFilters.clear();
-
-  // Clear combined ticker list (slots themselves are preserved)
-  tickers = [];
 
   // Re-render sidebar criteria and preference panel for new setup
   renderCriteria();
@@ -8405,24 +8465,9 @@ function switchMarket(mode) {
   if (phSource) phSource.style.display = mode === 'PH' ? '' : 'none';
   if (wlLabel)  wlLabel.textContent    = mode === 'PH' ? 'PSE Market Source' : 'Watchlist (.txt)';
 
-  // Navigate to appropriate tab
+  // Navigate to appropriate tab, then restore this market's screener state
   switchTab(mode === 'PH' ? 'psedaily' : 'screener');
-  updateTickerDisplay();
-  document.getElementById('results-area').innerHTML = `
-    <div class="empty-state">
-      <div class="empty-icon">⊡</div>
-      <div class="empty-title">${mode === 'PH' ? 'LOADING PSE TICKERS…' : 'AWAITING WATCHLIST'}</div>
-      <div class="empty-desc">${mode === 'PH'
-        ? 'Fetching all PSE issues from the daily report. Switch to the Screener tab and press Run Scan when ready.'
-        : 'Upload a TradingView .txt watchlist, select Setup A or B, then press Run Scan.'
-      }</div>
-    </div>`;
-  document.getElementById('result-count-label').textContent = 'Ranked results will appear here';
-  document.getElementById('list-count-label').textContent   = '0 tickers';
-  document.getElementById('download-btn').style.display     = 'none';
-
-  // PH mode: auto-populate tickers from PSE daily data — no .txt needed
-  if (mode === 'PH') loadPHTickersFromDaily();
+  _restoreMarketState(mode);
 }
 
 // ============================================================
@@ -11079,6 +11124,9 @@ async function loadPHTickersFromDaily() {
       throw new Error(err.error || `HTTP ${resp.status}`);
     }
     const data = await resp.json();
+
+    // Guard: user may have switched back to US before this resolved
+    if (marketMode !== 'PH') return;
 
     tickers = data.stocks.map(s => ({ ticker: s.symbol, exchange: 'PSE', name: s.name || '' }));
 
