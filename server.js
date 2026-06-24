@@ -38,8 +38,8 @@ const PSE_TTL  = 60 * 60 * 1000; // 1 hour
 // ── Persistent history (pse_history.json) ────────────────────────────────────
 const PSE_HIST_FILE = path.join(__dirname, 'pse_history.json');
 
-// In-memory history: { dates: string[], stocks: { [sym]: { name, days: { [date]: [o,h,l,c,v,val,nf] } } } }
-let pseHistory = { dates: [], stocks: {} };
+// In-memory history: { dates: string[], stocks: { [sym]: { name, days: { [date]: [o,h,l,c,v,val,nf] } } }, sectors: { [date]: { [name]: { close, pctChange } } } }
+let pseHistory = { dates: [], stocks: {}, sectors: {} };
 
 // Build state (one concurrent build allowed)
 let pseBuild = { running: false, total: 0, done: 0, failed: 0, latest: '' };
@@ -48,9 +48,10 @@ function loadPSEHistory() {
   try {
     const raw = fs.readFileSync(PSE_HIST_FILE, 'utf8');
     pseHistory = JSON.parse(raw);
-    pseHistory.dates = pseHistory.dates || [];
-    pseHistory.stocks = pseHistory.stocks || {};
-    console.log(`[PSE history] Loaded: ${pseHistory.dates.length} days`);
+    pseHistory.dates   = pseHistory.dates   || [];
+    pseHistory.stocks  = pseHistory.stocks  || {};
+    pseHistory.sectors = pseHistory.sectors || {};
+    console.log(`[PSE history] Loaded: ${pseHistory.dates.length} days, ${Object.keys(pseHistory.sectors).length} sector-days`);
   } catch { /* file doesn't exist yet */ }
 }
 
@@ -85,6 +86,20 @@ function mergeIntoPSEHistory(dateStr, stocks) {
   }
 }
 
+// Merge one day's sector data into history: sectors = { [name]: { close, pctChange } }
+function mergeIntoPSEHistorySectors(dateStr, sectors) {
+  if (!pseHistory.sectors) pseHistory.sectors = {};
+  const entry = {};
+  for (const [name, data] of Object.entries(sectors)) {
+    const close     = data?.close     ?? null;
+    const pctChange = data?.pctChange ?? null;
+    if (close != null || pctChange != null)
+      entry[name] = { close, pctChange };
+  }
+  if (Object.keys(entry).length > 0)
+    pseHistory.sectors[dateStr] = entry;
+}
+
 async function runPSEHistoryBuild() {
   if (pseBuild.running) return;
 
@@ -106,9 +121,12 @@ async function runPSEHistoryBuild() {
 
   for (const dateStr of missing) {
     const result = await fetchPSEDay(dateStr);
-    const stocks = result ? result.stocks : null;
+    const stocks  = result ? result.stocks  : null;
+    const sectors = result ? result.sectors : null;
     if (stocks && stocks.length > 0) {
       mergeIntoPSEHistory(dateStr, stocks);
+      if (sectors && Object.keys(sectors).length > 0)
+        mergeIntoPSEHistorySectors(dateStr, sectors);
     } else {
       pseBuild.failed++;
     }
@@ -135,9 +153,6 @@ function pseWeekDays() {
   const mon = new Date(now);
   mon.setDate(now.getDate() - (dow === 0 ? 6 : dow - 1));
   mon.setHours(0, 0, 0, 0);
-
-  // On Mondays the current week has only one day — use last week instead
-  if (dow === 1) mon.setDate(mon.getDate() - 7);
 
   const days = [];
   for (let d = 0; d < 5; d++) {
@@ -984,10 +999,26 @@ const server = http.createServer(async (req, res) => {
         const range    = (weekHigh != null && weekLow != null) ? weekHigh - weekLow : 0;
         const rangePos = range > 0 ? Math.round((latest.close - weekLow) / range * 100) : 50;
 
-        const prevVols = dayEntries
+        // Current-week days before today
+        const weekPrevVols = dayEntries
           .filter(([d]) => d !== latestDate)
           .map(([, d]) => d.volume)
           .filter(v => v != null && v > 0);
+
+        // History days before the current display window (for Monday and to always reach 5)
+        const windowStart  = dates[0];
+        const histSymData  = pseHistory.stocks[data.symbol];
+        const histPrevVols = histSymData
+          ? Object.entries(histSymData.days)
+              .filter(([d]) => d < windowStart)
+              .sort(([a], [b]) => b.localeCompare(a))  // newest first
+              .slice(0, 5)
+              .map(([, compact]) => compact[4])         // index 4 = volume
+              .filter(v => v != null && v > 0)
+          : [];
+
+        // Take up to 5 days total (most recent first: current week + history)
+        const prevVols    = [...weekPrevVols, ...histPrevVols].slice(0, 5);
         const avgPrevVol  = prevVols.length ? Math.round(prevVols.reduce((a, b) => a + b, 0) / prevVols.length) : null;
         const volumeRatio = avgPrevVol && latest.volume ? Math.round(latest.volume / avgPrevVol * 10) / 10 : null;
 
@@ -1013,27 +1044,80 @@ const server = http.createServer(async (req, res) => {
 
       output.sort((a, b) => b.rangePos - a.rangePos);
 
-      // Fetch live sector data from frames.pse.com.ph (primary source)
-      let weekSectors = {};
+      // Merge this week's PDF sector data into persistent history
+      for (const [d, secs] of Object.entries(sectorByDay))
+        mergeIntoPSEHistorySectors(d, secs);
+
+      // Fetch live sector data (today's pctChange + close) and store in history
+      const liveCloses = {};
       try {
         const liveSectors = await fetchPSEFramesSectors();
-        for (const [name, data] of Object.entries(liveSectors))
-          weekSectors[name] = { close: data.close, weekPct: data.pctChange, days: 1 };
-        console.log(`[PSE] ${Object.keys(weekSectors).length} live sectors from frames.pse.com.ph`);
-      } catch (e) {
-        console.warn(`[PSE] frames.pse.com.ph failed (${e.message}), falling back to PDF sector data`);
-        // Fall back to PDF-derived sector data
-        const SECTOR_NAMES = ['PSEi','All Shares','Financials','Industrials','Holding Firms','Property','Services','Mining & Oil'];
-        const sectorDates = Object.keys(sectorByDay).sort();
-        for (const name of SECTOR_NAMES) {
-          const closes = sectorDates.map(d => sectorByDay[d]?.[name]?.close).filter(v => v != null);
-          if (closes.length === 0) continue;
-          const first = closes[0], last = closes[closes.length - 1];
-          const weekPct = closes.length > 1
-            ? (last / first - 1) * 100
-            : (sectorByDay[sectorDates[0]]?.[name]?.pctChange ?? null);
-          weekSectors[name] = { close: last, weekPct, days: closes.length };
+        if (!pseHistory.sectors) pseHistory.sectors = {};
+        if (!pseHistory.sectors[latestDate]) pseHistory.sectors[latestDate] = {};
+        for (const [name, data] of Object.entries(liveSectors)) {
+          if (data.pctChange != null || data.close != null) {
+            pseHistory.sectors[latestDate][name] = {
+              close: data.close ?? null,
+              pctChange: data.pctChange ?? null,
+            };
+          }
+          if (data.close != null) liveCloses[name] = data.close;
         }
+        console.log(`[PSE] ${Object.keys(liveSectors).length} live sectors from frames.pse.com.ph`);
+      } catch (e) {
+        console.warn(`[PSE] frames.pse.com.ph failed (${e.message}), using PDF sector data only`);
+      }
+
+      // Bootstrap: if we have fewer than 5 sector-days, pull prior week's PDFs (hits pseCache if built)
+      const sectorDatesNow = Object.keys(pseHistory.sectors || {}).filter(d => d <= latestDate).sort();
+      if (sectorDatesNow.length < 5) {
+        const prevNeeded = 5 - sectorDatesNow.length;
+        const windowStart = dates[0];
+        const candidates = [];
+        const probe = new Date(windowStart);
+        for (let i = 1; candidates.length < prevNeeded && i <= 21; i++) {
+          probe.setDate(probe.getDate() - 1);
+          const dow2 = probe.getDay();
+          if (dow2 === 0 || dow2 === 6) continue;
+          const ds = probe.toISOString().split('T')[0];
+          if (!(pseHistory.sectors || {})[ds]) candidates.push(ds);
+        }
+        for (const ds of candidates) {
+          const r = await fetchPSEDay(ds).catch(() => null);
+          if (r?.sectors && Object.keys(r.sectors).length > 0)
+            mergeIntoPSEHistorySectors(ds, r.sectors);
+        }
+      }
+
+      // Save updated sector history to disk
+      savePSEHistory();
+
+      // Build rolling 5-day compound return per sector index
+      const SECTOR_NAMES = ['PSEi','All Shares','Financials','Industrials','Holding Firms','Property','Services','Mining & Oil'];
+      const rolling5Dates = Object.keys(pseHistory.sectors || {})
+        .filter(d => d <= latestDate)
+        .sort()
+        .slice(-5);
+
+      const weekSectors = {};
+      for (const name of SECTOR_NAMES) {
+        const dailyPcts = rolling5Dates
+          .map(d => (pseHistory.sectors[d] || {})[name]?.pctChange)
+          .filter(v => v != null);
+
+        // Compound the daily % changes: (1+r1/100)*(1+r2/100)*...-1, expressed as %
+        const rollingPct = dailyPcts.length > 0
+          ? (dailyPcts.reduce((acc, p) => acc * (1 + p / 100), 1) - 1) * 100
+          : null;
+
+        const datesWithData = rolling5Dates.filter(d => (pseHistory.sectors[d] || {})[name]?.pctChange != null);
+        weekSectors[name] = {
+          close:    liveCloses[name] ?? (pseHistory.sectors[latestDate] || {})[name]?.close ?? null,
+          weekPct:  rollingPct,
+          days:     datesWithData.length,
+          fromDate: datesWithData[0] ?? null,
+          toDate:   datesWithData[datesWithData.length - 1] ?? null,
+        };
       }
 
       res.writeHead(200, { 'Content-Type': 'application/json' });

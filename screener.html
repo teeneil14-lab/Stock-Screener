@@ -11224,10 +11224,23 @@ async function runPSEScan() {
 
 
 function renderPSESectorStrip(sectors, nDays) {
+  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  function fmtDateRange(from, to) {
+    if (!from) return '';
+    const [fy, fm, fd] = from.split('-').map(Number);
+    if (!to || from === to) return `${MONTHS[fm-1]} ${fd}`;
+    const [ty, tm, td] = to.split('-').map(Number);
+    if (fm === tm && fy === ty) return `${MONTHS[fm-1]} ${fd}–${td}`;
+    return `${MONTHS[fm-1]} ${fd}–${MONTHS[tm-1]} ${td}`;
+  }
+
   function box(label, entry, showValue = false) {
-    const pct    = entry?.weekPct ?? null;
-    const days   = entry?.days ?? nDays;
-    const period = days <= 1 ? '1D' : `${days}D`;
+    const pct      = entry?.weekPct ?? null;
+    const days     = entry?.days ?? nDays;
+    const fromDate = entry?.fromDate ?? null;
+    const toDate   = entry?.toDate   ?? null;
+    const rangeStr = fromDate ? fmtDateRange(fromDate, toDate) : '';
+    const period   = rangeStr ? `${days}D · ${rangeStr}` : (days <= 1 ? '1D' : `${days}D`);
     const valHtml = showValue && entry?.close != null
       ? `<div class="pse-sector-val">${entry.close.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>`
       : '';
@@ -11261,7 +11274,6 @@ function renderPSESectorStrip(sectors, nDays) {
 
 function renderPSEPanels(data) {
   const { stocks, dates, sectors = {} } = data;
-  const multiDay = dates.length > 1;
 
   const liquid   = stocks.filter(s =>
     s.latestValue != null && s.latestValue >= 1_500_000 &&
@@ -11270,10 +11282,9 @@ function renderPSEPanels(data) {
     .filter(s => s.rangePos >= 75 && s.weekHigh != null && s.weekLow != null && s.weekHigh > s.weekLow)
     .sort((a, b) => b.rangePos - a.rangePos).slice(0, 30);
 
-  const volSurge = multiDay
-    ? liquid.filter(s => s.volumeRatio != null && s.volumeRatio >= 2.0 && s.avgPrevVol != null && s.avgPrevVol >= 10000)
-        .sort((a, b) => b.volumeRatio - a.volumeRatio).slice(0, 30)
-    : [];
+  const volSurge = liquid
+    .filter(s => s.volumeRatio != null && s.volumeRatio >= 2.0 && s.avgPrevVol != null && s.avgPrevVol >= 10000)
+    .sort((a, b) => b.volumeRatio - a.volumeRatio).slice(0, 30);
 
   const netBuying = liquid
     .filter(s => s.netForeign != null && s.netForeign > 0)
@@ -11286,7 +11297,7 @@ function renderPSEPanels(data) {
   }
 
   document.getElementById('pse-panels').innerHTML =
-    psePanelHigh(nearHigh) + psePanelVol(volSurge, multiDay) + psePanelForeign(netBuying);
+    psePanelHigh(nearHigh) + psePanelVol(volSurge) + psePanelForeign(netBuying);
 }
 
 function pseFmt(n, d = 2) {
@@ -11343,17 +11354,7 @@ function psePanelHigh(stocks) {
   </div>`;
 }
 
-function psePanelVol(stocks, multiDay) {
-  if (!multiDay) return `<div class="pse-panel">
-    <div class="pse-panel-head">
-      <div class="pse-panel-icon pse-icon-b">🔊</div>
-      <div><div class="pse-panel-title">Volume Surge</div>
-           <div class="pse-panel-sub">Today vol vs. weekly average</div></div>
-      <div class="pse-panel-count">0</div>
-    </div>
-    <div class="pse-panel-empty">Need 2+ trading days to compare volume.<br>Check back tomorrow.</div>
-  </div>`;
-
+function psePanelVol(stocks) {
   const rows = stocks.map(s => {
     const chipCls = s.volumeRatio >= 5 ? 'pse-chip-red' : s.volumeRatio >= 3 ? 'pse-chip-amber' : 'pse-chip-blue';
     return `<tr>
@@ -11368,13 +11369,13 @@ function psePanelVol(stocks, multiDay) {
     <div class="pse-panel-head">
       <div class="pse-panel-icon pse-icon-b">🔊</div>
       <div><div class="pse-panel-title">Volume Surge</div>
-           <div class="pse-panel-sub">Today vol vs. weekly average</div></div>
+           <div class="pse-panel-sub">Today vol vs. 5-day average</div></div>
       <div class="pse-panel-count">${stocks.length}</div>
     </div>
     ${stocks.length === 0
       ? '<div class="pse-panel-empty">No significant volume surges today.</div>'
       : `<div class="pse-table-wrap"><table class="pse-table">
-          <thead><tr><th>Issue</th><th>Today Vol</th><th>Wk Avg</th><th>Chg</th><th>Ratio</th></tr></thead>
+          <thead><tr><th>Issue</th><th>Today Vol</th><th>5D Avg</th><th>Chg</th><th>Ratio</th></tr></thead>
           <tbody>${rows}</tbody></table></div>`}
   </div>`;
 }
