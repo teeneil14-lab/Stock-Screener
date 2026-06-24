@@ -1068,10 +1068,10 @@ const server = http.createServer(async (req, res) => {
         console.warn(`[PSE] frames.pse.com.ph failed (${e.message}), using PDF sector data only`);
       }
 
-      // Bootstrap: if we have fewer than 5 sector-days, pull prior week's PDFs (hits pseCache if built)
+      // Bootstrap: need 6 sector-days (1 baseline close + 5 display days); pull prior PDFs if short
       const sectorDatesNow = Object.keys(pseHistory.sectors || {}).filter(d => d <= latestDate).sort();
-      if (sectorDatesNow.length < 5) {
-        const prevNeeded = 5 - sectorDatesNow.length;
+      if (sectorDatesNow.length < 6) {
+        const prevNeeded = 6 - sectorDatesNow.length;
         const windowStart = dates[0];
         const candidates = [];
         const probe = new Date(windowStart);
@@ -1092,31 +1092,36 @@ const server = http.createServer(async (req, res) => {
       // Save updated sector history to disk
       savePSEHistory();
 
-      // Build rolling 5-day compound return per sector index
+      // Build rolling 5-day return using closes:
+      //   return = (close_today / close_baseline - 1) × 100
+      //   baseline = the close on the trading day BEFORE the 5-day display window
+      //   so we need 6 sorted sector-dates; first = baseline, last 5 = display window
       const SECTOR_NAMES = ['PSEi','All Shares','Financials','Industrials','Holding Firms','Property','Services','Mining & Oil'];
-      const rolling5Dates = Object.keys(pseHistory.sectors || {})
+      const rolling6Dates = Object.keys(pseHistory.sectors || {})
         .filter(d => d <= latestDate)
         .sort()
-        .slice(-5);
+        .slice(-6);
 
       const weekSectors = {};
       for (const name of SECTOR_NAMES) {
-        const dailyPcts = rolling5Dates
-          .map(d => (pseHistory.sectors[d] || {})[name]?.pctChange)
-          .filter(v => v != null);
+        const datesWithClose = rolling6Dates.filter(d => (pseHistory.sectors[d] || {})[name]?.close != null);
 
-        // Compound the daily % changes: (1+r1/100)*(1+r2/100)*...-1, expressed as %
-        const rollingPct = dailyPcts.length > 0
-          ? (dailyPcts.reduce((acc, p) => acc * (1 + p / 100), 1) - 1) * 100
-          : null;
+        let rollingPct = null, fromDate = null, toDate = null, displayDays = 0;
+        if (datesWithClose.length >= 2) {
+          const baselineClose = (pseHistory.sectors[datesWithClose[0]] || {})[name].close;
+          const latestClose   = (pseHistory.sectors[datesWithClose[datesWithClose.length - 1]] || {})[name].close;
+          rollingPct   = (latestClose / baselineClose - 1) * 100;
+          fromDate     = datesWithClose[1];                           // first day of display window
+          toDate       = datesWithClose[datesWithClose.length - 1];  // last day (today)
+          displayDays  = datesWithClose.length - 1;
+        }
 
-        const datesWithData = rolling5Dates.filter(d => (pseHistory.sectors[d] || {})[name]?.pctChange != null);
         weekSectors[name] = {
           close:    liveCloses[name] ?? (pseHistory.sectors[latestDate] || {})[name]?.close ?? null,
           weekPct:  rollingPct,
-          days:     datesWithData.length,
-          fromDate: datesWithData[0] ?? null,
-          toDate:   datesWithData[datesWithData.length - 1] ?? null,
+          days:     displayDays,
+          fromDate,
+          toDate,
         };
       }
 
