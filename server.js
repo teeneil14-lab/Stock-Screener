@@ -956,14 +956,12 @@ const server = http.createServer(async (req, res) => {
     try {
       const days    = pseWeekDays();
       const settled = await Promise.allSettled(days.map(fetchPSEDay));
-      const weekData    = {};  // date -> stocks[]
-      const sectorByDay = {};  // date -> { [sectorName]: { close, pctChange } }
+      const weekData = {};  // date -> stocks[]
       days.forEach((d, i) => {
         const r = settled[i];
         if (r.status !== 'fulfilled' || !r.value) return;
-        const { stocks, sectors } = r.value;
+        const { stocks } = r.value;
         if (stocks && stocks.length > 0) weekData[d] = stocks;
-        if (sectors && Object.keys(sectors).length > 0) sectorByDay[d] = sectors;
       });
 
       const dates = Object.keys(weekData).sort();
@@ -1044,10 +1042,6 @@ const server = http.createServer(async (req, res) => {
 
       output.sort((a, b) => b.rangePos - a.rangePos);
 
-      // Merge this week's PDF sector data into persistent history
-      for (const [d, secs] of Object.entries(sectorByDay))
-        mergeIntoPSEHistorySectors(d, secs);
-
       // Fetch live sector data (today's pctChange + close) and store in history
       const liveCloses = {};
       try {
@@ -1065,37 +1059,15 @@ const server = http.createServer(async (req, res) => {
         }
         console.log(`[PSE] ${Object.keys(liveSectors).length} live sectors from frames.pse.com.ph`);
       } catch (e) {
-        console.warn(`[PSE] frames.pse.com.ph failed (${e.message}), using PDF sector data only`);
-      }
-
-      // Bootstrap: need 6 sector-days (1 baseline close + 5 display days); pull prior PDFs if short
-      const sectorDatesNow = Object.keys(pseHistory.sectors || {}).filter(d => d <= latestDate).sort();
-      if (sectorDatesNow.length < 6) {
-        const prevNeeded = 6 - sectorDatesNow.length;
-        const windowStart = dates[0];
-        const candidates = [];
-        const probe = new Date(windowStart);
-        for (let i = 1; candidates.length < prevNeeded && i <= 21; i++) {
-          probe.setDate(probe.getDate() - 1);
-          const dow2 = probe.getDay();
-          if (dow2 === 0 || dow2 === 6) continue;
-          const ds = probe.toISOString().split('T')[0];
-          if (!(pseHistory.sectors || {})[ds]) candidates.push(ds);
-        }
-        for (const ds of candidates) {
-          const r = await fetchPSEDay(ds).catch(() => null);
-          if (r?.sectors && Object.keys(r.sectors).length > 0)
-            mergeIntoPSEHistorySectors(ds, r.sectors);
-        }
+        console.warn(`[PSE] frames.pse.com.ph failed (${e.message}), sector data not updated today`);
       }
 
       // Save updated sector history to disk
       savePSEHistory();
 
-      // Build rolling 5-day return using closes:
+      // Build rolling return using closes from frames.pse.com.ph (accumulated day by day).
       //   return = (close_today / close_baseline - 1) × 100
-      //   baseline = the close on the trading day BEFORE the 5-day display window
-      //   so we need 6 sorted sector-dates; first = baseline, last 5 = display window
+      //   Shows whatever range is available; needs ≥2 dates to display a %.
       const SECTOR_NAMES = ['PSEi','All Shares','Financials','Industrials','Holding Firms','Property','Services','Mining & Oil'];
       const rolling6Dates = Object.keys(pseHistory.sectors || {})
         .filter(d => d <= latestDate)
@@ -1111,9 +1083,15 @@ const server = http.createServer(async (req, res) => {
           const baselineClose = (pseHistory.sectors[datesWithClose[0]] || {})[name].close;
           const latestClose   = (pseHistory.sectors[datesWithClose[datesWithClose.length - 1]] || {})[name].close;
           rollingPct   = (latestClose / baselineClose - 1) * 100;
-          fromDate     = datesWithClose[1];                           // first day of display window
-          toDate       = datesWithClose[datesWithClose.length - 1];  // last day (today)
+          fromDate     = datesWithClose[1];
+          toDate       = datesWithClose[datesWithClose.length - 1];
           displayDays  = datesWithClose.length - 1;
+        } else if (datesWithClose.length === 1) {
+          // Only one day in history — use the pctChange the PSE website publishes (day-over-day)
+          rollingPct  = (pseHistory.sectors[datesWithClose[0]] || {})[name]?.pctChange ?? null;
+          fromDate    = datesWithClose[0];
+          toDate      = datesWithClose[0];
+          displayDays = 1;
         }
 
         weekSectors[name] = {
