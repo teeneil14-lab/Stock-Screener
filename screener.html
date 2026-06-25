@@ -2951,6 +2951,205 @@
   }
   /* Row 1 (2 boxes) gets slightly taller % text */
   .pse-sector-row:first-child .pse-sector-pct { font-size: 18px; }
+
+  /* ── MARKET TIMELINE TAB ───────────────────────────────────────────────── */
+  .mtl-page {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--bg);
+  }
+  .mtl-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg2);
+    flex-shrink: 0;
+  }
+  .mtl-toolbar-left  { display: flex; align-items: center; gap: 12px; }
+  .mtl-toolbar-right { display: flex; align-items: center; gap: 8px; }
+  .mtl-title {
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    color: var(--text);
+    text-transform: uppercase;
+  }
+  .mtl-updated { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--text3); }
+  .mtl-layout-group { display: flex; }
+  .mtl-layout-btn {
+    font-family: 'Inter', sans-serif;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    color: var(--text3);
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    padding: 3px 10px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .mtl-layout-btn:first-child { border-radius: 4px 0 0 4px; border-right: none; }
+  .mtl-layout-btn:last-child  { border-radius: 0 4px 4px 0; }
+  .mtl-layout-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .mtl-refresh-btn {
+    font-family: 'Inter', sans-serif;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    color: var(--accent);
+    background: var(--green-dim);
+    border: 1px solid rgba(10,124,78,0.25);
+    border-radius: 4px;
+    padding: 4px 10px;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+  .mtl-refresh-btn:hover    { opacity: 0.8; }
+  .mtl-refresh-btn:disabled { opacity: 0.4; cursor: default; }
+
+  .mtl-body {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .mtl-charts-wrap {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .mtl-chart-section {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    border-bottom: 1px solid var(--border);
+  }
+  .mtl-chart-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 12px;
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .mtl-chart-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text2);
+    letter-spacing: 0.05em;
+  }
+  .mtl-sym-btns { display: flex; gap: 2px; }
+  .mtl-sym-btn {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--text3);
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: 3px;
+    padding: 2px 6px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .mtl-sym-btn.active { color: var(--accent); border-color: var(--accent); background: var(--green-dim); }
+  .mtl-sym-btn:hover  { color: var(--text2); }
+  .mtl-chart-container {
+    flex: 1;
+    min-height: 0;
+    position: relative;
+  }
+
+  /* HOVER PANEL */
+  .mtl-hover-panel {
+    flex: 0 0 172px;
+    background: var(--bg2);
+    border-top: 2px solid var(--border);
+    overflow-y: auto;
+    padding: 0;
+  }
+  .mtl-hover-empty {
+    padding: 14px 20px;
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    color: var(--text3);
+    text-align: center;
+  }
+  .mtl-hover-content { padding: 8px 14px 6px; }
+  .mtl-hover-date-row {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+  .mtl-hover-date {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: 0.04em;
+  }
+  .mtl-hover-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 7px;
+  }
+  .mtl-hover-section-title {
+    font-family: 'Inter', sans-serif;
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    color: var(--text3);
+    margin-bottom: 4px;
+    text-transform: uppercase;
+  }
+  .mtl-hover-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 0;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .mtl-hover-row:last-child { border-bottom: none; }
+  .mtl-hover-rank   { color: var(--text3); font-size: 9px; min-width: 12px; }
+  .mtl-hover-ticker { color: var(--text); font-weight: 700; flex: 1; }
+  .mtl-hover-pct-pos { color: var(--green); font-weight: 600; }
+  .mtl-hover-pct-neg { color: var(--red);   font-weight: 600; }
+  .mtl-no-data { font-size: 9px; color: var(--text3); font-family: 'Inter', sans-serif; padding: 3px 0; }
+  .mtl-breadth-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 5px 0 2px;
+    border-top: 1px solid var(--border);
+  }
+  .mtl-breadth-label {
+    font-family: 'Inter', sans-serif;
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    color: var(--text3);
+    text-transform: uppercase;
+    margin-right: 2px;
+  }
+  .mtl-breadth-item { display: flex; align-items: center; gap: 3px; }
+  .mtl-breadth-key  { font-family: 'IBM Plex Mono', monospace; font-size: 9px; color: var(--text3); }
+  .mtl-breadth-val  { font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 700; }
 </style>
 <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
 <script>var LZString=function(){var r=String.fromCharCode,o="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=",n="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+-$",e={};function t(r,o){if(!e[r]){e[r]={};for(var n=0;n<r.length;n++)e[r][r.charAt(n)]=n}return e[r][o]}var i={compressToBase64:function(r){if(null==r)return"";var n=i._compress(r,6,function(r){return o.charAt(r)});switch(n.length%4){default:case 0:return n;case 1:return n+"===";case 2:return n+"==";case 3:return n+"="}},decompressFromBase64:function(r){return null==r?"":""==r?null:i._decompress(r.length,32,function(n){return t(o,r.charAt(n))})},compressToUTF16:function(o){return null==o?"":i._compress(o,15,function(o){return r(o+32)})+" "},decompressFromUTF16:function(r){return null==r?"":""==r?null:i._decompress(r.length,16384,function(o){return r.charCodeAt(o)-32})},compressToUint8Array:function(r){for(var o=i.compress(r),n=new Uint8Array(2*o.length),e=0,t=o.length;e<t;e++){var s=o.charCodeAt(e);n[2*e]=s>>>8,n[2*e+1]=s%256}return n},decompressFromUint8Array:function(o){if(null==o)return i.decompress(o);for(var n=new Array(o.length/2),e=0,t=n.length;e<t;e++)n[e]=256*o[2*e]+o[2*e+1];var s=[];return n.forEach(function(o){s.push(r(o))}),i.decompress(s.join(""))},compressToEncodedURIComponent:function(r){return null==r?"":i._compress(r,6,function(r){return n.charAt(r)})},decompressFromEncodedURIComponent:function(r){return null==r?"":""==r?null:(r=r.replace(/ /g,"+"),i._decompress(r.length,32,function(o){return t(n,r.charAt(o))}))},compress:function(o){return i._compress(o,16,function(o){return r(o)})},_compress:function(r,o,n){if(null==r)return"";var e,t,i,s={},u={},a="",p="",c="",l=2,f=3,h=2,d=[],m=0,v=0;for(i=0;i<r.length;i+=1)if(a=r.charAt(i),Object.prototype.hasOwnProperty.call(s,a)||(s[a]=f++,u[a]=!0),p=c+a,Object.prototype.hasOwnProperty.call(s,p))c=p;else{if(Object.prototype.hasOwnProperty.call(u,c)){if(c.charCodeAt(0)<256){for(e=0;e<h;e++)m<<=1,v==o-1?(v=0,d.push(n(m)),m=0):v++;for(t=c.charCodeAt(0),e=0;e<8;e++)m=m<<1|1&t,v==o-1?(v=0,d.push(n(m)),m=0):v++,t>>=1}else{for(t=1,e=0;e<h;e++)m=m<<1|t,v==o-1?(v=0,d.push(n(m)),m=0):v++,t=0;for(t=c.charCodeAt(0),e=0;e<16;e++)m=m<<1|1&t,v==o-1?(v=0,d.push(n(m)),m=0):v++,t>>=1}0==--l&&(l=Math.pow(2,h),h++),delete u[c]}else for(t=s[c],e=0;e<h;e++)m=m<<1|1&t,v==o-1?(v=0,d.push(n(m)),m=0):v++,t>>=1;0==--l&&(l=Math.pow(2,h),h++),s[p]=f++,c=String(a)}if(""!==c){if(Object.prototype.hasOwnProperty.call(u,c)){if(c.charCodeAt(0)<256){for(e=0;e<h;e++)m<<=1,v==o-1?(v=0,d.push(n(m)),m=0):v++;for(t=c.charCodeAt(0),e=0;e<8;e++)m=m<<1|1&t,v==o-1?(v=0,d.push(n(m)),m=0):v++,t>>=1}else{for(t=1,e=0;e<h;e++)m=m<<1|t,v==o-1?(v=0,d.push(n(m)),m=0):v++,t=0;for(t=c.charCodeAt(0),e=0;e<16;e++)m=m<<1|1&t,v==o-1?(v=0,d.push(n(m)),m=0):v++,t>>=1}0==--l&&(l=Math.pow(2,h),h++),delete u[c]}else for(t=s[c],e=0;e<h;e++)m=m<<1|1&t,v==o-1?(v=0,d.push(n(m)),m=0):v++,t>>=1;0==--l&&(l=Math.pow(2,h),h++)}for(t=2,e=0;e<h;e++)m=m<<1|1&t,v==o-1?(v=0,d.push(n(m)),m=0):v++,t>>=1;for(;;){if(m<<=1,v==o-1){d.push(n(m));break}v++}return d.join("")},decompress:function(r){return null==r?"":""==r?null:i._decompress(r.length,32768,function(o){return r.charCodeAt(o)})},_decompress:function(o,n,e){var t,i,s,u,a,p,c,l=[],f=4,h=4,d=3,m="",v=[],g={val:e(0),position:n,index:1};for(t=0;t<3;t+=1)l[t]=t;for(s=0,a=Math.pow(2,2),p=1;p!=a;)u=g.val&g.position,g.position>>=1,0==g.position&&(g.position=n,g.val=e(g.index++)),s|=(u>0?1:0)*p,p<<=1;switch(s){case 0:for(s=0,a=Math.pow(2,8),p=1;p!=a;)u=g.val&g.position,g.position>>=1,0==g.position&&(g.position=n,g.val=e(g.index++)),s|=(u>0?1:0)*p,p<<=1;c=r(s);break;case 1:for(s=0,a=Math.pow(2,16),p=1;p!=a;)u=g.val&g.position,g.position>>=1,0==g.position&&(g.position=n,g.val=e(g.index++)),s|=(u>0?1:0)*p,p<<=1;c=r(s);break;case 2:return""}for(l[3]=c,i=c,v.push(c);;){if(g.index>o)return"";for(s=0,a=Math.pow(2,d),p=1;p!=a;)u=g.val&g.position,g.position>>=1,0==g.position&&(g.position=n,g.val=e(g.index++)),s|=(u>0?1:0)*p,p<<=1;switch(c=s){case 0:for(s=0,a=Math.pow(2,8),p=1;p!=a;)u=g.val&g.position,g.position>>=1,0==g.position&&(g.position=n,g.val=e(g.index++)),s|=(u>0?1:0)*p,p<<=1;l[h++]=r(s),c=h-1,f--;break;case 1:for(s=0,a=Math.pow(2,16),p=1;p!=a;)u=g.val&g.position,g.position>>=1,0==g.position&&(g.position=n,g.val=e(g.index++)),s|=(u>0?1:0)*p,p<<=1;l[h++]=r(s),c=h-1,f--;break;case 2:return v.join("")}if(0==f&&(f=Math.pow(2,d),d++),l[c])m=l[c];else{if(c!==h)return null;m=i+i.charAt(0)}v.push(m),l[h++]=i+m.charAt(0),i=m,0==--f&&(f=Math.pow(2,d),d++)}}};return i}();"function"==typeof define&&define.amd?define(function(){return LZString}):"undefined"!=typeof module&&null!=module?module.exports=LZString:"undefined"!=typeof angular&&null!=angular&&angular.module("LZString",[]).factory("LZString",function(){return LZString});</script>
@@ -3005,6 +3204,7 @@
   <button class="tab-btn" id="tab-btn-imap"    onclick="switchTab('imap')">Industry Map</button>
   <button class="tab-btn" id="tab-btn-picks"   onclick="switchTab('picks')">★ My Picks</button>
   <button class="tab-btn" id="tab-btn-tweekly" onclick="switchTab('tweekly')">Tweekly</button>
+  <button class="tab-btn" id="tab-btn-timeline" onclick="switchTab('timeline')">Market Timeline</button>
   <button class="tab-btn" id="tab-btn-psedaily" onclick="switchTab('psedaily')" style="display:none">PSE Daily</button>
   <div class="tab-search-wrap">
     <input type="text" id="tab-search-input" class="tab-search-input" placeholder="AAPL or AVGO, AAPL, SMCI…"
@@ -3523,6 +3723,77 @@
   <div id="pse-sector-strip" class="pse-sector-strip" style="display:none"></div>
   <div id="pse-panels" class="pse-panels" style="display:none"></div>
 </div><!-- /tab-psedaily -->
+
+<!-- MARKET TIMELINE TAB -->
+<div id="tab-timeline" class="tab-page" style="display:none">
+  <div class="mtl-page">
+    <div class="mtl-toolbar">
+      <div class="mtl-toolbar-left">
+        <div class="mtl-title">Market Timeline</div>
+        <div class="mtl-updated" id="mtl-updated">Not loaded</div>
+      </div>
+      <div class="mtl-toolbar-right">
+        <div class="mtl-layout-group">
+          <button class="mtl-layout-btn active" id="mtl-layout-btn-1" onclick="setMtlLayout(1)">1 CHART</button>
+          <button class="mtl-layout-btn" id="mtl-layout-btn-2" onclick="setMtlLayout(2)">2 CHARTS</button>
+        </div>
+        <button class="mtl-refresh-btn" id="mtl-refresh-btn" onclick="loadMarketTimeline(true)">↻ REFRESH</button>
+      </div>
+    </div>
+    <div class="mtl-body">
+      <div class="mtl-charts-wrap" id="mtl-charts-wrap">
+        <!-- Top chart: SPY -->
+        <div class="mtl-chart-section" id="mtl-sect-top">
+          <div class="mtl-chart-header">
+            <span class="mtl-chart-label" id="mtl-top-label">SPY — S&amp;P 500 ETF</span>
+          </div>
+          <div class="mtl-chart-container" id="mtl-container-top"></div>
+        </div>
+        <!-- Bottom chart (shown only in 2-chart layout) -->
+        <div class="mtl-chart-section" id="mtl-sect-bot" style="display:none">
+          <div class="mtl-chart-header">
+            <span class="mtl-chart-label" id="mtl-bot-label">QQQ — Nasdaq 100</span>
+            <div class="mtl-sym-btns">
+              <button class="mtl-sym-btn active" id="mtl-sym-QQQ" onclick="setMtlBottomSym('QQQ','Nasdaq 100')">QQQ</button>
+              <button class="mtl-sym-btn" id="mtl-sym-IWM" onclick="setMtlBottomSym('IWM','Russell 2000')">IWM</button>
+              <button class="mtl-sym-btn" id="mtl-sym-DIA" onclick="setMtlBottomSym('DIA','Dow Jones')">DIA</button>
+              <button class="mtl-sym-btn" id="mtl-sym-SPY" onclick="setMtlBottomSym('SPY','S&amp;P 500 (line)')">SPY</button>
+            </div>
+          </div>
+          <div class="mtl-chart-container" id="mtl-container-bot"></div>
+        </div>
+      </div>
+      <!-- Hover panel — shown below charts, populated when mouse is over the chart -->
+      <div class="mtl-hover-panel" id="mtl-hover-panel">
+        <div class="mtl-hover-empty" id="mtl-hover-empty">Hover over the chart to see market context for that day</div>
+        <div class="mtl-hover-content" id="mtl-hover-content" style="display:none">
+          <div class="mtl-hover-date-row">
+            <div class="mtl-hover-date" id="mtl-hover-date">—</div>
+            <div id="mtl-spy-info"></div>
+          </div>
+          <div class="mtl-hover-grid">
+            <div class="mtl-hover-section">
+              <div class="mtl-hover-section-title">My Picks</div>
+              <div id="mtl-picks-list"></div>
+            </div>
+            <div class="mtl-hover-section">
+              <div class="mtl-hover-section-title">Top Sectors — 1W</div>
+              <div id="mtl-sectors-list"></div>
+            </div>
+            <div class="mtl-hover-section">
+              <div class="mtl-hover-section-title">Top Industries — 5D</div>
+              <div id="mtl-indus-list"></div>
+            </div>
+          </div>
+          <div class="mtl-breadth-row" id="mtl-breadth-row">
+            <span class="mtl-breadth-label">EMA Breadth (live)</span>
+            <span id="mtl-breadth-snapshot" style="font-size:9px;color:var(--text3);font-family:'Inter',sans-serif">Run breadth scan in Sector tab first</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div><!-- /tab-timeline -->
 
 <!-- MODAL -->
 <div class="toast" id="app-toast"></div>
@@ -8370,7 +8641,7 @@ let _tweeklyMOChart    = null;
 let _tweeklyMOChartRO  = null;
 
 function switchTab(tab) {
-  ['screener','sectors','imap','picks','tweekly','psedaily'].forEach(t => {
+  ['screener','sectors','imap','picks','tweekly','timeline','psedaily'].forEach(t => {
     const page = document.getElementById(`tab-${t}`);
     const btn  = document.getElementById(`tab-btn-${t}`);
     if (page) page.style.display = tab === t ? '' : 'none';
@@ -8379,6 +8650,7 @@ function switchTab(tab) {
   if (tab === 'sectors'   && !sectorsLoaded   && marketMode !== 'PH') loadSectors();
   if (tab === 'imap'      && !imapLoaded      && marketMode !== 'PH') loadIndustryMap(false);
   if (tab === 'tweekly'   && !tweeklyLoaded   && marketMode !== 'PH') loadTweekly(false);
+  if (tab === 'timeline'  && !mtlLoaded       && marketMode !== 'PH') loadMarketTimeline(false);
   if (tab === 'psedaily'  && !pseDailyLoaded)  runPSEScan();
   if (tab === 'picks') {
     _destroyAnalyticsCharts();
@@ -8418,7 +8690,7 @@ function switchMarket(mode) {
   document.getElementById('mkt-lbl-ph').classList.toggle('active', mode === 'PH');
 
   // Show/hide US-only tabs; reset their loaded flags so data re-fetches on next visit
-  ['sectors','imap','tweekly'].forEach(t => {
+  ['sectors','imap','tweekly','timeline'].forEach(t => {
     const btn = document.getElementById(`tab-btn-${t}`);
     if (btn) btn.style.display = mode === 'PH' ? 'none' : '';
   });
@@ -8427,6 +8699,8 @@ function switchMarket(mode) {
   sectorsLoaded     = false;
   imapLoaded        = false;
   tweeklyLoaded     = false;
+  mtlLoaded         = false;
+  _mtlDestroyCharts();
   tweeklyYTDLoaded  = false;
   _tweeklyActiveTab = 'weekly';
   // Reset sub-tab UI back to Weekly Performance
@@ -11405,6 +11679,439 @@ function psePanelForeign(stocks) {
           <thead><tr><th>Issue</th><th>Close</th><th>Chg</th><th>Net Foreign</th></tr></thead>
           <tbody>${rows}</tbody></table></div>`}
   </div>`;
+}
+
+// ============================================================
+//  MARKET TIMELINE TAB
+// ============================================================
+
+let mtlLoaded         = false;
+let _mtlLayout        = 1;
+let _mtlBottomSym     = 'QQQ';
+let _mtlTopChart      = null;
+let _mtlBotChart      = null;
+let _mtlTopCandles    = null;
+let _mtlSpyBars       = null;       // [{t_ms, o, h, l, c}]
+let _mtlBotBars       = {};         // sym → [{t_ms, c}]
+let _mtlIndusBars     = {};         // etf_ticker → [{t_ms, c}]
+let _mtlIndusLoading  = false;
+let _mtlLastHoverSec  = null;
+
+// All industry ETF tickers we want 1-year daily bars for
+const MTL_INDUS_TICKERS = (() => {
+  const seen = new Set();
+  const out  = [];
+  IMAP_SECTORS.forEach(s => s.etfs.forEach(e => {
+    if (!seen.has(e.ticker)) { seen.add(e.ticker); out.push(e.ticker); }
+  }));
+  return out;
+})();
+
+async function loadMarketTimeline(force = false) {
+  mtlLoaded = true;
+  const btn     = document.getElementById('mtl-refresh-btn');
+  const updated = document.getElementById('mtl-updated');
+
+  if (btn) btn.disabled = true;
+  if (updated) updated.textContent = 'Loading…';
+
+  _mtlDestroyCharts();
+
+  try {
+    const res    = await fetch('/api/yf?ticker=SPY&range=1y&interval=1d');
+    const json   = await res.json();
+    const result = json?.chart?.result?.[0];
+    if (!result) throw new Error('No SPY data returned');
+
+    const ts  = result.timestamp || [];
+    const qt  = result.indicators.quote[0];
+    _mtlSpyBars = [];
+    for (let i = 0; i < ts.length; i++) {
+      if (qt.close[i] != null) {
+        _mtlSpyBars.push({
+          t: ts[i] * 1000,
+          o: qt.open[i]   ?? qt.close[i],
+          h: qt.high[i]   ?? qt.close[i],
+          l: qt.low[i]    ?? qt.close[i],
+          c: qt.close[i],
+        });
+      }
+    }
+
+    _mtlBuildTopChart();
+    if (_mtlLayout === 2) await _mtlLoadBotChart(_mtlBottomSym);
+
+    if (!sectorRows && marketMode !== 'PH') loadSectors();
+    _mtlLoadIndusBars();
+
+    if (updated) updated.textContent = 'Updated ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  } catch (err) {
+    if (updated) updated.textContent = 'Error — check console';
+    console.error('[MTL]', err);
+  }
+
+  if (btn) btn.disabled = false;
+}
+
+async function _mtlLoadBotChart(sym) {
+  if (!_mtlBotBars[sym]) {
+    try {
+      const res    = await fetch(`/api/yf?ticker=${encodeURIComponent(sym)}&range=1y&interval=1d`);
+      const json   = await res.json();
+      const result = json?.chart?.result?.[0];
+      if (result) {
+        const ts = result.timestamp || [];
+        const qc = result.indicators.quote[0].close;
+        const bars = [];
+        for (let i = 0; i < ts.length; i++) {
+          if (qc[i] != null) bars.push({ t: ts[i] * 1000, c: qc[i] });
+        }
+        _mtlBotBars[sym] = bars;
+      }
+    } catch {}
+  }
+  _mtlBuildBotChart();
+}
+
+async function _mtlLoadIndusBars() {
+  if (_mtlIndusLoading) return;
+  _mtlIndusLoading = true;
+  const toFetch = MTL_INDUS_TICKERS.filter(t => !_mtlIndusBars[t]);
+  for (let i = 0; i < toFetch.length; i += 6) {
+    const batch = toFetch.slice(i, i + 6);
+    await Promise.allSettled(batch.map(async ticker => {
+      try {
+        const res    = await fetch(`/api/yf?ticker=${encodeURIComponent(ticker)}&range=1y&interval=1d`);
+        const json   = await res.json();
+        const result = json?.chart?.result?.[0];
+        if (!result) return;
+        const ts = result.timestamp || [];
+        const qc = result.indicators.quote[0].close;
+        const bars = [];
+        for (let j = 0; j < ts.length; j++) {
+          if (qc[j] != null) bars.push({ t: ts[j] * 1000, c: qc[j] });
+        }
+        _mtlIndusBars[ticker] = bars;
+      } catch {}
+    }));
+  }
+  _mtlIndusLoading = false;
+  if (_mtlLastHoverSec != null) _mtlPopulateHover(_mtlLastHoverSec);
+}
+
+function _mtlBuildTopChart() {
+  const container = document.getElementById('mtl-container-top');
+  if (!container || !_mtlSpyBars || !_mtlSpyBars.length) return;
+  if (_mtlTopChart) { try { _mtlTopChart.remove(); } catch {} _mtlTopChart = null; }
+  container.innerHTML = '';
+
+  _mtlTopChart = LightweightCharts.createChart(container, {
+    autoSize:   true,
+    layout:     { background: { color: '#ffffff' }, textColor: '#4a5162' },
+    grid:       { vertLines: { color: '#f0f1f4' }, horzLines: { color: '#f0f1f4' } },
+    rightPriceScale: { borderColor: '#e2e4e9', scaleMargins: { top: 0.08, bottom: 0.08 } },
+    timeScale:  { borderColor: '#e2e4e9', timeVisible: true, secondsVisible: false },
+    crosshair:  { mode: LightweightCharts.CrosshairMode.Normal },
+    handleScroll: true,
+    handleScale:  true,
+  });
+
+  _mtlTopCandles = _mtlTopChart.addCandlestickSeries({
+    upColor:        '#0a7c4e', downColor:        '#c82828',
+    borderUpColor:  '#0a7c4e', borderDownColor:  '#c82828',
+    wickUpColor:    '#0a7c4e', wickDownColor:    '#c82828',
+  });
+  _mtlTopCandles.setData(_mtlSpyBars.map(b => ({
+    time: Math.floor(b.t / 1000), open: b.o, high: b.h, low: b.l, close: b.c,
+  })));
+
+  // EMA21 line
+  const closes = _mtlSpyBars.map(b => b.c);
+  const ema21  = _mtlCalcEMASeries(closes, 21);
+  const emaSeries = _mtlTopChart.addLineSeries({
+    color: '#1d4ed8', lineWidth: 1.5,
+    priceLineVisible: false, lastValueVisible: false,
+  });
+  emaSeries.setData(
+    _mtlSpyBars
+      .map((b, i) => ema21[i] != null ? { time: Math.floor(b.t / 1000), value: ema21[i] } : null)
+      .filter(Boolean)
+  );
+
+  _mtlSetPickMarkers(_mtlTopCandles);
+
+  _mtlTopChart.subscribeCrosshairMove(param => {
+    if (param && param.time) {
+      _mtlLastHoverSec = param.time;
+      _mtlPopulateHover(param.time);
+    } else {
+      _mtlClearHover();
+    }
+  });
+}
+
+function _mtlBuildBotChart() {
+  const container = document.getElementById('mtl-container-bot');
+  const bars = _mtlBotBars[_mtlBottomSym];
+  if (!container) return;
+  if (_mtlBotChart) { try { _mtlBotChart.remove(); } catch {} _mtlBotChart = null; }
+  container.innerHTML = '';
+  if (!bars || !bars.length) return;
+
+  _mtlBotChart = LightweightCharts.createChart(container, {
+    autoSize:   true,
+    layout:     { background: { color: '#ffffff' }, textColor: '#4a5162' },
+    grid:       { vertLines: { color: '#f0f1f4' }, horzLines: { color: '#f0f1f4' } },
+    rightPriceScale: { borderColor: '#e2e4e9', scaleMargins: { top: 0.08, bottom: 0.08 } },
+    timeScale:  { borderColor: '#e2e4e9', timeVisible: true, secondsVisible: false },
+    crosshair:  { mode: LightweightCharts.CrosshairMode.Normal },
+    handleScroll: true,
+    handleScale:  true,
+  });
+
+  const lineSeries = _mtlBotChart.addLineSeries({
+    color: '#1d4ed8', lineWidth: 2,
+    priceLineVisible: false, lastValueVisible: false,
+  });
+  lineSeries.setData(bars.map(b => ({ time: Math.floor(b.t / 1000), value: b.c })));
+
+  _mtlBotChart.subscribeCrosshairMove(param => {
+    if (param && param.time) {
+      _mtlLastHoverSec = param.time;
+      _mtlPopulateHover(param.time);
+    }
+  });
+}
+
+function _mtlSetPickMarkers(series) {
+  if (!series) return;
+  const allLiked = [1, 2].flatMap(sid => { try { return loadLiked(sid); } catch { return []; } });
+
+  // One marker per calendar date, using the highest-score pick that day
+  const byDate = {};
+  allLiked.forEach(e => {
+    const ds = new Date(e.starredAt).toISOString().split('T')[0];
+    if (!byDate[ds] || e.score > byDate[ds].score) byDate[ds] = e;
+  });
+
+  const markers = Object.keys(byDate).map(ds => {
+    const [y, mo, d] = ds.split('-').map(Number);
+    return { time: Date.UTC(y, mo - 1, d) / 1000, position: 'aboveBar', color: '#d97706', shape: 'arrowDown', text: '★' };
+  }).sort((a, b) => a.time - b.time);
+
+  series.setMarkers(markers);
+}
+
+function _mtlDateStr(tMs) {
+  return new Date(tMs).toISOString().split('T')[0]; // "YYYY-MM-DD"
+}
+
+function _mtlGetHistReturn(bars, targetDateStr, lookbackBars) {
+  if (!bars || bars.length < 2) return null;
+  let idx = -1;
+  for (let i = 0; i < bars.length; i++) {
+    if (_mtlDateStr(bars[i].t) <= targetDateStr) idx = i;
+    else break;
+  }
+  if (idx < 0) return null;
+  const startIdx = Math.max(0, idx - lookbackBars);
+  if (startIdx === idx) return null;
+  const past = bars[startIdx].c;
+  const now  = bars[idx].c;
+  return ((now - past) / past) * 100;
+}
+
+function _mtlFmtPct(pct) {
+  if (pct == null) return '<span style="color:var(--text3)">—</span>';
+  const col = pct >= 0 ? 'var(--green)' : 'var(--red)';
+  return `<span style="color:${col};font-weight:700;font-family:\'IBM Plex Mono\',monospace;font-size:10px">${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%</span>`;
+}
+
+function _mtlPopulateHover(timeSec) {
+  const empty   = document.getElementById('mtl-hover-empty');
+  const content = document.getElementById('mtl-hover-content');
+  if (!empty || !content) return;
+  empty.style.display   = 'none';
+  content.style.display = '';
+
+  const dateMs  = timeSec * 1000;
+  const dateStr = _mtlDateStr(dateMs);
+
+  // Formatted date label
+  const dateLabel = new Date(dateMs + 43200000).toLocaleDateString('en-US', {
+    weekday: 'short', year: 'numeric', month: 'short', day: 'numeric',
+  });
+  const dateEl = document.getElementById('mtl-hover-date');
+  if (dateEl) dateEl.textContent = dateLabel;
+
+  // SPY bar info for that day
+  const spyInfoEl = document.getElementById('mtl-spy-info');
+  if (spyInfoEl && _mtlSpyBars) {
+    const spyBar = _mtlSpyBars.find(b => _mtlDateStr(b.t) === dateStr);
+    if (spyBar) {
+      const chgPct = ((spyBar.c - spyBar.o) / spyBar.o) * 100;
+      const col = chgPct >= 0 ? 'var(--green)' : 'var(--red)';
+      spyInfoEl.innerHTML =
+        `<span style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;color:var(--text2)">SPY ${spyBar.c.toFixed(2)}</span>` +
+        `<span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:${col};margin-left:6px">${chgPct >= 0 ? '+' : ''}${chgPct.toFixed(2)}%</span>`;
+    } else {
+      spyInfoEl.innerHTML = '';
+    }
+  }
+
+  // ── MY PICKS ──────────────────────────────────────────────────────────────
+  const picksEl = document.getElementById('mtl-picks-list');
+  if (picksEl) {
+    const allLiked = [1, 2].flatMap(sid => { try { return loadLiked(sid); } catch { return []; } });
+    const datePicks = allLiked.filter(e => _mtlDateStr(e.starredAt) === dateStr);
+    // Deduplicate by ticker, keep highest score
+    const seen = new Map();
+    datePicks.forEach(e => {
+      if (!seen.has(e.ticker) || e.score > seen.get(e.ticker).score) seen.set(e.ticker, e);
+    });
+    const uniq = [...seen.values()].sort((a, b) => b.score - a.score);
+
+    if (!uniq.length) {
+      picksEl.innerHTML = '<div class="mtl-no-data">No picks this day</div>';
+    } else {
+      picksEl.innerHTML = uniq.map(e => {
+        const pct = Math.round(e.score);
+        const col = pct >= 70 ? 'var(--green)' : pct >= 40 ? 'var(--amber)' : 'var(--red)';
+        return `<div class="mtl-hover-row">
+          <span class="mtl-hover-ticker">${e.ticker}</span>
+          <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;color:${col}">${pct}%</span>
+        </div>`;
+      }).join('');
+    }
+  }
+
+  // ── TOP SECTORS — 1W ──────────────────────────────────────────────────────
+  const sectEl = document.getElementById('mtl-sectors-list');
+  if (sectEl) {
+    if (!sectorRows) {
+      sectEl.innerHTML = '<div class="mtl-no-data">Open Sector tab first</div>';
+    } else {
+      const withPct = sectorRows
+        .filter(s => s.group === 'sector' && s.bars)
+        .map(s => ({ ticker: s.ticker, pct: _mtlGetHistReturn(s.bars, dateStr, 5) }))
+        .filter(s => s.pct != null)
+        .sort((a, b) => b.pct - a.pct);
+
+      if (!withPct.length) {
+        sectEl.innerHTML = '<div class="mtl-no-data">No data for this date</div>';
+      } else {
+        sectEl.innerHTML = withPct.slice(0, 3).map((s, i) =>
+          `<div class="mtl-hover-row">
+            <span class="mtl-hover-rank">${i + 1}.</span>
+            <span class="mtl-hover-ticker">${s.ticker}</span>
+            ${_mtlFmtPct(s.pct)}
+          </div>`
+        ).join('');
+      }
+    }
+  }
+
+  // ── TOP INDUSTRIES — 5D ───────────────────────────────────────────────────
+  const indusEl = document.getElementById('mtl-indus-list');
+  if (indusEl) {
+    const loadedCount = Object.keys(_mtlIndusBars).length;
+    if (!loadedCount) {
+      indusEl.innerHTML = '<div class="mtl-no-data">Loading industry data…</div>';
+    } else {
+      const allEtfs = IMAP_SECTORS.flatMap(s => s.etfs.map(e => ({ ticker: e.ticker, name: e.name })));
+      const withPct = allEtfs
+        .map(e => ({ ticker: e.ticker, name: e.name, pct: _mtlGetHistReturn(_mtlIndusBars[e.ticker], dateStr, 5) }))
+        .filter(e => e.pct != null)
+        .sort((a, b) => b.pct - a.pct);
+
+      if (!withPct.length) {
+        indusEl.innerHTML = '<div class="mtl-no-data">No data for this date</div>';
+      } else {
+        indusEl.innerHTML = withPct.slice(0, 3).map((e, i) =>
+          `<div class="mtl-hover-row">
+            <span class="mtl-hover-rank">${i + 1}.</span>
+            <span class="mtl-hover-ticker">${e.ticker}</span>
+            ${_mtlFmtPct(e.pct)}
+          </div>`
+        ).join('');
+      }
+    }
+  }
+
+  // ── EMA BREADTH (live snapshot) ───────────────────────────────────────────
+  const breadthRow = document.getElementById('mtl-breadth-row');
+  if (breadthRow) {
+    const sp500b = sectorEMABreadth['__SP500__'];
+    if (sp500b) {
+      const fmtB = v => {
+        if (v == null) return '<span class="mtl-breadth-val" style="color:var(--text3)">—</span>';
+        const col = v >= 70 ? '#0a7c4e' : v >= 50 ? '#856404' : '#c82828';
+        return `<span class="mtl-breadth-val" style="color:${col}">${v}%</span>`;
+      };
+      breadthRow.innerHTML =
+        `<span class="mtl-breadth-label">EMA Breadth (live)</span>` +
+        `<span class="mtl-breadth-item"><span class="mtl-breadth-key">EMA20</span>${fmtB(sp500b.ema20)}</span>` +
+        `<span class="mtl-breadth-item"><span class="mtl-breadth-key">EMA50</span>${fmtB(sp500b.ema50)}</span>` +
+        `<span class="mtl-breadth-item"><span class="mtl-breadth-key">EMA100</span>${fmtB(sp500b.ema100)}</span>` +
+        `<span class="mtl-breadth-item"><span class="mtl-breadth-key">EMA200</span>${fmtB(sp500b.ema200)}</span>`;
+    }
+  }
+}
+
+function _mtlClearHover() {
+  const empty   = document.getElementById('mtl-hover-empty');
+  const content = document.getElementById('mtl-hover-content');
+  if (empty)   empty.style.display   = '';
+  if (content) content.style.display = 'none';
+  _mtlLastHoverSec = null;
+}
+
+function setMtlLayout(n) {
+  _mtlLayout = n;
+  [1, 2].forEach(i => {
+    const btn = document.getElementById(`mtl-layout-btn-${i}`);
+    if (btn) btn.classList.toggle('active', i === n);
+  });
+  const sectBot = document.getElementById('mtl-sect-bot');
+  if (sectBot) sectBot.style.display = n === 2 ? '' : 'none';
+
+  if (n === 2) {
+    _mtlLoadBotChart(_mtlBottomSym);
+  } else {
+    if (_mtlBotChart) { try { _mtlBotChart.remove(); } catch {} _mtlBotChart = null; }
+  }
+}
+
+function setMtlBottomSym(sym, label) {
+  _mtlBottomSym = sym;
+  ['QQQ','IWM','DIA','SPY'].forEach(s => {
+    const btn = document.getElementById(`mtl-sym-${s}`);
+    if (btn) btn.classList.toggle('active', s === sym);
+  });
+  const labelEl = document.getElementById('mtl-bot-label');
+  if (labelEl) labelEl.textContent = `${sym} — ${label}`;
+  if (_mtlBotChart) { try { _mtlBotChart.remove(); } catch {} _mtlBotChart = null; }
+  _mtlLoadBotChart(sym);
+}
+
+function _mtlDestroyCharts() {
+  if (_mtlTopChart) { try { _mtlTopChart.remove(); } catch {} _mtlTopChart = null; }
+  if (_mtlBotChart) { try { _mtlBotChart.remove(); } catch {} _mtlBotChart = null; }
+  _mtlTopCandles = null;
+  _mtlSpyBars    = null;
+}
+
+function _mtlCalcEMASeries(closes, period) {
+  const result = new Array(closes.length).fill(null);
+  if (closes.length < period) return result;
+  const mult = 2 / (period + 1);
+  let ema = closes.slice(0, period).reduce((a, v) => a + v, 0) / period;
+  result[period - 1] = ema;
+  for (let i = period; i < closes.length; i++) {
+    ema = closes[i] * mult + ema * (1 - mult);
+    result[i] = ema;
+  }
+  return result;
 }
 </script>
 
