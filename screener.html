@@ -3762,6 +3762,10 @@
       </div>
       <div class="mtl-toolbar-right">
         <div class="mtl-layout-group">
+          <button class="mtl-layout-btn active" id="mtl-mode-hover" onclick="setMtlMode('hover')">HOVER</button>
+          <button class="mtl-layout-btn" id="mtl-mode-click" onclick="setMtlMode('click')">CLICK</button>
+        </div>
+        <div class="mtl-layout-group">
           <button class="mtl-layout-btn active" id="mtl-layout-btn-1" onclick="setMtlLayout(1)">1 CHART</button>
           <button class="mtl-layout-btn" id="mtl-layout-btn-2" onclick="setMtlLayout(2)">2 CHARTS</button>
         </div>
@@ -3803,7 +3807,7 @@
           </div>
           <div class="mtl-hover-grid">
             <div class="mtl-hover-section">
-              <div class="mtl-hover-section-title">My Picks</div>
+              <div class="mtl-hover-section-title">My Picks <span style="color:var(--text3);font-size:7px;font-weight:400">▶ click to chart</span></div>
               <div id="mtl-picks-list"></div>
             </div>
             <div class="mtl-hover-section">
@@ -9071,6 +9075,7 @@ async function loadSectorBreadth() {
 
   sectorBreadthLoading = false;
   try { sessionStorage.setItem(BREADTH_CACHE_KEY, JSON.stringify({ ts: Date.now(), data: sectorEMABreadth, stocks: sp500StockEMACache })); } catch {}
+  _mtlSaveBreadthToday();
   if (sectorRows) renderSectorTable(sectorRows);
 }
 
@@ -11715,18 +11720,22 @@ function psePanelForeign(stocks) {
 //  MARKET TIMELINE TAB
 // ============================================================
 
-let mtlLoaded         = false;
-let _mtlLayout        = 1;
-let _mtlTopSym        = 'SPY';
-let _mtlBottomSym     = 'QQQ';
-let _mtlTopChart      = null;
-let _mtlBotChart      = null;
-let _mtlTopCandles    = null;
-let _mtlTopBars       = null;       // [{t_ms, o, h, l, c}] for top chart ticker
-let _mtlBotBars       = {};         // sym → [{t_ms, o, h, l, c}]
-let _mtlIndusBars     = {};         // etf_ticker → [{t_ms, c}]
-let _mtlIndusLoading  = false;
-let _mtlLastClickSec  = null;
+let mtlLoaded            = false;
+let _mtlLayout           = 1;
+let _mtlInteractionMode  = 'hover';  // 'hover' | 'click'
+let _mtlTopSym           = 'SPY';
+let _mtlBottomSym        = 'QQQ';
+let _mtlTopChart         = null;
+let _mtlBotChart         = null;
+let _mtlTopCandles       = null;
+let _mtlBotSeries        = null;     // reference to bottom chart's main series (for crosshair sync)
+let _mtlTopBars          = null;     // [{t_ms, o, h, l, c}]
+let _mtlBotBars          = {};       // sym → [{t_ms, o, h, l, c}]
+let _mtlIndusBars        = {};       // etf_ticker → [{t_ms, c}]
+let _mtlIndusLoading     = false;
+let _mtlLastClickSec     = null;
+let _mtlSyncingCrosshair = false;
+let _mtlSyncingRange     = false;
 
 const MTL_INDUS_TICKERS = (() => {
   const seen = new Set();
@@ -11896,12 +11905,8 @@ function _mtlBuildTopChart() {
 
   _mtlAddEMAs(_mtlTopChart, _mtlTopBars);
 
-  _mtlTopChart.subscribeClick(param => {
-    if (param && param.time) {
-      _mtlLastClickSec = param.time;
-      _mtlPopulateHover(param.time);
-    }
-  });
+  _mtlTopChart.subscribeCrosshairMove(param => _mtlHandleCrosshairMove('top', param));
+  _mtlTopChart.subscribeClick(param => _mtlHandleChartClick(param));
 }
 
 function _mtlBuildBotChart() {
@@ -11909,6 +11914,7 @@ function _mtlBuildBotChart() {
   const bars = _mtlBotBars[_mtlBottomSym];
   if (!container) return;
   if (_mtlBotChart) { try { _mtlBotChart.remove(); } catch {} _mtlBotChart = null; }
+  _mtlBotSeries = null;
   container.innerHTML = '';
   if (!bars || !bars.length) return;
 
@@ -11923,22 +11929,22 @@ function _mtlBuildBotChart() {
     handleScale:  true,
   });
 
-  const barSeries = _mtlBotChart.addBarSeries({
-    upColor:   '#0a7c4e',
-    downColor: '#c82828',
+  _mtlBotSeries = _mtlBotChart.addCandlestickSeries({
+    upColor:        '#0a7c4e', downColor:        '#c82828',
+    borderUpColor:  '#0a7c4e', borderDownColor:  '#c82828',
+    wickUpColor:    '#0a7c4e', wickDownColor:    '#c82828',
   });
-  barSeries.setData(bars.map(b => ({
+  _mtlBotSeries.setData(bars.map(b => ({
     time: Math.floor(b.t / 1000), open: b.o, high: b.h, low: b.l, close: b.c,
   })));
 
   _mtlAddEMAs(_mtlBotChart, bars);
 
-  _mtlBotChart.subscribeClick(param => {
-    if (param && param.time) {
-      _mtlLastClickSec = param.time;
-      _mtlPopulateHover(param.time);
-    }
-  });
+  _mtlBotChart.subscribeCrosshairMove(param => _mtlHandleCrosshairMove('bot', param));
+  _mtlBotChart.subscribeClick(param => _mtlHandleChartClick(param));
+
+  // Sync time range and crosshair with top chart
+  _mtlSyncTimeRanges();
 }
 
 function _mtlDateStr(tMs) {
@@ -12013,7 +12019,7 @@ function _mtlPopulateHover(timeSec) {
       picksEl.innerHTML = uniq.map(e => {
         const pct = Math.round(e.score);
         const col = pct >= 70 ? 'var(--green)' : pct >= 40 ? 'var(--amber)' : 'var(--red)';
-        return `<div class="mtl-hover-row">
+        return `<div class="mtl-hover-row" style="cursor:pointer" title="Load ${e.ticker} in bottom chart" onclick="_mtlLoadPickInBot('${e.ticker}')">
           <span class="mtl-hover-ticker">${e.ticker}</span>
           <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;color:${col}">${pct}%</span>
         </div>`;
@@ -12072,24 +12078,130 @@ function _mtlPopulateHover(timeSec) {
     }
   }
 
-  // ── EMA BREADTH (live snapshot) ───────────────────────────────────────────
+  // ── EMA BREADTH (historical or live) ─────────────────────────────────────
   const breadthRow = document.getElementById('mtl-breadth-row');
   if (breadthRow) {
-    const sp500b = sectorEMABreadth['__SP500__'];
+    const hist   = _mtlGetBreadthHistory();
+    const stored = hist[dateStr];
+    const live   = sectorEMABreadth['__SP500__'];
+    const sp500b = stored || live;
     if (sp500b) {
+      const label = stored ? `EMA Breadth — ${dateStr}` : 'EMA Breadth (live)';
       const fmtB = v => {
         if (v == null) return '<span class="mtl-breadth-val" style="color:var(--text3)">—</span>';
         const col = v >= 70 ? '#0a7c4e' : v >= 50 ? '#856404' : '#c82828';
         return `<span class="mtl-breadth-val" style="color:${col}">${v}%</span>`;
       };
       breadthRow.innerHTML =
-        `<span class="mtl-breadth-label">EMA Breadth (live)</span>` +
+        `<span class="mtl-breadth-label">${label}</span>` +
         `<span class="mtl-breadth-item"><span class="mtl-breadth-key">EMA20</span>${fmtB(sp500b.ema20)}</span>` +
         `<span class="mtl-breadth-item"><span class="mtl-breadth-key">EMA50</span>${fmtB(sp500b.ema50)}</span>` +
         `<span class="mtl-breadth-item"><span class="mtl-breadth-key">EMA100</span>${fmtB(sp500b.ema100)}</span>` +
         `<span class="mtl-breadth-item"><span class="mtl-breadth-key">EMA200</span>${fmtB(sp500b.ema200)}</span>`;
+    } else {
+      breadthRow.innerHTML = `<span class="mtl-breadth-label">EMA Breadth</span><span style="font-size:9px;color:var(--text3);font-family:'Inter',sans-serif">Run breadth scan in Sector tab first</span>`;
     }
   }
+}
+
+// ── Interaction mode: HOVER updates panel live, CLICK locks it ───────────────
+function setMtlMode(mode) {
+  _mtlInteractionMode = mode;
+  ['hover', 'click'].forEach(m => {
+    const btn = document.getElementById(`mtl-mode-${m}`);
+    if (btn) btn.classList.toggle('active', m === mode);
+  });
+  if (mode === 'hover') _mtlClearHover();
+}
+
+// ── Crosshair event handlers ──────────────────────────────────────────────────
+function _mtlHandleCrosshairMove(source, param) {
+  // Sync crosshair to the other chart
+  if (!_mtlSyncingCrosshair) {
+    const otherChart  = source === 'top' ? _mtlBotChart  : _mtlTopChart;
+    const otherSeries = source === 'top' ? _mtlBotSeries : _mtlTopCandles;
+    if (otherChart && otherSeries) {
+      _mtlSyncingCrosshair = true;
+      if (param && param.time) {
+        const otherBars = source === 'top' ? _mtlBotBars[_mtlBottomSym] : _mtlTopBars;
+        if (otherBars) {
+          const dateStr = _mtlDateStr(param.time * 1000);
+          const bar     = otherBars.find(b => _mtlDateStr(b.t) === dateStr);
+          if (bar) {
+            try { otherChart.setCrosshairPosition(bar.c, param.time, otherSeries); } catch {}
+          }
+        }
+      } else {
+        try { otherChart.clearCrosshairPosition(); } catch {}
+      }
+      _mtlSyncingCrosshair = false;
+    }
+  }
+  // Update panel in hover mode
+  if (_mtlInteractionMode === 'hover') {
+    if (param && param.time) {
+      _mtlLastClickSec = param.time;
+      _mtlPopulateHover(param.time);
+    } else if (param && !param.time) {
+      _mtlClearHover();
+    }
+  }
+}
+
+function _mtlHandleChartClick(param) {
+  if (_mtlInteractionMode === 'click' && param && param.time) {
+    _mtlLastClickSec = param.time;
+    _mtlPopulateHover(param.time);
+  }
+}
+
+// ── Time range sync (scroll/zoom both charts together) ────────────────────────
+function _mtlSyncTimeRanges() {
+  if (!_mtlTopChart || !_mtlBotChart) return;
+  _mtlTopChart.timeScale().subscribeVisibleLogicalRangeChange(range => {
+    if (_mtlSyncingRange || !_mtlBotChart || !range) return;
+    _mtlSyncingRange = true;
+    try { _mtlBotChart.timeScale().setVisibleLogicalRange(range); } catch {}
+    _mtlSyncingRange = false;
+  });
+  _mtlBotChart.timeScale().subscribeVisibleLogicalRangeChange(range => {
+    if (_mtlSyncingRange || !_mtlTopChart || !range) return;
+    _mtlSyncingRange = true;
+    try { _mtlTopChart.timeScale().setVisibleLogicalRange(range); } catch {}
+    _mtlSyncingRange = false;
+  });
+}
+
+// ── Click a pick row → load that stock in the bottom chart ───────────────────
+function _mtlLoadPickInBot(ticker) {
+  if (_mtlLayout !== 2) setMtlLayout(2);
+  _mtlBottomSym = ticker;
+  const el = document.getElementById('mtl-bot-ticker');
+  if (el) el.value = ticker;
+  delete _mtlBotBars[ticker];
+  _mtlLoadBotChart(ticker);
+}
+
+// ── Breadth history: save today's scan result, load for any date ─────────────
+function _mtlSaveBreadthToday() {
+  const sp500b = sectorEMABreadth['__SP500__'];
+  if (!sp500b) return;
+  const today = new Date().toISOString().split('T')[0];
+  try {
+    const raw  = localStorage.getItem('cts_breadth_history');
+    const hist = raw ? JSON.parse(raw) : {};
+    hist[today] = { ema20: sp500b.ema20, ema50: sp500b.ema50, ema100: sp500b.ema100, ema200: sp500b.ema200 };
+    const keys = Object.keys(hist).sort();
+    if (keys.length > 365) keys.slice(0, keys.length - 365).forEach(k => delete hist[k]);
+    localStorage.setItem('cts_breadth_history', JSON.stringify(hist));
+  } catch {}
+}
+
+function _mtlGetBreadthHistory() {
+  try {
+    const raw = localStorage.getItem('cts_breadth_history');
+    return raw ? JSON.parse(raw) : {};
+  } catch { return {}; }
 }
 
 function _mtlClearHover() {
@@ -12120,6 +12232,7 @@ function _mtlDestroyCharts() {
   if (_mtlTopChart) { try { _mtlTopChart.remove(); } catch {} _mtlTopChart = null; }
   if (_mtlBotChart) { try { _mtlBotChart.remove(); } catch {} _mtlBotChart = null; }
   _mtlTopCandles = null;
+  _mtlBotSeries  = null;
   _mtlTopBars    = null;
 }
 
