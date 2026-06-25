@@ -11828,11 +11828,18 @@ async function loadMarketTimeline(force = false) {
   if (topInput) _mtlTopSym = topInput.value.toUpperCase().trim() || 'SPY';
 
   try {
-    _mtlTopBars = await _mtlFetchOHLCV(_mtlTopSym);
+    // Fetch top + bottom bars in parallel instead of sequentially
+    const [topBars, botBars] = await Promise.all([
+      _mtlFetchOHLCV(_mtlTopSym),
+      _mtlLayout === 2 ? _mtlFetchOHLCV(_mtlBottomSym) : Promise.resolve(null),
+    ]);
+    _mtlTopBars = topBars;
+    if (botBars) _mtlBotBars[_mtlBottomSym] = botBars;
     _mtlBuildTopChart();
-    if (_mtlLayout === 2) await _mtlLoadBotChart(_mtlBottomSym);
+    if (_mtlLayout === 2) _mtlBuildBotChart();
     if (!sectorRows && marketMode !== 'PH') loadSectors();
     _mtlLoadIndusBars();
+    _mtlPreloadPicks(); // warm the cache for all liked picks in background
     if (updated) updated.textContent = 'Updated ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   } catch (err) {
     if (updated) updated.textContent = 'Error — check console';
@@ -11874,9 +11881,13 @@ function loadMtlBotByInput() {
 
 async function _mtlLoadBotChart(sym) {
   if (!_mtlBotBars[sym]) {
-    try {
-      _mtlBotBars[sym] = await _mtlFetchOHLCV(sym);
-    } catch {}
+    // Show a loading message while the fetch is in flight
+    const cont = document.getElementById('mtl-container-bot');
+    if (cont) {
+      if (_mtlBotChart) { try { _mtlBotChart.remove(); } catch {} _mtlBotChart = null; _mtlBotSeries = null; }
+      cont.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#9ca3af">Loading ${sym}…</div>`;
+    }
+    try { _mtlBotBars[sym] = await _mtlFetchOHLCV(sym); } catch {}
   }
   _mtlBuildBotChart();
 }
@@ -11885,26 +11896,36 @@ async function _mtlLoadIndusBars() {
   if (_mtlIndusLoading) return;
   _mtlIndusLoading = true;
   const toFetch = MTL_INDUS_TICKERS.filter(t => !_mtlIndusBars[t]);
-  for (let i = 0; i < toFetch.length; i += 6) {
-    const batch = toFetch.slice(i, i + 6);
-    await Promise.allSettled(batch.map(async ticker => {
-      try {
-        const res    = await fetch(`/api/yf?ticker=${encodeURIComponent(ticker)}&range=1y&interval=1d`);
-        const json   = await res.json();
-        const result = json?.chart?.result?.[0];
-        if (!result) return;
-        const ts = result.timestamp || [];
-        const qc = result.indicators.quote[0].close;
-        const bars = [];
-        for (let j = 0; j < ts.length; j++) {
-          if (qc[j] != null) bars.push({ t: ts[j] * 1000, c: qc[j] });
-        }
-        _mtlIndusBars[ticker] = bars;
-      } catch {}
-    }));
-  }
+  // Fire all industry ETF fetches at once — no serial batching
+  await Promise.allSettled(toFetch.map(async ticker => {
+    try {
+      const res    = await fetch(`/api/yf?ticker=${encodeURIComponent(ticker)}&range=1y&interval=1d`);
+      const json   = await res.json();
+      const result = json?.chart?.result?.[0];
+      if (!result) return;
+      const ts = result.timestamp || [];
+      const qc = result.indicators.quote[0].close;
+      const bars = [];
+      for (let j = 0; j < ts.length; j++) {
+        if (qc[j] != null) bars.push({ t: ts[j] * 1000, c: qc[j] });
+      }
+      _mtlIndusBars[ticker] = bars;
+    } catch {}
+  }));
   _mtlIndusLoading = false;
   if (_mtlLastClickSec != null) _mtlPopulateHover(_mtlLastClickSec);
+}
+
+async function _mtlPreloadPicks() {
+  const allLiked = [1, 2].flatMap(sid => { try { return loadLiked(sid); } catch { return []; } });
+  const tickers  = [...new Set(allLiked.map(e => e.ticker))].filter(t => t && !_mtlBotBars[t]);
+  if (!tickers.length) return;
+  // Fetch 3 at a time quietly in the background
+  for (let i = 0; i < tickers.length; i += 3) {
+    await Promise.allSettled(tickers.slice(i, i + 3).map(async t => {
+      try { if (!_mtlBotBars[t]) _mtlBotBars[t] = await _mtlFetchOHLCV(t); } catch {}
+    }));
+  }
 }
 
 function _mtlBuildTopChart() {
@@ -12206,7 +12227,7 @@ function _mtlLoadPickInBot(ticker) {
   _mtlBottomSym = ticker;
   const el = document.getElementById('mtl-bot-ticker');
   if (el) el.value = ticker;
-  delete _mtlBotBars[ticker];
+  // No cache delete — if already cached it renders instantly
   _mtlLoadBotChart(ticker);
 }
 
