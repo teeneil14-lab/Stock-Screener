@@ -3101,7 +3101,7 @@
 
   /* HOVER PANEL */
   .mtl-hover-panel {
-    flex: 0 0 172px;
+    flex: 0 0 220px;
     background: var(--bg2);
     border-top: 2px solid var(--border);
     overflow-y: auto;
@@ -3114,12 +3114,12 @@
     color: var(--text3);
     text-align: center;
   }
-  .mtl-hover-content { padding: 8px 14px 6px; }
+  .mtl-hover-content { padding: 6px 12px 6px; }
   .mtl-hover-date-row {
     display: flex;
     align-items: baseline;
     gap: 12px;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
   }
   .mtl-hover-date {
     font-family: 'IBM Plex Mono', monospace;
@@ -3130,10 +3130,29 @@
   }
   .mtl-hover-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-columns: 0.75fr 2fr;
     gap: 10px;
-    margin-bottom: 7px;
   }
+  .mtl-hover-right { display: flex; flex-direction: column; gap: 5px; }
+  .mtl-hover-si-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  /* Mini bar chart rows (sectors + industries) */
+  .mtl-bar-item { margin-bottom: 2px; }
+  .mtl-bar-row {
+    display: flex;
+    align-items: baseline;
+    gap: 3px;
+    line-height: 1.3;
+  }
+  .mtl-bar-rank  { color: var(--text3); font-size: 8px; min-width: 10px; font-family: 'IBM Plex Mono', monospace; }
+  .mtl-bar-ticker { font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 700; color: var(--text); min-width: 26px; }
+  .mtl-bar-name  { font-family: 'Inter', sans-serif; font-size: 7.5px; color: var(--text3); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mtl-bar-pct   { font-family: 'IBM Plex Mono', monospace; font-size: 8.5px; font-weight: 700; min-width: 38px; text-align: right; }
+  .mtl-bar-track { height: 2.5px; background: var(--border2); border-radius: 2px; margin-top: 1px; margin-bottom: 1px; }
+  .mtl-bar-fill  { height: 100%; border-radius: 2px; transition: width 0.2s; }
   .mtl-hover-section-title {
     font-family: 'Inter', sans-serif;
     font-size: 8px;
@@ -3762,12 +3781,8 @@
       </div>
       <div class="mtl-toolbar-right">
         <div class="mtl-layout-group">
-          <button class="mtl-layout-btn active" id="mtl-mode-hover" onclick="setMtlMode('hover')">HOVER</button>
-          <button class="mtl-layout-btn" id="mtl-mode-click" onclick="setMtlMode('click')">CLICK</button>
-        </div>
-        <div class="mtl-layout-group">
-          <button class="mtl-layout-btn active" id="mtl-layout-btn-1" onclick="setMtlLayout(1)">1 CHART</button>
-          <button class="mtl-layout-btn" id="mtl-layout-btn-2" onclick="setMtlLayout(2)">2 CHARTS</button>
+          <button class="mtl-layout-btn" id="mtl-layout-btn-1" onclick="setMtlLayout(1)">1 CHART</button>
+          <button class="mtl-layout-btn active" id="mtl-layout-btn-2" onclick="setMtlLayout(2)">2 CHARTS</button>
         </div>
         <button class="mtl-refresh-btn" id="mtl-refresh-btn" onclick="loadMarketTimeline(true)">↻ REFRESH</button>
       </div>
@@ -3786,7 +3801,7 @@
           <div class="mtl-chart-container" id="mtl-container-top"></div>
         </div>
         <!-- Bottom chart (shown only in 2-chart layout) -->
-        <div class="mtl-chart-section" id="mtl-sect-bot" style="display:none">
+        <div class="mtl-chart-section" id="mtl-sect-bot">
           <div class="mtl-chart-header">
             <div class="mtl-ticker-wrap">
               <input class="mtl-ticker-input" id="mtl-bot-ticker" value="QQQ" maxlength="12" placeholder="Ticker"
@@ -3797,31 +3812,37 @@
           <div class="mtl-chart-container" id="mtl-container-bot"></div>
         </div>
       </div>
-      <!-- Hover panel — shown below charts, populated when mouse is over the chart -->
+      <!-- Panel — populated on hover (or locked to a clicked day) -->
       <div class="mtl-hover-panel" id="mtl-hover-panel">
-        <div class="mtl-hover-empty" id="mtl-hover-empty">Click a day on the chart to pin that day's market context</div>
+        <div class="mtl-hover-empty" id="mtl-hover-empty">Hover over the chart — click any day to pin it</div>
         <div class="mtl-hover-content" id="mtl-hover-content" style="display:none">
           <div class="mtl-hover-date-row">
             <div class="mtl-hover-date" id="mtl-hover-date">—</div>
             <div id="mtl-spy-info"></div>
           </div>
           <div class="mtl-hover-grid">
+            <!-- Left: My Picks -->
             <div class="mtl-hover-section">
               <div class="mtl-hover-section-title">My Picks <span style="color:var(--text3);font-size:7px;font-weight:400">▶ click to chart</span></div>
               <div id="mtl-picks-list"></div>
             </div>
-            <div class="mtl-hover-section">
-              <div class="mtl-hover-section-title">Top Sectors — 1W</div>
-              <div id="mtl-sectors-list"></div>
+            <!-- Right: Sectors + Industries + Breadth stacked -->
+            <div class="mtl-hover-right">
+              <div class="mtl-hover-si-grid">
+                <div class="mtl-hover-section">
+                  <div class="mtl-hover-section-title">Top 5 Sectors — 1W</div>
+                  <div id="mtl-sectors-list"></div>
+                </div>
+                <div class="mtl-hover-section">
+                  <div class="mtl-hover-section-title">Top 5 Industries — 5D</div>
+                  <div id="mtl-indus-list"></div>
+                </div>
+              </div>
+              <div class="mtl-breadth-row" id="mtl-breadth-row">
+                <span class="mtl-breadth-label">EMA Breadth (live)</span>
+                <span id="mtl-breadth-snapshot" style="font-size:9px;color:var(--text3);font-family:'Inter',sans-serif">Run breadth scan in Sector tab first</span>
+              </div>
             </div>
-            <div class="mtl-hover-section">
-              <div class="mtl-hover-section-title">Top Industries — 5D</div>
-              <div id="mtl-indus-list"></div>
-            </div>
-          </div>
-          <div class="mtl-breadth-row" id="mtl-breadth-row">
-            <span class="mtl-breadth-label">EMA Breadth (live)</span>
-            <span id="mtl-breadth-snapshot" style="font-size:9px;color:var(--text3);font-family:'Inter',sans-serif">Run breadth scan in Sector tab first</span>
           </div>
         </div>
       </div>
@@ -11721,8 +11742,7 @@ function psePanelForeign(stocks) {
 // ============================================================
 
 let mtlLoaded            = false;
-let _mtlLayout           = 1;
-let _mtlInteractionMode  = 'hover';  // 'hover' | 'click'
+let _mtlLayout           = 2;
 let _mtlTopSym           = 'SPY';
 let _mtlBottomSym        = 'QQQ';
 let _mtlTopChart         = null;
@@ -11753,8 +11773,16 @@ const MTL_EMA_DEFS = [
   { period: 200, color: '#dc2626' },
 ];
 
-async function _mtlFetchOHLCV(sym) {
-  const res    = await fetch(`/api/yf?ticker=${encodeURIComponent(sym)}&range=1y&interval=1d`);
+const MTL_SECTOR_NAMES = {
+  XLK: 'Technology', XLV: 'Healthcare', XLF: 'Financials',
+  XLC: 'Comm Svc', XLY: 'Cons Disc', XLP: 'Cons Staples',
+  XLE: 'Energy', XLI: 'Industrials', XLB: 'Materials',
+  XLRE: 'Real Estate', XLU: 'Utilities',
+  SPY: 'S&P 500', QQQ: 'Nasdaq 100', IWM: 'Russell 2000', DIA: 'Dow Jones',
+};
+
+async function _mtlFetchOHLCV(sym, range = '5y') {
+  const res    = await fetch(`/api/yf?ticker=${encodeURIComponent(sym)}&range=${range}&interval=1d`);
   const json   = await res.json();
   const result = json?.chart?.result?.[0];
   if (!result) throw new Error(`No data for ${sym}`);
@@ -11905,8 +11933,15 @@ function _mtlBuildTopChart() {
 
   _mtlAddEMAs(_mtlTopChart, _mtlTopBars);
 
+  // Vertical click-line overlay
+  const vlineTop = document.createElement('div');
+  vlineTop.id = 'mtl-vline-top';
+  vlineTop.style.cssText = 'display:none;position:absolute;top:0;bottom:0;width:1px;background:#d97706;opacity:0.85;pointer-events:none;z-index:5';
+  container.appendChild(vlineTop);
+
   _mtlTopChart.subscribeCrosshairMove(param => _mtlHandleCrosshairMove('top', param));
   _mtlTopChart.subscribeClick(param => _mtlHandleChartClick(param));
+  _mtlTopChart.timeScale().subscribeVisibleLogicalRangeChange(() => _mtlUpdateVlines());
 }
 
 function _mtlBuildBotChart() {
@@ -11940,10 +11975,17 @@ function _mtlBuildBotChart() {
 
   _mtlAddEMAs(_mtlBotChart, bars);
 
+  // Vertical click-line overlay
+  const vlineBot = document.createElement('div');
+  vlineBot.id = 'mtl-vline-bot';
+  vlineBot.style.cssText = 'display:none;position:absolute;top:0;bottom:0;width:1px;background:#d97706;opacity:0.85;pointer-events:none;z-index:5';
+  container.appendChild(vlineBot);
+
   _mtlBotChart.subscribeCrosshairMove(param => _mtlHandleCrosshairMove('bot', param));
   _mtlBotChart.subscribeClick(param => _mtlHandleChartClick(param));
+  _mtlBotChart.timeScale().subscribeVisibleLogicalRangeChange(() => _mtlUpdateVlines());
 
-  // Sync time range and crosshair with top chart
+  // Sync time range with top chart
   _mtlSyncTimeRanges();
 }
 
@@ -12035,46 +12077,24 @@ function _mtlPopulateHover(timeSec) {
     } else {
       const withPct = sectorRows
         .filter(s => s.group === 'sector' && s.bars)
-        .map(s => ({ ticker: s.ticker, pct: _mtlGetHistReturn(s.bars, dateStr, 5) }))
+        .map(s => ({ ticker: s.ticker, name: MTL_SECTOR_NAMES[s.ticker] || s.name || '', pct: _mtlGetHistReturn(s.bars, dateStr, 5) }))
         .filter(s => s.pct != null)
         .sort((a, b) => b.pct - a.pct);
-      if (!withPct.length) {
-        sectEl.innerHTML = '<div class="mtl-no-data">No data for this date</div>';
-      } else {
-        sectEl.innerHTML = withPct.slice(0, 3).map((s, i) =>
-          `<div class="mtl-hover-row">
-            <span class="mtl-hover-rank">${i + 1}.</span>
-            <span class="mtl-hover-ticker">${s.ticker}</span>
-            ${_mtlFmtPct(s.pct)}
-          </div>`
-        ).join('');
-      }
+      sectEl.innerHTML = _mtlRenderBars(withPct, 'No data for this date');
     }
   }
 
   // ── TOP INDUSTRIES — 5D ───────────────────────────────────────────────────
   const indusEl = document.getElementById('mtl-indus-list');
   if (indusEl) {
-    const loadedCount = Object.keys(_mtlIndusBars).length;
-    if (!loadedCount) {
+    if (!Object.keys(_mtlIndusBars).length) {
       indusEl.innerHTML = '<div class="mtl-no-data">Loading industry data…</div>';
     } else {
-      const allEtfs = IMAP_SECTORS.flatMap(s => s.etfs.map(e => ({ ticker: e.ticker, name: e.name })));
-      const withPct = allEtfs
-        .map(e => ({ ticker: e.ticker, name: e.name, pct: _mtlGetHistReturn(_mtlIndusBars[e.ticker], dateStr, 5) }))
+      const withPct = IMAP_SECTORS
+        .flatMap(s => s.etfs.map(e => ({ ticker: e.ticker, name: e.name, pct: _mtlGetHistReturn(_mtlIndusBars[e.ticker], dateStr, 5) })))
         .filter(e => e.pct != null)
         .sort((a, b) => b.pct - a.pct);
-      if (!withPct.length) {
-        indusEl.innerHTML = '<div class="mtl-no-data">No data for this date</div>';
-      } else {
-        indusEl.innerHTML = withPct.slice(0, 3).map((e, i) =>
-          `<div class="mtl-hover-row">
-            <span class="mtl-hover-rank">${i + 1}.</span>
-            <span class="mtl-hover-ticker">${e.ticker}</span>
-            ${_mtlFmtPct(e.pct)}
-          </div>`
-        ).join('');
-      }
+      indusEl.innerHTML = _mtlRenderBars(withPct, 'No data for this date');
     }
   }
 
@@ -12104,16 +12124,6 @@ function _mtlPopulateHover(timeSec) {
   }
 }
 
-// ── Interaction mode: HOVER updates panel live, CLICK locks it ───────────────
-function setMtlMode(mode) {
-  _mtlInteractionMode = mode;
-  ['hover', 'click'].forEach(m => {
-    const btn = document.getElementById(`mtl-mode-${m}`);
-    if (btn) btn.classList.toggle('active', m === mode);
-  });
-  if (mode === 'hover') _mtlClearHover();
-}
-
 // ── Crosshair event handlers ──────────────────────────────────────────────────
 function _mtlHandleCrosshairMove(source, param) {
   // Sync crosshair to the other chart
@@ -12137,10 +12147,9 @@ function _mtlHandleCrosshairMove(source, param) {
       _mtlSyncingCrosshair = false;
     }
   }
-  // Update panel in hover mode
-  if (_mtlInteractionMode === 'hover') {
+  // Update panel when not locked to a clicked day
+  if (!_mtlLastClickSec) {
     if (param && param.time) {
-      _mtlLastClickSec = param.time;
       _mtlPopulateHover(param.time);
     } else if (param && !param.time) {
       _mtlClearHover();
@@ -12149,9 +12158,16 @@ function _mtlHandleCrosshairMove(source, param) {
 }
 
 function _mtlHandleChartClick(param) {
-  if (_mtlInteractionMode === 'click' && param && param.time) {
+  if (!param || !param.time) return;
+  if (_mtlLastClickSec === param.time) {
+    // Same day clicked again → unlock, go back to hover
+    _mtlLastClickSec = null;
+    _mtlUpdateVlines();
+  } else {
+    // New day clicked → lock to it
     _mtlLastClickSec = param.time;
     _mtlPopulateHover(param.time);
+    _mtlUpdateVlines();
   }
 }
 
@@ -12204,12 +12220,54 @@ function _mtlGetBreadthHistory() {
   } catch { return {}; }
 }
 
+// ── Mini bar chart renderer (sectors + industries) ────────────────────────────
+function _mtlRenderBars(items, emptyMsg) {
+  const top = items.slice(0, 5);
+  if (!top.length) return `<div class="mtl-no-data">${emptyMsg || 'No data'}</div>`;
+  const maxAbs = Math.max(...top.map(i => Math.abs(i.pct)));
+  return top.map((item, idx) => {
+    const pos  = item.pct >= 0;
+    const col  = pos ? '#0a7c4e' : '#c82828';
+    const barW = maxAbs > 0 ? (Math.abs(item.pct) / maxAbs * 100).toFixed(1) : '0';
+    const pct  = `${pos ? '+' : ''}${item.pct.toFixed(2)}%`;
+    return `<div class="mtl-bar-item">
+      <div class="mtl-bar-row">
+        <span class="mtl-bar-rank">${idx + 1}.</span>
+        <span class="mtl-bar-ticker">${item.ticker}</span>
+        <span class="mtl-bar-name">${item.name || ''}</span>
+        <span class="mtl-bar-pct" style="color:${col}">${pct}</span>
+      </div>
+      <div class="mtl-bar-track"><div class="mtl-bar-fill" style="width:${barW}%;background:${col}"></div></div>
+    </div>`;
+  }).join('');
+}
+
+// ── Vertical line at clicked date ─────────────────────────────────────────────
+function _mtlUpdateVlines() {
+  const show = _mtlLastClickSec != null;
+  [
+    { chart: _mtlTopChart, id: 'mtl-vline-top' },
+    { chart: _mtlBotChart, id: 'mtl-vline-bot' },
+  ].forEach(({ chart, id }) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (!show || !chart) { el.style.display = 'none'; return; }
+    try {
+      const x = chart.timeScale().timeToCoordinate(_mtlLastClickSec);
+      if (x == null || x < 0) { el.style.display = 'none'; return; }
+      el.style.display = '';
+      el.style.left = `${Math.round(x)}px`;
+    } catch { el.style.display = 'none'; }
+  });
+}
+
 function _mtlClearHover() {
   const empty   = document.getElementById('mtl-hover-empty');
   const content = document.getElementById('mtl-hover-content');
   if (empty)   empty.style.display   = '';
   if (content) content.style.display = 'none';
   _mtlLastClickSec = null;
+  _mtlUpdateVlines();
 }
 
 function setMtlLayout(n) {
