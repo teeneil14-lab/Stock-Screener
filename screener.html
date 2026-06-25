@@ -3065,6 +3065,34 @@
   }
   .mtl-sym-btn.active { color: var(--accent); border-color: var(--accent); background: var(--green-dim); }
   .mtl-sym-btn:hover  { color: var(--text2); }
+  .mtl-ticker-wrap { display: flex; align-items: center; gap: 4px; }
+  .mtl-ticker-input {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text);
+    background: transparent;
+    border: 1px solid var(--border2);
+    border-radius: 4px;
+    padding: 2px 6px;
+    width: 72px;
+    text-transform: uppercase;
+    outline: none;
+  }
+  .mtl-ticker-input:focus { border-color: var(--accent); }
+  .mtl-go-btn {
+    font-family: 'Inter', sans-serif;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    padding: 2px 7px;
+    border: 1px solid var(--border2);
+    border-radius: 3px;
+    background: var(--bg3);
+    color: var(--text3);
+    cursor: pointer;
+  }
+  .mtl-go-btn:hover { border-color: var(--accent); color: var(--accent); }
   .mtl-chart-container {
     flex: 1;
     min-height: 0;
@@ -3742,22 +3770,24 @@
     </div>
     <div class="mtl-body">
       <div class="mtl-charts-wrap" id="mtl-charts-wrap">
-        <!-- Top chart: SPY -->
+        <!-- Top chart: any ticker -->
         <div class="mtl-chart-section" id="mtl-sect-top">
           <div class="mtl-chart-header">
-            <span class="mtl-chart-label" id="mtl-top-label">SPY — S&amp;P 500 ETF</span>
+            <div class="mtl-ticker-wrap">
+              <input class="mtl-ticker-input" id="mtl-top-ticker" value="SPY" maxlength="12" placeholder="Ticker"
+                onkeydown="if(event.key==='Enter')loadMtlTopByInput()">
+              <button class="mtl-go-btn" onclick="loadMtlTopByInput()">GO</button>
+            </div>
           </div>
           <div class="mtl-chart-container" id="mtl-container-top"></div>
         </div>
         <!-- Bottom chart (shown only in 2-chart layout) -->
         <div class="mtl-chart-section" id="mtl-sect-bot" style="display:none">
           <div class="mtl-chart-header">
-            <span class="mtl-chart-label" id="mtl-bot-label">QQQ — Nasdaq 100</span>
-            <div class="mtl-sym-btns">
-              <button class="mtl-sym-btn active" id="mtl-sym-QQQ" onclick="setMtlBottomSym('QQQ','Nasdaq 100')">QQQ</button>
-              <button class="mtl-sym-btn" id="mtl-sym-IWM" onclick="setMtlBottomSym('IWM','Russell 2000')">IWM</button>
-              <button class="mtl-sym-btn" id="mtl-sym-DIA" onclick="setMtlBottomSym('DIA','Dow Jones')">DIA</button>
-              <button class="mtl-sym-btn" id="mtl-sym-SPY" onclick="setMtlBottomSym('SPY','S&amp;P 500 (line)')">SPY</button>
+            <div class="mtl-ticker-wrap">
+              <input class="mtl-ticker-input" id="mtl-bot-ticker" value="QQQ" maxlength="12" placeholder="Ticker"
+                onkeydown="if(event.key==='Enter')loadMtlBotByInput()">
+              <button class="mtl-go-btn" onclick="loadMtlBotByInput()">GO</button>
             </div>
           </div>
           <div class="mtl-chart-container" id="mtl-container-bot"></div>
@@ -3765,7 +3795,7 @@
       </div>
       <!-- Hover panel — shown below charts, populated when mouse is over the chart -->
       <div class="mtl-hover-panel" id="mtl-hover-panel">
-        <div class="mtl-hover-empty" id="mtl-hover-empty">Hover over the chart to see market context for that day</div>
+        <div class="mtl-hover-empty" id="mtl-hover-empty">Click a day on the chart to pin that day's market context</div>
         <div class="mtl-hover-content" id="mtl-hover-content" style="display:none">
           <div class="mtl-hover-date-row">
             <div class="mtl-hover-date" id="mtl-hover-date">—</div>
@@ -11687,17 +11717,17 @@ function psePanelForeign(stocks) {
 
 let mtlLoaded         = false;
 let _mtlLayout        = 1;
+let _mtlTopSym        = 'SPY';
 let _mtlBottomSym     = 'QQQ';
 let _mtlTopChart      = null;
 let _mtlBotChart      = null;
 let _mtlTopCandles    = null;
-let _mtlSpyBars       = null;       // [{t_ms, o, h, l, c}]
-let _mtlBotBars       = {};         // sym → [{t_ms, c}]
+let _mtlTopBars       = null;       // [{t_ms, o, h, l, c}] for top chart ticker
+let _mtlBotBars       = {};         // sym → [{t_ms, o, h, l, c}]
 let _mtlIndusBars     = {};         // etf_ticker → [{t_ms, c}]
 let _mtlIndusLoading  = false;
-let _mtlLastHoverSec  = null;
+let _mtlLastClickSec  = null;
 
-// All industry ETF tickers we want 1-year daily bars for
 const MTL_INDUS_TICKERS = (() => {
   const seen = new Set();
   const out  = [];
@@ -11707,67 +11737,106 @@ const MTL_INDUS_TICKERS = (() => {
   return out;
 })();
 
+const MTL_EMA_DEFS = [
+  { period: 20,  color: '#2563eb' },
+  { period: 50,  color: '#d97706' },
+  { period: 100, color: '#7c3aed' },
+  { period: 200, color: '#dc2626' },
+];
+
+async function _mtlFetchOHLCV(sym) {
+  const res    = await fetch(`/api/yf?ticker=${encodeURIComponent(sym)}&range=1y&interval=1d`);
+  const json   = await res.json();
+  const result = json?.chart?.result?.[0];
+  if (!result) throw new Error(`No data for ${sym}`);
+  const ts = result.timestamp || [];
+  const qt = result.indicators.quote[0];
+  const bars = [];
+  for (let i = 0; i < ts.length; i++) {
+    if (qt.close[i] != null) {
+      bars.push({
+        t: ts[i] * 1000,
+        o: qt.open[i]  ?? qt.close[i],
+        h: qt.high[i]  ?? qt.close[i],
+        l: qt.low[i]   ?? qt.close[i],
+        c: qt.close[i],
+      });
+    }
+  }
+  return bars;
+}
+
+function _mtlAddEMAs(chart, bars) {
+  const closes = bars.map(b => b.c);
+  MTL_EMA_DEFS.forEach(({ period, color }) => {
+    const vals   = _mtlCalcEMASeries(closes, period);
+    const series = chart.addLineSeries({ color, lineWidth: 1, priceLineVisible: false, lastValueVisible: false });
+    series.setData(
+      bars.map((b, i) => vals[i] != null ? { time: Math.floor(b.t / 1000), value: vals[i] } : null).filter(Boolean)
+    );
+  });
+}
+
 async function loadMarketTimeline(force = false) {
   mtlLoaded = true;
   const btn     = document.getElementById('mtl-refresh-btn');
   const updated = document.getElementById('mtl-updated');
-
   if (btn) btn.disabled = true;
   if (updated) updated.textContent = 'Loading…';
-
   _mtlDestroyCharts();
 
+  const topInput = document.getElementById('mtl-top-ticker');
+  if (topInput) _mtlTopSym = topInput.value.toUpperCase().trim() || 'SPY';
+
   try {
-    const res    = await fetch('/api/yf?ticker=SPY&range=1y&interval=1d');
-    const json   = await res.json();
-    const result = json?.chart?.result?.[0];
-    if (!result) throw new Error('No SPY data returned');
-
-    const ts  = result.timestamp || [];
-    const qt  = result.indicators.quote[0];
-    _mtlSpyBars = [];
-    for (let i = 0; i < ts.length; i++) {
-      if (qt.close[i] != null) {
-        _mtlSpyBars.push({
-          t: ts[i] * 1000,
-          o: qt.open[i]   ?? qt.close[i],
-          h: qt.high[i]   ?? qt.close[i],
-          l: qt.low[i]    ?? qt.close[i],
-          c: qt.close[i],
-        });
-      }
-    }
-
+    _mtlTopBars = await _mtlFetchOHLCV(_mtlTopSym);
     _mtlBuildTopChart();
     if (_mtlLayout === 2) await _mtlLoadBotChart(_mtlBottomSym);
-
     if (!sectorRows && marketMode !== 'PH') loadSectors();
     _mtlLoadIndusBars();
-
     if (updated) updated.textContent = 'Updated ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   } catch (err) {
     if (updated) updated.textContent = 'Error — check console';
     console.error('[MTL]', err);
   }
-
   if (btn) btn.disabled = false;
+}
+
+function loadMtlTopByInput() {
+  const el = document.getElementById('mtl-top-ticker');
+  if (!el) return;
+  const sym = el.value.toUpperCase().trim();
+  if (!sym) return;
+  _mtlTopSym  = sym;
+  _mtlTopBars = null;
+  const btn     = document.getElementById('mtl-refresh-btn');
+  const updated = document.getElementById('mtl-updated');
+  if (btn) btn.disabled = true;
+  if (updated) updated.textContent = `Loading ${sym}…`;
+  if (_mtlTopChart) { try { _mtlTopChart.remove(); } catch {} _mtlTopChart = null; _mtlTopCandles = null; }
+  _mtlFetchOHLCV(sym).then(bars => {
+    _mtlTopBars = bars;
+    _mtlBuildTopChart();
+    if (updated) updated.textContent = 'Updated ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }).catch(() => {
+    if (updated) updated.textContent = `Error loading ${sym}`;
+  }).finally(() => { if (btn) btn.disabled = false; });
+}
+
+function loadMtlBotByInput() {
+  const el = document.getElementById('mtl-bot-ticker');
+  if (!el) return;
+  const sym = el.value.toUpperCase().trim();
+  if (!sym) return;
+  _mtlBottomSym = sym;
+  delete _mtlBotBars[sym];
+  _mtlLoadBotChart(sym);
 }
 
 async function _mtlLoadBotChart(sym) {
   if (!_mtlBotBars[sym]) {
     try {
-      const res    = await fetch(`/api/yf?ticker=${encodeURIComponent(sym)}&range=1y&interval=1d`);
-      const json   = await res.json();
-      const result = json?.chart?.result?.[0];
-      if (result) {
-        const ts = result.timestamp || [];
-        const qc = result.indicators.quote[0].close;
-        const bars = [];
-        for (let i = 0; i < ts.length; i++) {
-          if (qc[i] != null) bars.push({ t: ts[i] * 1000, c: qc[i] });
-        }
-        _mtlBotBars[sym] = bars;
-      }
+      _mtlBotBars[sym] = await _mtlFetchOHLCV(sym);
     } catch {}
   }
   _mtlBuildBotChart();
@@ -11796,12 +11865,12 @@ async function _mtlLoadIndusBars() {
     }));
   }
   _mtlIndusLoading = false;
-  if (_mtlLastHoverSec != null) _mtlPopulateHover(_mtlLastHoverSec);
+  if (_mtlLastClickSec != null) _mtlPopulateHover(_mtlLastClickSec);
 }
 
 function _mtlBuildTopChart() {
   const container = document.getElementById('mtl-container-top');
-  if (!container || !_mtlSpyBars || !_mtlSpyBars.length) return;
+  if (!container || !_mtlTopBars || !_mtlTopBars.length) return;
   if (_mtlTopChart) { try { _mtlTopChart.remove(); } catch {} _mtlTopChart = null; }
   container.innerHTML = '';
 
@@ -11821,31 +11890,16 @@ function _mtlBuildTopChart() {
     borderUpColor:  '#0a7c4e', borderDownColor:  '#c82828',
     wickUpColor:    '#0a7c4e', wickDownColor:    '#c82828',
   });
-  _mtlTopCandles.setData(_mtlSpyBars.map(b => ({
+  _mtlTopCandles.setData(_mtlTopBars.map(b => ({
     time: Math.floor(b.t / 1000), open: b.o, high: b.h, low: b.l, close: b.c,
   })));
 
-  // EMA21 line
-  const closes = _mtlSpyBars.map(b => b.c);
-  const ema21  = _mtlCalcEMASeries(closes, 21);
-  const emaSeries = _mtlTopChart.addLineSeries({
-    color: '#1d4ed8', lineWidth: 1.5,
-    priceLineVisible: false, lastValueVisible: false,
-  });
-  emaSeries.setData(
-    _mtlSpyBars
-      .map((b, i) => ema21[i] != null ? { time: Math.floor(b.t / 1000), value: ema21[i] } : null)
-      .filter(Boolean)
-  );
+  _mtlAddEMAs(_mtlTopChart, _mtlTopBars);
 
-  _mtlSetPickMarkers(_mtlTopCandles);
-
-  _mtlTopChart.subscribeCrosshairMove(param => {
+  _mtlTopChart.subscribeClick(param => {
     if (param && param.time) {
-      _mtlLastHoverSec = param.time;
+      _mtlLastClickSec = param.time;
       _mtlPopulateHover(param.time);
-    } else {
-      _mtlClearHover();
     }
   });
 }
@@ -11869,37 +11923,22 @@ function _mtlBuildBotChart() {
     handleScale:  true,
   });
 
-  const lineSeries = _mtlBotChart.addLineSeries({
-    color: '#1d4ed8', lineWidth: 2,
-    priceLineVisible: false, lastValueVisible: false,
+  const barSeries = _mtlBotChart.addBarSeries({
+    upColor:   '#0a7c4e',
+    downColor: '#c82828',
   });
-  lineSeries.setData(bars.map(b => ({ time: Math.floor(b.t / 1000), value: b.c })));
+  barSeries.setData(bars.map(b => ({
+    time: Math.floor(b.t / 1000), open: b.o, high: b.h, low: b.l, close: b.c,
+  })));
 
-  _mtlBotChart.subscribeCrosshairMove(param => {
+  _mtlAddEMAs(_mtlBotChart, bars);
+
+  _mtlBotChart.subscribeClick(param => {
     if (param && param.time) {
-      _mtlLastHoverSec = param.time;
+      _mtlLastClickSec = param.time;
       _mtlPopulateHover(param.time);
     }
   });
-}
-
-function _mtlSetPickMarkers(series) {
-  if (!series) return;
-  const allLiked = [1, 2].flatMap(sid => { try { return loadLiked(sid); } catch { return []; } });
-
-  // One marker per calendar date, using the highest-score pick that day
-  const byDate = {};
-  allLiked.forEach(e => {
-    const ds = new Date(e.starredAt).toISOString().split('T')[0];
-    if (!byDate[ds] || e.score > byDate[ds].score) byDate[ds] = e;
-  });
-
-  const markers = Object.keys(byDate).map(ds => {
-    const [y, mo, d] = ds.split('-').map(Number);
-    return { time: Date.UTC(y, mo - 1, d) / 1000, position: 'aboveBar', color: '#d97706', shape: 'arrowDown', text: '★' };
-  }).sort((a, b) => a.time - b.time);
-
-  series.setMarkers(markers);
 }
 
 function _mtlDateStr(tMs) {
@@ -11924,7 +11963,7 @@ function _mtlGetHistReturn(bars, targetDateStr, lookbackBars) {
 function _mtlFmtPct(pct) {
   if (pct == null) return '<span style="color:var(--text3)">—</span>';
   const col = pct >= 0 ? 'var(--green)' : 'var(--red)';
-  return `<span style="color:${col};font-weight:700;font-family:\'IBM Plex Mono\',monospace;font-size:10px">${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%</span>`;
+  return `<span style="color:${col};font-weight:700;font-family:'IBM Plex Mono',monospace;font-size:10px">${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%</span>`;
 }
 
 function _mtlPopulateHover(timeSec) {
@@ -11937,25 +11976,24 @@ function _mtlPopulateHover(timeSec) {
   const dateMs  = timeSec * 1000;
   const dateStr = _mtlDateStr(dateMs);
 
-  // Formatted date label
   const dateLabel = new Date(dateMs + 43200000).toLocaleDateString('en-US', {
     weekday: 'short', year: 'numeric', month: 'short', day: 'numeric',
   });
   const dateEl = document.getElementById('mtl-hover-date');
   if (dateEl) dateEl.textContent = dateLabel;
 
-  // SPY bar info for that day
-  const spyInfoEl = document.getElementById('mtl-spy-info');
-  if (spyInfoEl && _mtlSpyBars) {
-    const spyBar = _mtlSpyBars.find(b => _mtlDateStr(b.t) === dateStr);
-    if (spyBar) {
-      const chgPct = ((spyBar.c - spyBar.o) / spyBar.o) * 100;
+  // Top chart ticker bar info for that day
+  const topInfoEl = document.getElementById('mtl-spy-info');
+  if (topInfoEl && _mtlTopBars) {
+    const bar = _mtlTopBars.find(b => _mtlDateStr(b.t) === dateStr);
+    if (bar) {
+      const chgPct = ((bar.c - bar.o) / bar.o) * 100;
       const col = chgPct >= 0 ? 'var(--green)' : 'var(--red)';
-      spyInfoEl.innerHTML =
-        `<span style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;color:var(--text2)">SPY ${spyBar.c.toFixed(2)}</span>` +
+      topInfoEl.innerHTML =
+        `<span style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;color:var(--text2)">${_mtlTopSym} ${bar.c.toFixed(2)}</span>` +
         `<span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:${col};margin-left:6px">${chgPct >= 0 ? '+' : ''}${chgPct.toFixed(2)}%</span>`;
     } else {
-      spyInfoEl.innerHTML = '';
+      topInfoEl.innerHTML = '';
     }
   }
 
@@ -11964,13 +12002,11 @@ function _mtlPopulateHover(timeSec) {
   if (picksEl) {
     const allLiked = [1, 2].flatMap(sid => { try { return loadLiked(sid); } catch { return []; } });
     const datePicks = allLiked.filter(e => _mtlDateStr(e.starredAt) === dateStr);
-    // Deduplicate by ticker, keep highest score
     const seen = new Map();
     datePicks.forEach(e => {
       if (!seen.has(e.ticker) || e.score > seen.get(e.ticker).score) seen.set(e.ticker, e);
     });
     const uniq = [...seen.values()].sort((a, b) => b.score - a.score);
-
     if (!uniq.length) {
       picksEl.innerHTML = '<div class="mtl-no-data">No picks this day</div>';
     } else {
@@ -11996,7 +12032,6 @@ function _mtlPopulateHover(timeSec) {
         .map(s => ({ ticker: s.ticker, pct: _mtlGetHistReturn(s.bars, dateStr, 5) }))
         .filter(s => s.pct != null)
         .sort((a, b) => b.pct - a.pct);
-
       if (!withPct.length) {
         sectEl.innerHTML = '<div class="mtl-no-data">No data for this date</div>';
       } else {
@@ -12023,7 +12058,6 @@ function _mtlPopulateHover(timeSec) {
         .map(e => ({ ticker: e.ticker, name: e.name, pct: _mtlGetHistReturn(_mtlIndusBars[e.ticker], dateStr, 5) }))
         .filter(e => e.pct != null)
         .sort((a, b) => b.pct - a.pct);
-
       if (!withPct.length) {
         indusEl.innerHTML = '<div class="mtl-no-data">No data for this date</div>';
       } else {
@@ -12063,7 +12097,7 @@ function _mtlClearHover() {
   const content = document.getElementById('mtl-hover-content');
   if (empty)   empty.style.display   = '';
   if (content) content.style.display = 'none';
-  _mtlLastHoverSec = null;
+  _mtlLastClickSec = null;
 }
 
 function setMtlLayout(n) {
@@ -12082,23 +12116,11 @@ function setMtlLayout(n) {
   }
 }
 
-function setMtlBottomSym(sym, label) {
-  _mtlBottomSym = sym;
-  ['QQQ','IWM','DIA','SPY'].forEach(s => {
-    const btn = document.getElementById(`mtl-sym-${s}`);
-    if (btn) btn.classList.toggle('active', s === sym);
-  });
-  const labelEl = document.getElementById('mtl-bot-label');
-  if (labelEl) labelEl.textContent = `${sym} — ${label}`;
-  if (_mtlBotChart) { try { _mtlBotChart.remove(); } catch {} _mtlBotChart = null; }
-  _mtlLoadBotChart(sym);
-}
-
 function _mtlDestroyCharts() {
   if (_mtlTopChart) { try { _mtlTopChart.remove(); } catch {} _mtlTopChart = null; }
   if (_mtlBotChart) { try { _mtlBotChart.remove(); } catch {} _mtlBotChart = null; }
   _mtlTopCandles = null;
-  _mtlSpyBars    = null;
+  _mtlTopBars    = null;
 }
 
 function _mtlCalcEMASeries(closes, period) {
