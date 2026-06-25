@@ -11753,8 +11753,10 @@ let _mtlTopCandles       = null;
 let _mtlBotSeries        = null;     // reference to bottom chart's main series (for crosshair sync)
 let _mtlTopBars          = null;     // [{t_ms, o, h, l, c}]
 let _mtlBotBars          = {};       // sym → [{t_ms, o, h, l, c}]
-let _mtlIndusBars        = {};       // etf_ticker → [{t_ms, c}]
+let _mtlIndusBars        = {};       // industry etf → [{t_ms, c}]  3y daily
 let _mtlIndusLoading     = false;
+let _mtlSectorBars       = {};       // sector etf → [{t_ms, c}]   3y daily (separate from sectorRows)
+let _mtlSectorBarsLoading = false;
 let _mtlLastClickSec     = null;
 let _mtlSyncingCrosshair = false;
 let _mtlSyncingRange     = false;
@@ -11839,6 +11841,7 @@ async function loadMarketTimeline(force = false) {
     if (_mtlLayout === 2) _mtlBuildBotChart();
     if (!sectorRows && marketMode !== 'PH') loadSectors();
     _mtlLoadIndusBars();
+    _mtlLoadSectorBars();
     _mtlPreloadPicks(); // warm the cache for all liked picks in background
     if (updated) updated.textContent = 'Updated ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   } catch (err) {
@@ -11899,7 +11902,7 @@ async function _mtlLoadIndusBars() {
   // Fire all industry ETF fetches at once — no serial batching
   await Promise.allSettled(toFetch.map(async ticker => {
     try {
-      const res    = await fetch(`/api/yf?ticker=${encodeURIComponent(ticker)}&range=1y&interval=1d`);
+      const res    = await fetch(`/api/yf?ticker=${encodeURIComponent(ticker)}&range=3y&interval=1d`);
       const json   = await res.json();
       const result = json?.chart?.result?.[0];
       if (!result) return;
@@ -11913,6 +11916,29 @@ async function _mtlLoadIndusBars() {
     } catch {}
   }));
   _mtlIndusLoading = false;
+  if (_mtlLastClickSec != null) _mtlPopulateHover(_mtlLastClickSec);
+}
+
+async function _mtlLoadSectorBars() {
+  if (_mtlSectorBarsLoading) return;
+  _mtlSectorBarsLoading = true;
+  const tickers = SECTORS.filter(s => s.group === 'sector' && !_mtlSectorBars[s.ticker]).map(s => s.ticker);
+  await Promise.allSettled(tickers.map(async ticker => {
+    try {
+      const res    = await fetch(`/api/yf?ticker=${encodeURIComponent(ticker)}&range=3y&interval=1d`);
+      const json   = await res.json();
+      const result = json?.chart?.result?.[0];
+      if (!result) return;
+      const ts = result.timestamp || [];
+      const qc = result.indicators.quote[0].close;
+      const bars = [];
+      for (let j = 0; j < ts.length; j++) {
+        if (qc[j] != null) bars.push({ t: ts[j] * 1000, c: qc[j] });
+      }
+      _mtlSectorBars[ticker] = bars;
+    } catch {}
+  }));
+  _mtlSectorBarsLoading = false;
   if (_mtlLastClickSec != null) _mtlPopulateHover(_mtlLastClickSec);
 }
 
@@ -12105,12 +12131,12 @@ function _mtlPopulateHover(timeSec) {
   // ── TOP SECTORS — 1W ──────────────────────────────────────────────────────
   const sectEl = document.getElementById('mtl-sectors-list');
   if (sectEl) {
-    if (!sectorRows) {
-      sectEl.innerHTML = '<div class="mtl-no-data">Open Sector tab first</div>';
+    if (!Object.keys(_mtlSectorBars).length) {
+      sectEl.innerHTML = '<div class="mtl-no-data">Loading sectors…</div>';
     } else {
-      const withPct = sectorRows
-        .filter(s => s.group === 'sector' && s.bars)
-        .map(s => ({ ticker: s.ticker, name: MTL_SECTOR_NAMES[s.ticker] || s.name || '', pct: _mtlGetHistReturn(s.bars, dateStr, 5) }))
+      const withPct = SECTORS
+        .filter(s => s.group === 'sector' && _mtlSectorBars[s.ticker])
+        .map(s => ({ ticker: s.ticker, name: MTL_SECTOR_NAMES[s.ticker] || s.name || '', pct: _mtlGetHistReturn(_mtlSectorBars[s.ticker], dateStr, 5) }))
         .filter(s => s.pct != null)
         .sort((a, b) => b.pct - a.pct);
       sectEl.innerHTML = _mtlRenderBars(withPct, 'No data for this date');
@@ -12321,9 +12347,14 @@ function setMtlLayout(n) {
 function _mtlDestroyCharts() {
   if (_mtlTopChart) { try { _mtlTopChart.remove(); } catch {} _mtlTopChart = null; }
   if (_mtlBotChart) { try { _mtlBotChart.remove(); } catch {} _mtlBotChart = null; }
-  _mtlTopCandles = null;
-  _mtlBotSeries  = null;
-  _mtlTopBars    = null;
+  _mtlTopCandles      = null;
+  _mtlBotSeries       = null;
+  _mtlTopBars         = null;
+  _mtlBotBars         = {};
+  _mtlSectorBars      = {};
+  _mtlIndusBars       = {};
+  _mtlSectorBarsLoading = false;
+  _mtlIndusLoading      = false;
 }
 
 function _mtlCalcEMASeries(closes, period) {
