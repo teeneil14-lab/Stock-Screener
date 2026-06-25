@@ -5887,8 +5887,9 @@ function setActiveRow(idx, loadChart_, debounce) {
   activeRow = idx;
 
   const area = document.getElementById('results-area');
-  if (area && document.getElementById('vs-rows')) {
+  if (area && document.getElementById('vs-rows') && area.clientHeight > 0) {
     // Virtual scroll: scroll the container so the row is visible, then re-render
+    // Guard: skip when area is hidden (clientHeight=0) to avoid corrupting scroll state
     const rowTop    = idx * VS_ROW_H;
     const scrollTop = area.scrollTop;
     const viewH     = area.clientHeight;
@@ -10340,6 +10341,10 @@ function setListView(mode) {
   document.getElementById('glance-cols-btns').classList.toggle('visible', glanceView);
   if (glanceView) renderGlanceView();
   if (sectorView) renderSectorView();
+  if (mode === 'list' && sortedResults.length) {
+    // Re-render after layout settles so clientHeight is the real visible height
+    requestAnimationFrame(() => renderVsRows());
+  }
 }
 
 // ============================================================
