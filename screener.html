@@ -12263,7 +12263,7 @@ function _mtlRenderBars(items, emptyMsg) {
     const col  = pos ? '#0a7c4e' : '#c82828';
     const barW = maxAbs > 0 ? (Math.abs(item.pct) / maxAbs * 100).toFixed(1) : '0';
     const pct  = `${pos ? '+' : ''}${item.pct.toFixed(2)}%`;
-    return `<div class="mtl-bar-item">
+    return `<div class="mtl-bar-item" style="cursor:pointer" title="Load ${item.ticker} in bottom chart" onclick="_mtlLoadPickInBot('${item.ticker}')">
       <div class="mtl-bar-row">
         <span class="mtl-bar-rank">${idx + 1}.</span>
         <span class="mtl-bar-label"><span class="mtl-bar-ticker">${item.ticker}</span> <span class="mtl-bar-name">${item.name || ''}</span></span>
