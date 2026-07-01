@@ -8198,7 +8198,11 @@ async function renderPicksAnalytics() {
   // separate performance data, preventing an older entry's result from polluting a newer one)
   const needsFetch = liked.filter(e => !_picksPerf[`${e.ticker}_${e.starredAt}`]);
   if (needsFetch.length > 0) {
-    await Promise.all(needsFetch.map(e => loadPickPerformance(e)));
+    const BATCH = 4;
+    for (let i = 0; i < needsFetch.length; i += BATCH) {
+      if (picksViewMode !== 'analytics') return;
+      await Promise.all(needsFetch.slice(i, i + BATCH).map(e => loadPickPerformance(e)));
+    }
   }
 
   if (picksViewMode !== 'analytics') return; // user navigated away during fetch
@@ -8615,7 +8619,14 @@ function renderPicksList() {
     }
   });
   if (needsFetch.length < sorted.length) updatePicksSummary(); // flush cached rows into summary
-  needsFetch.forEach(entry => loadPickPerformance(entry));
+  // Batch 4 at a time so we don't fire 20+ simultaneous Yahoo Finance requests
+  (async () => {
+    const BATCH = 4;
+    for (let i = 0; i < needsFetch.length; i += BATCH) {
+      if (picksViewMode !== 'list') return;
+      await Promise.all(needsFetch.slice(i, i + BATCH).map(e => loadPickPerformance(e)));
+    }
+  })();
 }
 
 async function loadPickPerformance(entry) {
@@ -9297,21 +9308,29 @@ function _expandBars(bars) {
   return bars.map(b => Array.isArray(b) ? { t:b[0], o:b[1], h:b[2], l:b[3], c:b[4] } : b);
 }
 
+// In-memory cache so repeated loadLiked calls (e.g. once per pick during rendering)
+// don't decompress + parse the localStorage blob every time.
+const _likedCache = {};
+
 function loadLiked(setupId) {
+  if (_likedCache[setupId]) return _likedCache[setupId];
   try {
     const raw = localStorage.getItem(`cts_liked_setup_${setupId}`) || '[]';
     // Decompress if compressed (decompressFromBase64 returns null for plain JSON)
     const str = LZString.decompressFromBase64(raw) || raw;
-    return JSON.parse(str).map(e => ({
+    const arr = JSON.parse(str).map(e => ({
       ...e,
       dailyBars:   _expandBars(e.dailyBars),
       weeklyBars:  _expandBars(e.weeklyBars),
       monthlyBars: _expandBars(e.monthlyBars),
     }));
+    _likedCache[setupId] = arr;
+    return arr;
   } catch { return []; }
 }
 
 function saveLiked(setupId, arr) {
+  _likedCache[setupId] = arr; // keep cache in sync so next loadLiked is instant
   try {
     const compact = arr.map(e => ({
       ...e,
