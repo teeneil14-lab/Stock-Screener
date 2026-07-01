@@ -3569,8 +3569,8 @@
       </div>
       <div style="display:flex;align-items:center;gap:8px">
         <div class="picks-tf-group" id="picks-tf-controls">
-          <button class="picks-tf-btn active" id="picks-global-D" onclick="switchAllPicksCharts('D')">DAILY</button>
-          <button class="picks-tf-btn" id="picks-global-W" onclick="switchAllPicksCharts('W')">WEEKLY</button>
+          <button class="picks-tf-btn" id="picks-global-D" onclick="switchAllPicksCharts('D')">DAILY</button>
+          <button class="picks-tf-btn active" id="picks-global-W" onclick="switchAllPicksCharts('W')">WEEKLY</button>
           <button class="picks-tf-btn" id="picks-global-M" onclick="switchAllPicksCharts('M')">MONTHLY</button>
         </div>
         <button class="picks-view-btn" id="picks-view-toggle" onclick="togglePicksView()">LIST VIEW</button>
@@ -7624,7 +7624,8 @@ function calcEMAAt(closes, period, idx) {
   return ema;
 }
 
-let picksGlobalTF        = 'D';
+let picksGlobalTF        = 'W';
+let _switchGen           = 0;   // incremented on each switchAllPicksCharts call to cancel stale batches
 let picksViewMode        = 'grid'; // 'grid' | 'list' | 'analytics' | 'calendar'
 let calendarCurrentDate  = new Date();
 let calendarShowPicks    = false;
@@ -7705,13 +7706,19 @@ function toggleCalendarView() {
   else                              renderStarredCharts();
 }
 
-function switchAllPicksCharts(tf) {
+async function switchAllPicksCharts(tf) {
   picksGlobalTF = tf;
   ['D','W','M'].forEach(t => {
     const btn = document.getElementById(`picks-global-${t}`);
     if (btn) btn.classList.toggle('active', t === tf);
   });
-  loadLiked(currentSetup).forEach(entry => switchPicksChart(entry.ticker, tf));
+  const gen     = ++_switchGen;
+  const entries = loadLiked(currentSetup);
+  const BATCH   = 4; // max concurrent API fetches — keeps Yahoo Finance happy and UI responsive
+  for (let i = 0; i < entries.length; i += BATCH) {
+    if (gen !== _switchGen) return; // user switched TF again — abort stale run
+    await Promise.all(entries.slice(i, i + BATCH).map(e => switchPicksChart(e.ticker, tf)));
+  }
 }
 
 function renderStarredCharts() {
@@ -7772,13 +7779,10 @@ function renderStarredCharts() {
       </div>`;
 
     grid.appendChild(card);
-
-    // Render chart after card is in DOM (needs dimensions)
-    requestAnimationFrame(() => {
-      const container = document.getElementById(`picks-chart-${entry.ticker}`);
-      if (container) createStarredChart(container, entry, tf0);
-    });
   });
+
+  // Render all charts after DOM is laid out — batches API fetches to 4 at a time
+  requestAnimationFrame(() => switchAllPicksCharts(picksGlobalTF));
 }
 
 // Tracks loaded perf values for the summary row: { ticker: { '5d': val|null, ... } }
