@@ -11764,6 +11764,8 @@ let _mtlSectorBarsLoading = false;
 let _mtlLastClickSec     = null;
 let _mtlSyncingCrosshair = false;
 let _mtlSyncingRange     = false;
+let _mtlBarsExtended     = false;   // true once 5y sector/industry data is fully loaded
+let _mtlBarsExtending    = false;   // prevents double-trigger during async load
 
 const MTL_INDUS_TICKERS = (() => {
   const seen = new Set();
@@ -11824,6 +11826,7 @@ function _mtlAddEMAs(chart, bars) {
 
 async function loadMarketTimeline(force = false) {
   mtlLoaded = true;
+  if (force) { _mtlBarsExtended = false; _mtlBarsExtending = false; }
   const btn     = document.getElementById('mtl-refresh-btn');
   const updated = document.getElementById('mtl-updated');
   if (btn) btn.disabled = true;
@@ -11943,6 +11946,36 @@ async function _mtlLoadSectorBars() {
     } catch {}
   }));
   _mtlSectorBarsLoading = false;
+  if (_mtlLastClickSec != null) _mtlPopulateHover(_mtlLastClickSec);
+}
+
+async function _mtlExtendBarsTo5y() {
+  // Wait for the initial 3y loads to finish so we don't race-overwrite their results
+  while (_mtlIndusLoading || _mtlSectorBarsLoading) {
+    await new Promise(r => setTimeout(r, 500));
+  }
+  const sectorTickers = SECTORS.filter(s => s.group === 'sector').map(s => s.ticker);
+  const allTickers    = [...sectorTickers, ...MTL_INDUS_TICKERS];
+  for (let i = 0; i < allTickers.length; i += 5) {
+    await Promise.allSettled(allTickers.slice(i, i + 5).map(async ticker => {
+      try {
+        const res    = await fetch(`/api/yf?ticker=${encodeURIComponent(ticker)}&range=5y&interval=1d`);
+        const json   = await res.json();
+        const result = json?.chart?.result?.[0];
+        if (!result) return;
+        const ts  = result.timestamp || [];
+        const qc  = result.indicators.quote[0].close;
+        const bars = [];
+        for (let j = 0; j < ts.length; j++) {
+          if (qc[j] != null) bars.push({ t: ts[j] * 1000, c: qc[j] });
+        }
+        if (sectorTickers.includes(ticker)) _mtlSectorBars[ticker] = bars;
+        else                                _mtlIndusBars[ticker]   = bars;
+      } catch {}
+    }));
+  }
+  _mtlBarsExtended  = true;
+  _mtlBarsExtending = false;
   if (_mtlLastClickSec != null) _mtlPopulateHover(_mtlLastClickSec);
 }
 
@@ -12078,6 +12111,12 @@ function _mtlFmtPct(pct) {
 }
 
 function _mtlPopulateHover(timeSec) {
+  // Lazily extend sector/industry data to 5y the first time the user hovers on a date > 3y ago
+  if (timeSec * 1000 < Date.now() - 3 * 365 * 24 * 3600 * 1000 && !_mtlBarsExtended && !_mtlBarsExtending) {
+    _mtlBarsExtending = true;
+    _mtlExtendBarsTo5y();
+  }
+
   const empty   = document.getElementById('mtl-hover-empty');
   const content = document.getElementById('mtl-hover-content');
   if (!empty || !content) return;
