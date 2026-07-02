@@ -452,6 +452,11 @@
   .breadth-mid    { background: rgba(200,160,40,0.15); color: #856404; }
   .breadth-weak   { background: rgba(200,40,40,0.13); color: #c82828; }
   .breadth-na     { color: var(--text3); }
+  .breadth-trend-bar { display: inline-flex; gap: 2px; align-items: center; }
+  .trend-seg      { display: inline-block; width: 12px; height: 8px; border-radius: 2px; }
+  .trend-up       { background: var(--green); }
+  .trend-down     { background: var(--red); opacity: 0.55; }
+  .breadth-trend-na { color: var(--text3); font-size: 11px; }
   .breadth-loading-msg {
     font-size: 11px;
     color: var(--text3);
@@ -9016,7 +9021,24 @@ function breadthCell(pct) {
   return `<span class="breadth-cell ${cls}">${pct}%</span>`;
 }
 
-const BREADTH_CACHE_KEY = 'cts_breadth_v2';
+// 4-segment bar: N contiguous green segments (EMA breadths that rose vs prior day), rest red
+function breadthTrendBar(b) {
+  if (!b || b.ema20Y == null || b.ema50Y == null || b.ema100Y == null || b.ema200Y == null) {
+    return '<span class="breadth-trend-na">—</span>';
+  }
+  const n = [
+    b.ema20  > b.ema20Y,
+    b.ema50  > b.ema50Y,
+    b.ema100 > b.ema100Y,
+    b.ema200 > b.ema200Y,
+  ].filter(Boolean).length;
+  const segs = Array.from({ length: 4 }, (_, i) =>
+    `<span class="trend-seg ${i < n ? 'trend-up' : 'trend-down'}"></span>`
+  ).join('');
+  return `<span class="breadth-trend-bar" title="${n}/4 EMA breadths improving vs prior day">${segs}</span>`;
+}
+
+const BREADTH_CACHE_KEY = 'cts_breadth_v3';
 const BREADTH_CACHE_TTL = 60 * 60 * 1000; // 1 hour
 
 async function loadSectorBreadth() {
@@ -9047,9 +9069,11 @@ async function loadSectorBreadth() {
 
   const totals = {};
   Object.keys(SP500_CONSTITUENTS).forEach(etf => {
-    totals[etf] = { ema20: 0, ema50: 0, ema100: 0, ema200: 0, total: 0 };
+    totals[etf] = { ema20: 0, ema50: 0, ema100: 0, ema200: 0, total: 0,
+                     ema20Y: 0, ema50Y: 0, ema100Y: 0, ema200Y: 0, totalY: 0 };
   });
-  totals['__SP500__'] = { ema20: 0, ema50: 0, ema100: 0, ema200: 0, total: 0 };
+  totals['__SP500__'] = { ema20: 0, ema50: 0, ema100: 0, ema200: 0, total: 0,
+                           ema20Y: 0, ema50Y: 0, ema100Y: 0, ema200Y: 0, totalY: 0 };
 
   const CONCURRENCY = 60;
   let done = 0;
@@ -9096,6 +9120,22 @@ async function loadSectorBreadth() {
                 if (ema50  > 0 && price > ema50)  sp.ema50++;
                 if (ema100 > 0 && price > ema100) sp.ema100++;
                 if (ema200 > 0 && price > ema200) sp.ema200++;
+
+                // Yesterday's breadth, derived from the same closes array (no extra fetch)
+                const yIdx = closes.length - 2;
+                if (yIdx >= 20) {
+                  const priceY  = closes[yIdx];
+                  const ema20Y  = calcEMAAt(closes, 20, yIdx);
+                  const ema50Y  = calcEMAAt(closes, 50, yIdx);
+                  const ema100Y = calcEMAAt(closes, Math.min(100, yIdx + 1), yIdx);
+                  const ema200Y = calcEMAAt(closes, Math.min(200, yIdx + 1), yIdx);
+                  b.totalY++; sp.totalY++;
+                  if (ema20Y  > 0 && priceY > ema20Y)  { b.ema20Y++;  sp.ema20Y++;  }
+                  if (ema50Y  > 0 && priceY > ema50Y)  { b.ema50Y++;  sp.ema50Y++;  }
+                  if (ema100Y > 0 && priceY > ema100Y) { b.ema100Y++; sp.ema100Y++; }
+                  if (ema200Y > 0 && priceY > ema200Y) { b.ema200Y++; sp.ema200Y++; }
+                }
+
                 sp500StockEMACache.push({
                   ticker, sector: etf,
                   price, ema20, ema50, ema100, ema200,
@@ -9126,6 +9166,10 @@ async function loadSectorBreadth() {
         ema100: Math.round(b.ema100 / b.total * 100),
         ema200: Math.round(b.ema200 / b.total * 100),
         total:  b.total,
+        ema20Y:  b.totalY ? Math.round(b.ema20Y  / b.totalY * 100) : null,
+        ema50Y:  b.totalY ? Math.round(b.ema50Y  / b.totalY * 100) : null,
+        ema100Y: b.totalY ? Math.round(b.ema100Y / b.totalY * 100) : null,
+        ema200Y: b.totalY ? Math.round(b.ema200Y / b.totalY * 100) : null,
       };
     }
   });
@@ -9208,6 +9252,7 @@ function renderSectorTable(rows) {
     const sp500b = sectorEMABreadth['__SP500__'];
     const sp500Row = sp500b ? `<tr class="sgo-row" style="background:rgba(10,124,78,0.06);font-weight:600;border-bottom:2px solid rgba(10,124,78,0.2)" onclick="openSP500RelativeStrength()">
       <td style="color:#0a7c4e">S&amp;P 500 (All)</td>
+      <td>${breadthTrendBar(sp500b)}</td>
       <td>${breadthCell(sp500b.ema20)}</td>
       <td>${breadthCell(sp500b.ema50)}</td>
       <td>${breadthCell(sp500b.ema100)}</td>
@@ -9240,6 +9285,7 @@ function renderSectorTable(rows) {
       const b = s.b;
       return `<tr class="sgo-row" onclick="openSectorGlance('${s.ticker}')">
         <td>${s.name}</td>
+        <td>${breadthTrendBar(b)}</td>
         <td>${b ? breadthCell(b.ema20)  : '<span class="breadth-cell breadth-na">—</span>'}</td>
         <td>${b ? breadthCell(b.ema50)  : '<span class="breadth-cell breadth-na">—</span>'}</td>
         <td>${b ? breadthCell(b.ema100) : '<span class="breadth-cell breadth-na">—</span>'}</td>
@@ -9251,6 +9297,7 @@ function renderSectorTable(rows) {
     breadthHTML += `<table class="sectors-breadth-table">
       <thead><tr>
         <th style="text-align:left;cursor:default">Sector</th>
+        <th style="cursor:default;text-align:center">Trend</th>
         <th${bthCls('ema20')} style="cursor:pointer" onclick="sortBreadth('ema20')">EMA 20${bthArrow('ema20')}</th>
         <th${bthCls('ema50')} style="cursor:pointer" onclick="sortBreadth('ema50')">EMA 50${bthArrow('ema50')}</th>
         <th${bthCls('ema100')} style="cursor:pointer" onclick="sortBreadth('ema100')">EMA 100${bthArrow('ema100')}</th>
