@@ -428,6 +428,7 @@
     user-select: none;
   }
   .sectors-breadth-table th:first-child { text-align: left; }
+  .sectors-breadth-table th:nth-child(2) { text-align: left; }
   .sectors-breadth-table th[onclick]:hover { color: var(--text2); }
   .sectors-breadth-table th.sort-active { color: var(--accent); }
   .sectors-breadth-table td {
@@ -437,6 +438,7 @@
     white-space: nowrap;
   }
   .sectors-breadth-table td:first-child { text-align: left; }
+  .sectors-breadth-table td:nth-child(2) { text-align: left; }
   .sectors-breadth-table tr:hover td { background: rgba(10,124,78,0.04); }
   .breadth-cell {
     display: inline-block;
@@ -452,10 +454,11 @@
   .breadth-mid    { background: rgba(200,160,40,0.15); color: #856404; }
   .breadth-weak   { background: rgba(200,40,40,0.13); color: #c82828; }
   .breadth-na     { color: var(--text3); }
-  .breadth-trend-bar { display: inline-flex; gap: 2px; align-items: center; }
-  .trend-seg      { display: inline-block; width: 12px; height: 8px; border-radius: 2px; }
-  .trend-up       { background: var(--green); }
-  .trend-down     { background: var(--red); opacity: 0.55; }
+  .breadth-trend-bar { display: inline-flex; align-items: center; border-radius: 2px; overflow: hidden; }
+  .trend-seg      { display: inline-block; width: 12px; height: 8px; }
+  .trend-seg:not(:last-child) { border-right: 1px solid rgba(255,255,255,0.7); }
+  .trend-up       { background: rgba(10,124,78,0.45); }
+  .trend-down     { background: rgba(200,41,58,0.35); }
   .breadth-trend-na { color: var(--text3); font-size: 11px; }
   .breadth-loading-msg {
     font-size: 11px;
@@ -9295,9 +9298,10 @@ function renderSectorTable(rows) {
     }).join('');
 
     breadthHTML += `<table class="sectors-breadth-table">
+      <colgroup><col style="width:150px"><col style="width:64px"></colgroup>
       <thead><tr>
         <th style="text-align:left;cursor:default">Sector</th>
-        <th style="cursor:default;text-align:center">Trend</th>
+        <th style="cursor:default">Trend</th>
         <th${bthCls('ema20')} style="cursor:pointer" onclick="sortBreadth('ema20')">EMA 20${bthArrow('ema20')}</th>
         <th${bthCls('ema50')} style="cursor:pointer" onclick="sortBreadth('ema50')">EMA 50${bthArrow('ema50')}</th>
         <th${bthCls('ema100')} style="cursor:pointer" onclick="sortBreadth('ema100')">EMA 100${bthArrow('ema100')}</th>
@@ -9308,8 +9312,9 @@ function renderSectorTable(rows) {
     </table>`;
   }
 
+  const sectorsColgroup = '<colgroup><col style="width:150px"><col style="width:64px"></colgroup>';
   document.getElementById('sectors-table-wrap').innerHTML =
-    `<table class="sectors-table"><thead>${thead}</thead><tbody>${tbody}</tbody></table>${breadthHTML}`;
+    `<table class="sectors-table">${sectorsColgroup}<thead>${thead}</thead><tbody>${tbody}</tbody></table>${breadthHTML}`;
 }
 
 // ============================================================
