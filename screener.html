@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CTS Global Screener</title>
+<title>Stock Market Screener © Neil Tee</title>
 <link rel="preload" href="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js" as="script">
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <style>
@@ -59,6 +59,13 @@
     color: var(--accent);
   }
   .logo span { color: var(--text3); font-weight: 400; }
+  .logo-copyright {
+    font-size: 33%;
+    font-weight: 400;
+    color: var(--text3);
+    vertical-align: text-bottom;
+    margin-left: 4px;
+  }
   .header-right {
     display: flex;
     align-items: center;
@@ -3206,7 +3213,7 @@
 <body>
 
 <div class="header">
-  <div class="logo">CTS<span> / </span>GLOBAL SCREENER</div>
+  <div class="logo">Stock Market Screener<span class="logo-copyright">© Neil Tee</span></div>
   <div class="header-right">
     <!-- Portfolio holdings dropdown -->
     <div class="portfolio-wrap" id="portfolio-wrap">
