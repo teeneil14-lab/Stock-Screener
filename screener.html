@@ -668,6 +668,7 @@
   .imap-tile-loading { opacity: 0.45; }
   .imap-tile-loading .imap-tile-pct { font-size: 11px; font-weight: 400; }
   .imap-tile { cursor: pointer; }
+  .imap-tile-flat { cursor: default; }
 
   /* IMAP GLANCE MODAL */
   .imap-glance-overlay {
@@ -3546,7 +3547,7 @@
   <div class="imap-page">
     <div class="imap-toolbar">
       <div class="imap-toolbar-left">
-        <div class="imap-title">INDUSTRY MAP — 5-DAY PERFORMANCE</div>
+        <div class="imap-title" id="imap-title">INDUSTRY MAP — 5-DAY PERFORMANCE</div>
         <div class="imap-updated" id="imap-updated">Not loaded</div>
       </div>
       <div class="imap-toolbar-right">
@@ -3555,6 +3556,10 @@
           <div class="imap-legend-swatch" style="background:#a8d9be;margin-left:6px"></div>mild up
           <div class="imap-legend-swatch" style="background:#f2c0c0;margin-left:6px"></div>mild down
           <div class="imap-legend-swatch" style="background:#a01c1c;margin-left:6px"></div>strong down
+        </div>
+        <div class="picks-tf-group" id="imap-mode-toggle">
+          <button class="picks-tf-btn" id="imap-mode-yahoo"  onclick="setImapMode('yahoo')">YAHOO</button>
+          <button class="picks-tf-btn" id="imap-mode-finviz" onclick="setImapMode('finviz')">FINVIZ</button>
         </div>
         <button class="imap-refresh-btn" id="imap-refresh-btn" onclick="loadIndustryMap(true)">↻ REFRESH</button>
       </div>
@@ -4120,6 +4125,7 @@ window.addEventListener('DOMContentLoaded', () => {
   loadSavedWatchlists();
   applyPaneState();
   renderPortfolioList();
+  _syncImapModeUI();
   // Default the historical-pick date field to today
   const dateEl = document.getElementById('picks-add-date');
   if (dateEl) dateEl.value = new Date().toISOString().slice(0, 10);
@@ -8782,6 +8788,7 @@ function switchMarket(mode) {
   if (pseDailyBtn) pseDailyBtn.style.display = mode === 'PH' ? '' : 'none';
   sectorsLoaded     = false;
   imapLoaded        = false;
+  _imapLoadedMode   = null;
   tweeklyLoaded     = false;
   mtlLoaded         = false;
   _mtlDestroyCharts();
@@ -9637,7 +9644,10 @@ function applyAdaptedWeights() {
 //  INDUSTRY MAP
 // ============================================================
 let imapLoaded = false;
+let _imapLoadedMode = null;
+let imapMode = localStorage.getItem('cts_imap_mode') || 'yahoo';
 let _imapResultsMap = {};
+let _imapFinvizData = null;
 
 const IMAP_BENCHMARKS = [
   { ticker: 'SPY', name: 'S&P 500'      },
@@ -9734,7 +9744,7 @@ async function fetchImapWeekly(ticker) {
   } catch { return null; }
 }
 
-function renderImapSkeleton() {
+function renderImapBenchmarksSkeleton() {
   document.getElementById('imap-benchmarks').innerHTML = IMAP_BENCHMARKS.map(b => `
     <div class="imap-benchmark-tile">
       <div>
@@ -9743,6 +9753,10 @@ function renderImapSkeleton() {
       </div>
       <div class="imap-bm-pct" id="imap-bm-pct-${b.ticker}" style="color:var(--text3)">—</div>
     </div>`).join('');
+}
+
+function renderImapSkeleton() {
+  renderImapBenchmarksSkeleton();
 
   const allEtfs = IMAP_SECTORS.flatMap(s => s.etfs.map(e => ({ ...e, sector: s.label })));
   document.getElementById('imap-grid-wrap').innerHTML = `
@@ -9800,11 +9814,18 @@ const IMAP_CACHE_KEY = 'cts_imap_v1';
 const IMAP_CACHE_TTL = 30 * 60 * 1000; // 30 minutes
 
 async function loadIndustryMap(force) {
-  if (imapLoaded && !force) return;
+  if (imapLoaded && !force && _imapLoadedMode === imapMode) return;
   imapLoaded = true;
+  _imapLoadedMode = imapMode;
 
   const btn = document.getElementById('imap-refresh-btn');
   btn.disabled = true;
+
+  if (imapMode === 'finviz') {
+    await loadIndustryMapFinviz(force);
+    btn.disabled = false;
+    return;
+  }
 
   // Try sessionStorage cache first (skip on manual refresh)
   if (!force) {
@@ -9848,6 +9869,95 @@ async function loadIndustryMap(force) {
   document.getElementById('imap-updated').textContent =
     'Updated ' + new Date(now).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   btn.disabled = false;
+}
+
+function renderImapFinvizGrid(industries) {
+  document.getElementById('imap-grid-wrap').innerHTML = `
+    <div class="imap-grid">
+      ${industries.map(ind => {
+        const st = imapTileStyle(ind.perf1w);
+        return `
+          <div class="imap-tile imap-tile-flat" style="background:${st.bg};color:${st.text};${st.border ? 'border:' + st.border : ''}">
+            <div class="imap-tile-ticker">${ind.name}</div>
+            <div class="imap-tile-pct">${imapFmtPct(ind.perf1w)}</div>
+          </div>`;
+      }).join('')}
+    </div>`;
+}
+
+const IMAP_FINVIZ_CACHE_KEY = 'cts_imap_finviz_v1';
+const IMAP_FINVIZ_CACHE_TTL = 20 * 60 * 1000; // 20 minutes (server itself caches finviz for 15)
+
+async function loadIndustryMapFinviz(force) {
+  // Try sessionStorage cache first (skip on manual refresh)
+  if (!force) {
+    try {
+      const raw = sessionStorage.getItem(IMAP_FINVIZ_CACHE_KEY);
+      if (raw) {
+        const cached = JSON.parse(raw);
+        if (Date.now() - cached.ts < IMAP_FINVIZ_CACHE_TTL) {
+          _imapFinvizData = cached.industries;
+          renderImapBenchmarksSkeleton();
+          renderImapFinvizGrid(cached.industries);
+          Object.entries(cached.benchmarks).forEach(([t, pct]) => updateImapTile(t, pct));
+          document.getElementById('imap-updated').textContent =
+            'Cached ' + new Date(cached.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          return;
+        }
+      }
+    } catch {}
+  }
+
+  document.getElementById('imap-updated').textContent = 'Loading…';
+  renderImapBenchmarksSkeleton();
+  document.getElementById('imap-grid-wrap').innerHTML =
+    '<div style="padding:20px;color:var(--text3);font-size:12px;">Loading industries…</div>';
+
+  try {
+    const [industriesRes, bmPcts] = await Promise.all([
+      fetch('/api/finviz-groups?type=industry').then(r => r.json()),
+      Promise.all(IMAP_BENCHMARKS.map(b => fetchImapWeekly(b.ticker))),
+    ]);
+    if (!Array.isArray(industriesRes)) throw new Error(industriesRes.error || 'Bad industry data');
+
+    const benchmarks = {};
+    IMAP_BENCHMARKS.forEach((b, i) => { benchmarks[b.ticker] = bmPcts[i]; });
+
+    _imapFinvizData = industriesRes;
+    renderImapFinvizGrid(industriesRes);
+    IMAP_BENCHMARKS.forEach(b => updateImapTile(b.ticker, benchmarks[b.ticker]));
+
+    const now = Date.now();
+    try {
+      sessionStorage.setItem(IMAP_FINVIZ_CACHE_KEY, JSON.stringify({ ts: now, industries: industriesRes, benchmarks }));
+    } catch {}
+    document.getElementById('imap-updated').textContent =
+      'Updated ' + new Date(now).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  } catch (e) {
+    document.getElementById('imap-grid-wrap').innerHTML = `<div class="tweekly-error">Failed to load: ${e.message}</div>`;
+    document.getElementById('imap-updated').textContent = 'Error';
+  }
+}
+
+function _syncImapModeUI() {
+  const yahooBtn  = document.getElementById('imap-mode-yahoo');
+  const finvizBtn = document.getElementById('imap-mode-finviz');
+  if (yahooBtn)  yahooBtn.classList.toggle('active', imapMode === 'yahoo');
+  if (finvizBtn) finvizBtn.classList.toggle('active', imapMode === 'finviz');
+  const titleEl = document.getElementById('imap-title');
+  if (titleEl) {
+    titleEl.textContent = imapMode === 'finviz'
+      ? 'INDUSTRY MAP — 1-WEEK PERFORMANCE (FINVIZ)'
+      : 'INDUSTRY MAP — 5-DAY PERFORMANCE (YAHOO)';
+  }
+}
+
+function setImapMode(mode) {
+  if (mode === imapMode) return;
+  imapMode = mode;
+  try { localStorage.setItem('cts_imap_mode', mode); } catch {}
+  _syncImapModeUI();
+  loadIndustryMap(false);
 }
 
 function sortSectors(col) {
