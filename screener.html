@@ -4131,6 +4131,11 @@ window.addEventListener('DOMContentLoaded', () => {
       if (!imapLoaded)    loadIndustryMap(false);
     }
   }, 3000);
+
+  // PSEi/sector rolling snapshot: render whatever's cached immediately, then
+  // fetch today's live values from pse.com.ph and store them (once per day).
+  renderPSESectorStripFromStorage();
+  refreshPSESectorRolling();
 });
 
 function startClock() {
@@ -9119,7 +9124,7 @@ async function loadSectorBreadth() {
   });
 
   sectorBreadthLoading = false;
-  try { sessionStorage.setItem(BREADTH_CACHE_KEY, JSON.stringify({ ts: Date.now(), data: sectorEMABreadth, stocks: sp500StockEMACache })); } catch {}
+   try { sessionStorage.setItem(BREADTH_CACHE_KEY, JSON.stringify({ ts: Date.now(), data: sectorEMABreadth, stocks: sp500StockEMACache })); } catch {}
   _mtlSaveBreadthToday();
   if (sectorRows) renderSectorTable(sectorRows);
 }
@@ -11499,6 +11504,119 @@ function setSgoCols(n) {
 })();
 
 // ============================================================
+//  PSE SECTOR ROLLING HISTORY (localStorage)
+// ============================================================
+// PSEi + sector index values come straight from pse.com.ph's live indices feed
+// (server route /api/pse/sectors, no PDF parsing involved). Each day the app is
+// opened we snapshot that day's values into localStorage, keeping only the most
+// recent 5 trading days — oldest is dropped automatically. The % change shown is
+// always (newest stored value / oldest stored value − 1), and the box always
+// states how many trading days that span actually covers, so it's never mistaken
+// for a fixed "5-day" number when fewer snapshots exist.
+const PSE_SECTOR_STORE_KEY = 'pse_sector_rolling_v1';
+const PSE_SECTOR_MAX_DAYS  = 5;
+
+function loadPSESectorRolling() {
+  try {
+    const arr = JSON.parse(localStorage.getItem(PSE_SECTOR_STORE_KEY) || '[]');
+    return Array.isArray(arr) ? arr : [];
+  } catch { return []; }
+}
+
+function savePSESectorRolling(days) {
+  try { localStorage.setItem(PSE_SECTOR_STORE_KEY, JSON.stringify(days)); }
+  catch (e) { console.warn('[PSE sectors] localStorage save failed:', e.message); }
+}
+
+// Trading-day (Mon–Fri) count strictly between two 'YYYY-MM-DD' dates
+function pseTradingDaysBetween(dateStrA, dateStrB) {
+  const cur = new Date(dateStrA + 'T00:00:00Z');
+  const end = new Date(dateStrB + 'T00:00:00Z');
+  let count = 0;
+  while (cur < end) {
+    cur.setUTCDate(cur.getUTCDate() + 1);
+    const dow = cur.getUTCDay();
+    if (dow !== 0 && dow !== 6) count++;
+  }
+  return count;
+}
+
+function recordPSESectorSnapshot(date, sectors) {
+  let days = loadPSESectorRolling();
+  const idx = days.findIndex(d => d.date === date);
+  if (idx !== -1) days[idx] = { date, sectors };  // same trading day — refresh in place
+  else days.push({ date, sectors });
+  days.sort((a, b) => a.date.localeCompare(b.date));
+  if (days.length > PSE_SECTOR_MAX_DAYS) days = days.slice(days.length - PSE_SECTOR_MAX_DAYS);
+  savePSESectorRolling(days);
+  return days;
+}
+
+const PSE_SECTOR_NAMES = ['PSEi','All Shares','Financials','Industrials','Holding Firms','Property','Services','Mining & Oil'];
+
+// Turns the stored rolling snapshots into the { name: {close, weekPct, days, fromDate, toDate} }
+// shape renderPSESectorStrip() expects.
+function pseSectorRollingSummary(days) {
+  const result = {};
+  if (!days.length) return result;
+
+  const oldest = days[0], latest = days[days.length - 1];
+  const span   = pseTradingDaysBetween(oldest.date, latest.date);
+
+  for (const name of PSE_SECTOR_NAMES) {
+    const latestEntry = latest.sectors?.[name];
+    const oldestEntry = oldest.sectors?.[name];
+    let pct = null, spanDays = 1, fromDate = latest.date, toDate = latest.date;
+
+    if (days.length >= 2 && span > 0 && oldestEntry?.close != null && latestEntry?.close != null) {
+      pct      = (latestEntry.close / oldestEntry.close - 1) * 100;
+      spanDays = span;
+      fromDate = oldest.date;
+      toDate   = latest.date;
+    } else if (latestEntry) {
+      // Only one snapshot so far — fall back to the day-over-day change PSE itself publishes
+      pct = latestEntry.pctChange ?? null;
+    }
+
+    result[name] = {
+      close:   latestEntry ? latestEntry.close : null,
+      weekPct: pct,
+      days:    spanDays,
+      fromDate, toDate,
+    };
+  }
+  return result;
+}
+
+function renderPSESectorStripFromStorage() {
+  const strip = document.getElementById('pse-sector-strip');
+  if (!strip) return;
+  const days = loadPSESectorRolling();
+  if (!days.length) { strip.style.display = 'none'; return; }
+  strip.innerHTML = renderPSESectorStrip(pseSectorRollingSummary(days), days.length);
+  strip.style.display = '';
+}
+
+// Fetches today's PSEi/sector values from pse.com.ph, stores the snapshot, re-renders.
+// Safe to call as often as you like — the server caches the live fetch for 5 minutes
+// and a same-day snapshot just overwrites in place rather than duplicating.
+async function refreshPSESectorRolling() {
+  try {
+    const resp = await fetch('/api/pse/sectors');
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.error || `HTTP ${resp.status}`);
+    }
+    const data = await resp.json();
+    if (!data.date || !data.sectors) throw new Error('Empty response');
+    recordPSESectorSnapshot(data.date, data.sectors);
+  } catch (e) {
+    console.warn('[PSE sectors]', e.message);
+  }
+  renderPSESectorStripFromStorage();
+}
+
+// ============================================================
 //  PSE DAILY SCAN
 // ============================================================
 async function loadPHTickersFromDaily() {
@@ -11560,8 +11678,7 @@ async function runPSEScan() {
   status.style.display  = '';
   status.innerHTML = 'Downloading this week\'s PSE reports…<br><span style="font-size:11px;color:var(--text3)">This may take 20–30 seconds on first load.</span>';
   panels.style.display  = 'none';
-  const strip = document.getElementById('pse-sector-strip');
-  if (strip) strip.style.display = 'none';
+  refreshPSESectorRolling(); // independent of the stock-level scan below; renders as soon as it resolves
 
   try {
     const resp = await fetch('/api/pse/week');
@@ -11631,6 +11748,7 @@ function renderPSESectorStrip(sectors, nDays) {
     ${box('All Shares', sectors['All Shares'])}
   </div>
   <div class="pse-sector-row">
+    ${box('Financials', sectors['Financials'])}
     ${box('Industrials', sectors['Industrials'])}
     ${box('Holding Firms', sectors['Holding Firms'])}
     ${box('Property', sectors['Property'])}
@@ -11640,7 +11758,7 @@ function renderPSESectorStrip(sectors, nDays) {
 }
 
 function renderPSEPanels(data) {
-  const { stocks, dates, sectors = {} } = data;
+  const { stocks } = data;
 
   const liquid   = stocks.filter(s =>
     s.latestValue != null && s.latestValue >= 1_500_000 &&
@@ -11656,12 +11774,6 @@ function renderPSEPanels(data) {
   const netBuying = liquid
     .filter(s => s.netForeign != null && s.netForeign > 0)
     .sort((a, b) => b.netForeign - a.netForeign).slice(0, 30);
-
-  const strip = document.getElementById('pse-sector-strip');
-  if (strip) {
-    strip.innerHTML = renderPSESectorStrip(sectors, dates.length);
-    strip.style.display = '';
-  }
 
   document.getElementById('pse-panels').innerHTML =
     psePanelHigh(nearHigh) + psePanelVol(volSurge) + psePanelForeign(netBuying);

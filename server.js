@@ -38,8 +38,10 @@ const PSE_TTL  = 60 * 60 * 1000; // 1 hour
 // ── Persistent history (pse_history.json) ────────────────────────────────────
 const PSE_HIST_FILE = path.join(__dirname, 'pse_history.json');
 
-// In-memory history: { dates: string[], stocks: { [sym]: { name, days: { [date]: [o,h,l,c,v,val,nf] } } }, sectors: { [date]: { [name]: { close, pctChange } } } }
-let pseHistory = { dates: [], stocks: {}, sectors: {} };
+// In-memory history: { dates: string[], stocks: { [sym]: { name, days: { [date]: [o,h,l,c,v,val,nf] } } } }
+// (Sector/PSEi data is NOT stored here — see refreshPSESectorRolling() in screener.html,
+// which keeps its own rolling window client-side from /api/pse/sectors.)
+let pseHistory = { dates: [], stocks: {} };
 
 // Build state (one concurrent build allowed)
 let pseBuild = { running: false, total: 0, done: 0, failed: 0, latest: '' };
@@ -48,10 +50,9 @@ function loadPSEHistory() {
   try {
     const raw = fs.readFileSync(PSE_HIST_FILE, 'utf8');
     pseHistory = JSON.parse(raw);
-    pseHistory.dates   = pseHistory.dates   || [];
-    pseHistory.stocks  = pseHistory.stocks  || {};
-    pseHistory.sectors = pseHistory.sectors || {};
-    console.log(`[PSE history] Loaded: ${pseHistory.dates.length} days, ${Object.keys(pseHistory.sectors).length} sector-days`);
+    pseHistory.dates  = pseHistory.dates  || [];
+    pseHistory.stocks = pseHistory.stocks || {};
+    console.log(`[PSE history] Loaded: ${pseHistory.dates.length} days`);
   } catch { /* file doesn't exist yet */ }
 }
 
@@ -86,20 +87,6 @@ function mergeIntoPSEHistory(dateStr, stocks) {
   }
 }
 
-// Merge one day's sector data into history: sectors = { [name]: { close, pctChange } }
-function mergeIntoPSEHistorySectors(dateStr, sectors) {
-  if (!pseHistory.sectors) pseHistory.sectors = {};
-  const entry = {};
-  for (const [name, data] of Object.entries(sectors)) {
-    const close     = data?.close     ?? null;
-    const pctChange = data?.pctChange ?? null;
-    if (close != null || pctChange != null)
-      entry[name] = { close, pctChange };
-  }
-  if (Object.keys(entry).length > 0)
-    pseHistory.sectors[dateStr] = entry;
-}
-
 async function runPSEHistoryBuild() {
   if (pseBuild.running) return;
 
@@ -122,11 +109,8 @@ async function runPSEHistoryBuild() {
   for (const dateStr of missing) {
     const result = await fetchPSEDay(dateStr);
     const stocks  = result ? result.stocks  : null;
-    const sectors = result ? result.sectors : null;
     if (stocks && stocks.length > 0) {
       mergeIntoPSEHistory(dateStr, stocks);
-      if (sectors && Object.keys(sectors).length > 0)
-        mergeIntoPSEHistorySectors(dateStr, sectors);
     } else {
       pseBuild.failed++;
     }
@@ -224,61 +208,6 @@ function pdfToText(buf) {
     .then(data => data.text);
 }
 
-function pdfToPageTexts(buf) {
-  const pages = [];
-  return pdfParse(buf, {
-    pagerender: (pageData) => layoutPageRender(pageData).then(t => { pages.push(t); return t; }),
-    version: 'v2.0.550',
-  }).then(() => pages);
-}
-
-function parsePSESectorPage(text) {
-  const parseNum = v => { const n = parseFloat(v.replace(/,/g, '')); return isNaN(n) ? null : n; };
-
-  const SECTOR_RE = [
-    ['PSEi',          /psei\b|composite/i],
-    ['All Shares',    /all\s+shares/i],
-    ['Financials',    /\bfinancial\b/i],
-    ['Industrials',   /\bindustrial/i],   // no closing \b — matches INDUSTRIALS
-    ['Holding Firms', /holding\s+firm/i],
-    ['Property',      /\bproperty\b/i],
-    ['Services',      /\bservice/i],      // no closing \b — matches SERVICES
-    ['Mining & Oil',  /mining/i],
-  ];
-
-  const result = {};
-  const lines = text.split('\n');
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim();
-    if (!line) continue;
-
-    for (const [name, re] of SECTOR_RE) {
-      if (result[name] || !re.test(line)) continue;
-
-      // Combine this line + next in case numbers wrap to the next line
-      const src = line + ' ' + (lines[i + 1] || '');
-      const allNums = [...src.matchAll(/-?[\d,]+\.\d{2}/g)]
-        .map(m => parseNum(m[0])).filter(n => n != null);
-
-      // PSE sector index values are always > 100 (PSEi ~6k–7k, Mining ~200+).
-      // % change and absolute change are always < 50.
-      // Using magnitude instead of column position avoids being wrong if the
-      // PDF adds or removes columns (e.g. volume, value, net foreign).
-      const indexNums = allNums.filter(n => n > 100);
-      const pctNums   = allNums.filter(n => Math.abs(n) <= 50);
-
-      if (indexNums.length > 0) {
-        result[name] = {
-          close:     indexNums[indexNums.length - 1],          // last large number = close
-          pctChange: pctNums.length > 0 ? pctNums[pctNums.length - 1] : null,
-        };
-      }
-      break;
-    }
-  }
-  return result;
-}
 
 // ── Live sector index data from frames.pse.com.ph/indices ────────────────────
 const PSE_FRAMES_TTL = 5 * 60 * 1000; // 5 minutes
@@ -379,28 +308,24 @@ function parsePSELayout(text, dateStr) {
   return stocks;
 }
 
+// Note: PSEi/sector index values are NOT parsed from this PDF — the EOD report's
+// sector summary page parses unreliably and produced bogus % changes. Sector/PSEi
+// data comes from fetchPSEFramesSectors() (live pse.com.ph indices) instead.
 async function fetchPSEDay(dateStr) {
   const cached = pseCache.get(dateStr);
   if (cached && Date.now() - cached.ts < PSE_TTL)
-    return { stocks: cached.stocks, sectors: cached.sectors || {} };
+    return { stocks: cached.stocks };
 
   const label    = pseDateLabel(dateStr);
   const urlPath  = `/market_report/${label.replace(/ /g, '%20').replace(/,/g, '%2C')}-EOD.pdf`;
 
   try {
     const buf    = await downloadBuffer('documents.pse.com.ph', urlPath);
-    const pages  = await pdfToPageTexts(buf);
-    const text   = pages.join('\n');
-    const stocks  = parsePSELayout(text, dateStr);
-    const SECTOR_HITS = [/psei\b|composite/i, /all\s+shares/i, /holding\s+firm/i, /\bproperty\b/i, /mining/i];
-    const sectorPage = pages.reduce((best, pg, i) => {
-      const hits = SECTOR_HITS.filter(re => re.test(pg)).length;
-      return hits > best.hits ? { hits, i } : best;
-    }, { hits: 0, i: -1 });
-    const sectors = sectorPage.hits >= 4 ? parsePSESectorPage(pages[sectorPage.i]) : {};
-    if (stocks.length > 0) pseCache.set(dateStr, { ts: Date.now(), stocks, sectors });
-    console.log(`[PSE] ${dateStr}: ${stocks.length} stocks, ${Object.keys(sectors).length} sector indices`);
-    return { stocks, sectors };
+    const text   = await pdfToText(buf);
+    const stocks = parsePSELayout(text, dateStr);
+    if (stocks.length > 0) pseCache.set(dateStr, { ts: Date.now(), stocks });
+    console.log(`[PSE] ${dateStr}: ${stocks.length} stocks`);
+    return { stocks };
   } catch (e) {
     console.log(`[PSE] ${dateStr}: skipped (${e.message})`);
     return null;
@@ -1042,72 +967,32 @@ const server = http.createServer(async (req, res) => {
 
       output.sort((a, b) => b.rangePos - a.rangePos);
 
-      // Fetch live sector data (today's pctChange + close) and store in history
-      const liveCloses = {};
-      try {
-        const liveSectors = await fetchPSEFramesSectors();
-        if (!pseHistory.sectors) pseHistory.sectors = {};
-        if (!pseHistory.sectors[latestDate]) pseHistory.sectors[latestDate] = {};
-        for (const [name, data] of Object.entries(liveSectors)) {
-          if (data.pctChange != null || data.close != null) {
-            pseHistory.sectors[latestDate][name] = {
-              close: data.close ?? null,
-              pctChange: data.pctChange ?? null,
-            };
-          }
-          if (data.close != null) liveCloses[name] = data.close;
-        }
-        console.log(`[PSE] ${Object.keys(liveSectors).length} live sectors from frames.pse.com.ph`);
-      } catch (e) {
-        console.warn(`[PSE] frames.pse.com.ph failed (${e.message}), sector data not updated today`);
-      }
-
-      // Save updated sector history to disk
-      savePSEHistory();
-
-      // Build rolling return using closes from frames.pse.com.ph (accumulated day by day).
-      //   return = (close_today / close_baseline - 1) × 100
-      //   Shows whatever range is available; needs ≥2 dates to display a %.
-      const SECTOR_NAMES = ['PSEi','All Shares','Financials','Industrials','Holding Firms','Property','Services','Mining & Oil'];
-      const rolling6Dates = Object.keys(pseHistory.sectors || {})
-        .filter(d => d <= latestDate)
-        .sort()
-        .slice(-6);
-
-      const weekSectors = {};
-      for (const name of SECTOR_NAMES) {
-        const datesWithClose = rolling6Dates.filter(d => (pseHistory.sectors[d] || {})[name]?.close != null);
-
-        let rollingPct = null, fromDate = null, toDate = null, displayDays = 0;
-        if (datesWithClose.length >= 2) {
-          const baselineClose = (pseHistory.sectors[datesWithClose[0]] || {})[name].close;
-          const latestClose   = (pseHistory.sectors[datesWithClose[datesWithClose.length - 1]] || {})[name].close;
-          rollingPct   = (latestClose / baselineClose - 1) * 100;
-          fromDate     = datesWithClose[1];
-          toDate       = datesWithClose[datesWithClose.length - 1];
-          displayDays  = datesWithClose.length - 1;
-        } else if (datesWithClose.length === 1) {
-          // Only one day in history — use the pctChange the PSE website publishes (day-over-day)
-          rollingPct  = (pseHistory.sectors[datesWithClose[0]] || {})[name]?.pctChange ?? null;
-          fromDate    = datesWithClose[0];
-          toDate      = datesWithClose[0];
-          displayDays = 1;
-        }
-
-        weekSectors[name] = {
-          close:    liveCloses[name] ?? (pseHistory.sectors[latestDate] || {})[name]?.close ?? null,
-          weekPct:  rollingPct,
-          days:     displayDays,
-          fromDate,
-          toDate,
-        };
-      }
-
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      return res.end(JSON.stringify({ dates, latestDate, stocks: output, sectors: weekSectors }));
+      return res.end(JSON.stringify({ dates, latestDate, stocks: output }));
     } catch (e) {
       console.error(`[PSE] ${e.message}`);
       res.writeHead(500, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: e.message }));
+    }
+  }
+
+  // ── PSE PSEi/sector indices: today's live values straight from pse.com.ph ────
+  // The client stores a rolling 5-day window of these snapshots in localStorage
+  // and computes % change itself — no PDF parsing, no server-side history needed.
+  if (reqUrl.pathname === '/api/pse/sectors') {
+    try {
+      const sectors = await fetchPSEFramesSectors();
+      if (!sectors || Object.keys(sectors).length === 0) {
+        res.writeHead(503, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: 'PSE index data unavailable right now' }));
+      }
+      // Philippine Stock Exchange trades on Manila time (UTC+8, no DST)
+      const date = new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ date, sectors }));
+    } catch (e) {
+      console.error(`[PSE sectors] ${e.message}`);
+      res.writeHead(502, { 'Content-Type': 'application/json' });
       return res.end(JSON.stringify({ error: e.message }));
     }
   }
