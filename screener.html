@@ -10608,6 +10608,45 @@ const IMAP_GLANCE_BARS = {
   M: { '3M': 3,   '6M': 6,   '12M': 12  },
 };
 
+// Groups a bar's timestamp into its D/W/M period bucket so two bars landing
+// in the same period can be recognized as duplicates of each other.
+function _glanceBarPeriodKey(t, tf) {
+  const d = new Date(t);
+  if (tf === 'D') return `${d.getUTCFullYear()}-${d.getUTCMonth()}-${d.getUTCDate()}`;
+  if (tf === 'M') return `${d.getUTCFullYear()}-${d.getUTCMonth()}`;
+  const day = d.getUTCDay(); // 0=Sun..6=Sat
+  const monday = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + ((day === 0 ? -6 : 1) - day)));
+  return monday.getTime();
+}
+
+// Yahoo Finance's chart API occasionally appends one extra "live" bar stamped
+// at the latest trade time instead of the period's proper start — it's a
+// duplicate of the bar right before it (same period, same close), which was
+// making % change come out as +0.00% (or worse) when compared against it.
+// Also strips the current, still-forming month bar (kept for week/day since
+// seeing this week/day's price action so far is useful there).
+function _cleanGlanceBars(rawBars, tf) {
+  const toSec = t => Math.floor(t / 1000);
+  const seen  = new Set();
+  const bars = (rawBars || [])
+    .map(b => ({ t: b.t, o: b.o ?? b.c, h: b.h ?? b.c, l: b.l ?? b.c, c: b.c }))
+    .filter(b => b.c > 0)
+    .sort((a, b) => a.t - b.t)
+    .filter(b => { const s = toSec(b.t); return seen.has(s) ? false : (seen.add(s), true); });
+
+  if (bars.length === 0) return bars;
+  const last = bars[bars.length - 1];
+  if (tf === 'M') {
+    const now = new Date();
+    const monthStart = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1);
+    if (last.t >= monthStart) bars.pop();
+  } else if (bars.length >= 2) {
+    const prev = bars[bars.length - 2];
+    if (_glanceBarPeriodKey(last.t, tf) === _glanceBarPeriodKey(prev.t, tf)) bars.pop();
+  }
+  return bars;
+}
+
 function closeImapGlance() {
   _destroyImapGlanceCharts();
   document.getElementById('imap-glance-overlay').classList.remove('open');
@@ -10756,7 +10795,7 @@ async function _renderImapGlanceGrid(etfObj) {
   if (_imapGlanceEtf !== etfObj || _imapGlanceTF !== tf) return;
 
   const holdingData = etfObj.holdings.map((ticker, i) => {
-    const bars = results[i]?.bars ?? [];
+    const bars = _cleanGlanceBars(results[i]?.bars ?? [], tf);
     const pct  = bars.length >= 2
       ? ((bars[bars.length-1].c - bars[bars.length-2].c) / bars[bars.length-2].c) * 100
       : null;
@@ -10786,20 +10825,7 @@ async function _renderImapGlanceGrid(etfObj) {
 
 function _buildImapGlanceChart(container, bars, key) {
   const toSec  = t => Math.floor(t / 1000);
-  const seenAll = new Set();
-  const allBars = bars
-    .map(b => ({ t: b.t, o: b.o ?? b.c, h: b.h ?? b.c, l: b.l ?? b.c, c: b.c }))
-    .filter(b => b.c > 0)
-    .sort((a, bx) => a.t - bx.t)
-    .filter(b => { const s = toSec(b.t); return seenAll.has(s) ? false : (seenAll.add(s), true); });
-
-  // Drop the current incomplete month bar (same as screener glance)
-  if (allBars.length > 0 && _imapGlanceTF === 'M') {
-    const now = new Date();
-    const last = allBars[allBars.length - 1];
-    const monthStart = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1);
-    if (last.t >= monthStart) allBars.pop();
-  }
+  const allBars = _cleanGlanceBars(bars, _imapGlanceTF);
 
   const maxBars = IMAP_GLANCE_BARS[_imapGlanceTF]?.[_imapGlanceRange] ?? 252;
   const visible = allBars.slice(-maxBars);
