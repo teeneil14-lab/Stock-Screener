@@ -791,6 +791,91 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // ── Finviz Elite industry constituents (tickers for the industry glance) ────
+  if (reqUrl.pathname === '/api/finviz-industry-tickers') {
+    const industry = (reqUrl.searchParams.get('industry') || '').trim();
+    if (!industry) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: 'industry is required' }));
+    }
+
+    const FINVIZ_AUTH = 'aef22707-59f4-492a-be23-ed3f64945fcb';
+    const CACHE_TTL   = 15 * 60 * 1000;
+
+    if (!server._finvizIndustryCache) server._finvizIndustryCache = new Map();
+    const cached = server._finvizIndustryCache.get(industry);
+    if (cached && Date.now() - cached.ts < CACHE_TTL) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify(cached.data));
+    }
+
+    function parseCSVLine(line) {
+      const cells = [];
+      let cur = '', inQ = false;
+      for (let i = 0; i < line.length; i++) {
+        if (line[i] === '"') { inQ = !inQ; }
+        else if (line[i] === ',' && !inQ) { cells.push(cur.trim()); cur = ''; }
+        else { cur += line[i]; }
+      }
+      cells.push(cur.trim());
+      return cells;
+    }
+
+    function parseFinvizScreenerCSV(csv, expectedIndustry) {
+      const lines = csv.trim().split(/\r?\n/).filter(Boolean);
+      if (lines.length < 2) return null;
+      const headers    = parseCSVLine(lines[0]);
+      const tickerIdx  = headers.findIndex(h => /^ticker$/i.test(h));
+      const capIdx     = headers.findIndex(h => /^market cap$/i.test(h));
+      const industryIdx = headers.findIndex(h => /^industry$/i.test(h));
+      if (tickerIdx < 0) return { error: `Ticker column not found. Headers: ${headers.join(', ')}` };
+      const expected = expectedIndustry.toLowerCase();
+      const rows = [];
+      for (let i = 1; i < lines.length; i++) {
+        const cells = parseCSVLine(lines[i]);
+        if (cells.length <= tickerIdx) continue;
+        const ticker = cells[tickerIdx];
+        const cap    = capIdx >= 0 ? parseFloat(cells[capIdx]) : 0;
+        if (!ticker) continue;
+        // Finviz silently ignores an unrecognized industry filter and returns the
+        // whole market instead of erroring, so cross-check the Industry column
+        // to make sure the filter actually applied before trusting the results.
+        if (industryIdx >= 0 && cells[industryIdx].toLowerCase() !== expected) continue;
+        rows.push({ ticker, cap: isNaN(cap) ? 0 : cap });
+      }
+      return rows.length > 0 ? rows : { error: 'No matching rows — industry filter may not have applied' };
+    }
+
+    try {
+      const slug = industry.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const path = `/export?v=111&f=ind_${slug}&auth=${FINVIZ_AUTH}`;
+      const raw  = await rawHttpsGet({ hostname: 'elite.finviz.com', path, headers: {} });
+
+      if (raw.status !== 200) {
+        res.writeHead(502, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: `Finviz returned HTTP ${raw.status}`, preview: raw.body.substring(0, 200) }));
+      }
+
+      const rows = parseFinvizScreenerCSV(raw.body, industry);
+      if (!rows || rows.error) {
+        res.writeHead(502, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: (rows && rows.error) || 'Failed to parse CSV', preview: raw.body.substring(0, 200) }));
+      }
+
+      rows.sort((a, b) => b.cap - a.cap);
+      const data = { tickers: rows.slice(0, 14).map(r => r.ticker) };
+
+      server._finvizIndustryCache.set(industry, { ts: Date.now(), data });
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(data));
+    } catch (e) {
+      console.error(`[finviz-industry] ${industry}: ${e.message}`);
+      res.writeHead(502, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return;
+  }
+
   // ── PSE bars: historical OHLCV from pse_history (daily / weekly / monthly) ───
   if (reqUrl.pathname === '/api/pse/bars') {
     const symbol   = (reqUrl.searchParams.get('symbol') || '').toUpperCase();

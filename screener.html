@@ -9877,7 +9877,7 @@ function renderImapFinvizGrid(industries) {
       ${industries.map(ind => {
         const st = imapTileStyle(ind.perf1w);
         return `
-          <div class="imap-tile imap-tile-flat" style="background:${st.bg};color:${st.text};${st.border ? 'border:' + st.border : ''}">
+          <div class="imap-tile" style="background:${st.bg};color:${st.text};${st.border ? 'border:' + st.border : ''}" onclick="openImapGlanceFinviz('${ind.name.replace(/'/g, "\\'")}')">
             <div class="imap-tile-ticker">${ind.name}</div>
             <div class="imap-tile-pct">${imapFmtPct(ind.perf1w)}</div>
           </div>`;
@@ -10599,6 +10599,7 @@ async function screenshotTweekly() {
 let _imapGlanceTF     = 'W';
 let _imapGlanceRange  = '6M';
 let _imapGlanceEtf    = null;
+let _imapGlanceFinvizIndustry = null;
 const _imapGlanceCharts = {};
 
 const IMAP_GLANCE_BARS = {
@@ -10611,6 +10612,7 @@ function closeImapGlance() {
   _destroyImapGlanceCharts();
   document.getElementById('imap-glance-overlay').classList.remove('open');
   _imapGlanceEtf = null;
+  _imapGlanceFinvizIndustry = null;
 }
 
 function _destroyImapGlanceCharts() {
@@ -10646,6 +10648,7 @@ async function openImapGlance(etfTicker) {
   }
   if (!etfObj || !etfObj.holdings || !etfObj.holdings.length) return;
 
+  _imapGlanceFinvizIndustry = null;
   _imapGlanceEtf   = etfObj;
   _imapGlanceTF    = 'W';
   _imapGlanceRange = '6M';
@@ -10666,6 +10669,65 @@ async function openImapGlance(etfTicker) {
 
   document.getElementById('imap-glance-overlay').classList.add('open');
   _renderImapGlanceGrid(etfObj);
+}
+
+const IMAP_FINVIZ_TICKERS_CACHE_KEY = 'cts_imap_finviz_tickers_v1';
+const IMAP_FINVIZ_TICKERS_CACHE_TTL = 20 * 60 * 1000; // 20 minutes
+
+async function _fetchFinvizIndustryTickers(industryName) {
+  let cache = {};
+  try { cache = JSON.parse(sessionStorage.getItem(IMAP_FINVIZ_TICKERS_CACHE_KEY)) || {}; } catch {}
+  const hit = cache[industryName];
+  if (hit && Date.now() - hit.ts < IMAP_FINVIZ_TICKERS_CACHE_TTL) return hit.tickers;
+
+  const res = await fetch(`/api/finviz-industry-tickers?industry=${encodeURIComponent(industryName)}`);
+  const data = await res.json();
+  if (!Array.isArray(data.tickers)) throw new Error(data.error || 'No tickers returned');
+
+  cache[industryName] = { ts: Date.now(), tickers: data.tickers };
+  try { sessionStorage.setItem(IMAP_FINVIZ_TICKERS_CACHE_KEY, JSON.stringify(cache)); } catch {}
+  return data.tickers;
+}
+
+async function openImapGlanceFinviz(industryName) {
+  _imapGlanceFinvizIndustry = industryName;
+  _imapGlanceEtf   = null;
+  _imapGlanceTF    = 'W';
+  _imapGlanceRange = '6M';
+  ['D','W','M'].forEach(t =>
+    document.getElementById(`imap-glance-tf-${t}`).classList.toggle('active', t === 'W')
+  );
+  ['3M','6M','12M'].forEach(r =>
+    document.getElementById(`imap-glance-rng-${r}`).classList.toggle('active', r === '6M')
+  );
+
+  const ind = (_imapFinvizData || []).find(i => i.name === industryName);
+  const pct = ind ? ind.perf1w : null;
+  const pctText  = pct === null ? '' : ' ' + (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%';
+  const pctColor = pct === null ? 'var(--text3)' : pct >= 0 ? '#0a7c4e' : '#c82828';
+  document.getElementById('imap-glance-ticker').textContent = industryName;
+  document.getElementById('imap-glance-pct').textContent    = pctText;
+  document.getElementById('imap-glance-pct').style.color    = pctColor;
+  document.getElementById('imap-glance-meta').textContent   = 'FINVIZ INDUSTRY  ·  TOP HOLDINGS BY MARKET CAP  ·  1-WEEK %';
+
+  document.getElementById('imap-glance-overlay').classList.add('open');
+  _destroyImapGlanceCharts();
+  document.getElementById('imap-glance-grid').innerHTML =
+    '<div style="padding:20px;color:var(--text3);font-size:12px;">Loading holdings…</div>';
+
+  try {
+    const tickers = await _fetchFinvizIndustryTickers(industryName);
+    if (_imapGlanceFinvizIndustry !== industryName) return; // user switched tiles meanwhile
+    if (!tickers.length) throw new Error('No holdings data');
+
+    const etfObj = { ticker: industryName, name: industryName, holdings: tickers, sectorLabel: 'FINVIZ INDUSTRY' };
+    _imapGlanceEtf = etfObj;
+    _renderImapGlanceGrid(etfObj);
+  } catch (e) {
+    if (_imapGlanceFinvizIndustry !== industryName) return;
+    document.getElementById('imap-glance-grid').innerHTML =
+      `<div class="tweekly-error">No holdings data (${e.message})</div>`;
+  }
 }
 
 async function _renderImapGlanceGrid(etfObj) {
@@ -10705,7 +10767,7 @@ async function _renderImapGlanceGrid(etfObj) {
     const pctText  = h.pct === null ? '—' : (h.pct >= 0 ? '+' : '') + h.pct.toFixed(2) + '%';
     const pctColor = h.pct === null ? 'var(--text3)' : h.pct >= 0 ? '#0a7c4e' : '#c82828';
     return `
-      <div class="imap-glance-card" id="igc-${idx}" onclick="closeImapGlance();loadChart({ticker:${JSON.stringify(h.ticker)},name:${JSON.stringify(h.ticker)},exchange:''})">
+      <div class="imap-glance-card" id="igc-${idx}" onclick="closeImapGlance();loadChart({ticker:'${h.ticker}',name:'${h.ticker}',exchange:''})">
         <div class="imap-glance-card-hdr">
           <span class="imap-glance-card-ticker">${h.ticker}</span>
           <span class="imap-glance-card-pct" style="color:${pctColor}">${pctText}</span>
