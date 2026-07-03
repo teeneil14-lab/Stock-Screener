@@ -343,6 +343,7 @@
   .sectors-table th:first-child,
   .sectors-table th:nth-child(2) { text-align: left; }
   .sectors-table th:nth-child(2) { padding-left: 30px; }
+  .sectors-table th:nth-child(n+3) { padding-left: 5px; padding-right: 5px; }
   .sectors-table th:hover { color: var(--text); }
   .sectors-table th.sort-active { color: var(--accent); }
   .sectors-table td {
@@ -358,6 +359,7 @@
     font-size: 10px;
     padding-left: 30px;
   }
+  .sectors-table td:nth-child(n+3) { padding-left: 5px; padding-right: 5px; }
   .sectors-table tr.benchmark-row td {
     background: var(--bg2);
     color: var(--text3);
@@ -378,6 +380,38 @@
   .pct-flat        { background: transparent; color: var(--text3); }
   .pct-mild-down   { background: rgba(200,40,40,0.08); color: #c82828; }
   .pct-strong-down { background: rgba(200,40,40,0.18); color: #a01c1c; }
+  .mktperf-turnover {
+    display: flex;
+    gap: 24px;
+    padding: 14px 16px;
+    margin-bottom: 16px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+  }
+  .mktperf-turnover-stat { display: flex; flex-direction: column; gap: 2px; }
+  .mktperf-turnover-label {
+    font-size: 9px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--text3);
+  }
+  .mktperf-turnover-value {
+    font-family: 'IBM Plex Mono', monospace; font-size: 16px; font-weight: 600; color: var(--text);
+  }
+  .mktperf-top10 { margin-bottom: 20px; }
+  .mktperf-top10-title {
+    font-size: 9px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--text3); margin-bottom: 8px;
+  }
+  .mktperf-top10-row {
+    display: flex; align-items: center; gap: 10px; padding: 4px 0;
+    font-family: 'IBM Plex Mono', monospace; font-size: 11px;
+  }
+  .mktperf-top10-rank { color: var(--text3); width: 16px; }
+  .mktperf-top10-symbol { width: 56px; font-weight: 600; color: var(--text); }
+  .mktperf-top10-value { width: 90px; color: var(--text2); }
+  .mktperf-top10-bar-wrap { flex: 1; background: var(--border); border-radius: 2px; height: 8px; overflow: hidden; }
+  .mktperf-top10-bar { height: 100%; background: var(--accent); }
+  .mktperf-top10-pct { width: 46px; text-align: right; color: var(--text3); }
   .sectors-loading {
     display: flex;
     flex-direction: column;
@@ -431,10 +465,10 @@
   }
   .sectors-breadth-table th:first-child { text-align: left; }
   .sectors-breadth-table th:nth-child(2) { text-align: left; padding-left: 30px; }
-  .sectors-breadth-table th:nth-child(3) { padding-left: 24px; padding-right: 5px; }
+  .sectors-breadth-table th:nth-child(3) { padding-left: 24px; padding-right: 2.5px; }
   .sectors-breadth-table th:nth-child(4),
-  .sectors-breadth-table th:nth-child(5) { padding-left: 5px; padding-right: 5px; }
-  .sectors-breadth-table th:nth-child(6) { padding-left: 5px; }
+  .sectors-breadth-table th:nth-child(5) { padding-left: 2.5px; padding-right: 2.5px; }
+  .sectors-breadth-table th:nth-child(6) { padding-left: 2.5px; }
   .sectors-breadth-table th[onclick]:hover { color: var(--text2); }
   .sectors-breadth-table th.sort-active { color: var(--accent); }
   .sectors-breadth-table td {
@@ -3281,6 +3315,7 @@
   <button class="tab-btn" id="tab-btn-tweekly" onclick="switchTab('tweekly')">Tweekly</button>
   <button class="tab-btn" id="tab-btn-timeline" onclick="switchTab('timeline')">Market Timeline</button>
   <button class="tab-btn" id="tab-btn-psedaily" onclick="switchTab('psedaily')" style="display:none">PSE Daily</button>
+  <button class="tab-btn" id="tab-btn-marketperf" onclick="switchTab('marketperf')" style="display:none">Market Performance</button>
   <div class="tab-search-wrap">
     <input type="text" id="tab-search-input" class="tab-search-input" placeholder="AAPL or AVGO, AAPL, SMCI…"
       oninput="tabSearchOnInput()" onkeydown="if(event.key==='Enter')tabSearchGo()" />
@@ -3802,6 +3837,30 @@
   <div id="pse-sector-strip" class="pse-sector-strip" style="display:none"></div>
   <div id="pse-panels" class="pse-panels" style="display:none"></div>
 </div><!-- /tab-psedaily -->
+
+<!-- MARKET PERFORMANCE TAB (PH) -->
+<div id="tab-marketperf" class="tab-page" style="display:none">
+  <div class="sectors-page">
+    <div class="sectors-toolbar">
+      <div class="sectors-toolbar-left">
+        <div class="sectors-title">MARKET PERFORMANCE</div>
+        <div class="sectors-updated" id="marketperf-updated">Not loaded</div>
+      </div>
+      <div class="sectors-toolbar-right">
+        <button class="sectors-refresh-btn" id="marketperf-refresh-btn" onclick="loadMarketPerformance(true)">↻ REFRESH</button>
+      </div>
+    </div>
+    <div class="sectors-body" id="marketperf-body">
+      <div class="sectors-loading" id="marketperf-loading" style="display:none">
+        <div class="sectors-spinner"></div>
+        <div>Loading market performance…</div>
+      </div>
+      <div id="marketperf-turnover-wrap"></div>
+      <div id="marketperf-top10-wrap"></div>
+      <div id="marketperf-table-wrap"></div>
+    </div>
+  </div>
+</div><!-- /tab-marketperf -->
 
 <!-- MARKET TIMELINE TAB -->
 <div id="tab-timeline" class="tab-page" style="display:none">
@@ -8742,6 +8801,10 @@ let sectorsLoaded      = false;
 let tweeklyLoaded      = false;
 let tweeklyYTDLoaded   = false;
 let pseDailyLoaded     = false;
+let marketPerfLoaded   = false;
+let marketPerfData     = null;   // raw {date, totalValue, totalVolume, stocks} from server
+let marketPerfSortCol  = '1d';
+let marketPerfSortDir  = -1;
 let _tweeklyActiveTab  = 'weekly';
 let _tweeklyYTDChart   = null;
 let _tweeklyYTDChartRO = null;
@@ -8749,7 +8812,7 @@ let _tweeklyMOChart    = null;
 let _tweeklyMOChartRO  = null;
 
 function switchTab(tab) {
-  ['screener','sectors','imap','picks','tweekly','timeline','psedaily'].forEach(t => {
+  ['screener','sectors','imap','picks','tweekly','timeline','psedaily','marketperf'].forEach(t => {
     const page = document.getElementById(`tab-${t}`);
     const btn  = document.getElementById(`tab-btn-${t}`);
     if (page) page.style.display = tab === t ? '' : 'none';
@@ -8760,6 +8823,7 @@ function switchTab(tab) {
   if (tab === 'tweekly'   && !tweeklyLoaded   && marketMode !== 'PH') loadTweekly(false);
   if (tab === 'timeline'  && !mtlLoaded       && marketMode !== 'PH') loadMarketTimeline(false);
   if (tab === 'psedaily'  && !pseDailyLoaded)  runPSEScan();
+  if (tab === 'marketperf' && !marketPerfLoaded && marketMode === 'PH') loadMarketPerformance();
   if (tab === 'picks') {
     _destroyAnalyticsCharts();
     _syncPicksToolbar();
@@ -8804,6 +8868,9 @@ function switchMarket(mode) {
   });
   const pseDailyBtn = document.getElementById('tab-btn-psedaily');
   if (pseDailyBtn) pseDailyBtn.style.display = mode === 'PH' ? '' : 'none';
+  const marketPerfBtn = document.getElementById('tab-btn-marketperf');
+  if (marketPerfBtn) marketPerfBtn.style.display = mode === 'PH' ? '' : 'none';
+  marketPerfLoaded  = false;
   sectorsLoaded     = false;
   imapLoaded        = false;
   _imapLoadedMode   = null;
@@ -10040,6 +10107,158 @@ function sortBreadth(col) {
     breadthSortDir = -1;
   }
   if (sectorRows) renderSectorTable(sectorRows);
+}
+
+// ============================================================
+//  MARKET PERFORMANCE TAB (PH) — 1D/1W/1M/3M/YTD/1Y returns + turnover
+// ============================================================
+
+async function loadMarketPerformance(force) {
+  marketPerfLoaded = true;
+  const loading = document.getElementById('marketperf-loading');
+  const updated = document.getElementById('marketperf-updated');
+  if (loading) loading.style.display = 'flex';
+  try {
+    const res  = await fetch('/api/pse/market-performance');
+    const data = await res.json();
+    marketPerfData = data;
+    if (updated) {
+      updated.textContent = data.date
+        ? `As of ${data.date}`
+        : 'No data available';
+    }
+    renderMarketPerfTable();
+  } catch (e) {
+    const wrap = document.getElementById('marketperf-table-wrap');
+    if (wrap) wrap.innerHTML = `<div class="tweekly-error">Failed to load: ${e.message}</div>`;
+    if (updated) updated.textContent = 'Error';
+  } finally {
+    if (loading) loading.style.display = 'none';
+  }
+}
+
+function pseFmtAbsMoney(n) {
+  if (n == null) return '—';
+  if (n >= 1e9) return (n / 1e9).toFixed(2) + 'B';
+  if (n >= 1e6) return (n / 1e6).toFixed(2) + 'M';
+  if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
+  return n.toFixed(0);
+}
+
+function renderMarketPerfTable() {
+  const turnoverWrap = document.getElementById('marketperf-turnover-wrap');
+  const top10Wrap    = document.getElementById('marketperf-top10-wrap');
+  const tableWrap     = document.getElementById('marketperf-table-wrap');
+  if (!marketPerfData || !marketPerfData.stocks || marketPerfData.stocks.length === 0) {
+    if (tableWrap) tableWrap.innerHTML = '<div class="tweekly-error">No market performance data available</div>';
+    if (turnoverWrap) turnoverWrap.innerHTML = '';
+    if (top10Wrap) top10Wrap.innerHTML = '';
+    return;
+  }
+
+  const sym = priceSym();
+  const { totalValue, totalVolume, stocks } = marketPerfData;
+
+  // Turnover summary strip
+  if (turnoverWrap) {
+    turnoverWrap.innerHTML = `
+      <div class="mktperf-turnover">
+        <div class="mktperf-turnover-stat">
+          <div class="mktperf-turnover-label">Total Value Traded</div>
+          <div class="mktperf-turnover-value">${sym}${pseFmtAbsMoney(totalValue)}</div>
+        </div>
+        <div class="mktperf-turnover-stat">
+          <div class="mktperf-turnover-label">Total Shares Traded</div>
+          <div class="mktperf-turnover-value">${pseFmtVol(totalVolume)}</div>
+        </div>
+      </div>`;
+  }
+
+  // Top 10 by turnover
+  if (top10Wrap) {
+    const top10 = stocks
+      .filter(s => s.value != null)
+      .slice()
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 10);
+    const rows = top10.map((s, i) => {
+      const pct = totalValue > 0 ? (s.value / totalValue) * 100 : 0;
+      return `
+        <div class="mktperf-top10-row">
+          <div class="mktperf-top10-rank">${i + 1}</div>
+          <div class="mktperf-top10-symbol">${s.symbol}</div>
+          <div class="mktperf-top10-value">${sym}${pseFmtAbsMoney(s.value)}</div>
+          <div class="mktperf-top10-bar-wrap"><div class="mktperf-top10-bar" style="width:${Math.min(100, pct * 4).toFixed(1)}%"></div></div>
+          <div class="mktperf-top10-pct">${pct.toFixed(1)}%</div>
+        </div>`;
+    }).join('');
+    top10Wrap.innerHTML = `
+      <div class="mktperf-top10">
+        <div class="mktperf-top10-title">Top 10 by Turnover — % of Total Market Value Traded</div>
+        ${rows}
+      </div>`;
+  }
+
+  // Main sortable table
+  const colKey = { '1d':'d1', '1w':'w1', '1m':'m1', '3m':'m3', 'ytd':'ytd', '1y':'y1', 'shares':'volume', 'value':'value' };
+  const key = colKey[marketPerfSortCol] || 'd1';
+  const sorted = stocks.slice().sort((a, b) => {
+    const av = a[key] ?? -Infinity;
+    const bv = b[key] ?? -Infinity;
+    return marketPerfSortDir * (av - bv);
+  });
+
+  function thArrow(col) {
+    if (marketPerfSortCol !== col) return '';
+    return marketPerfSortDir === -1 ? ' ↓' : ' ↑';
+  }
+  function thCls(col) {
+    return marketPerfSortCol === col ? ' class="sort-active"' : '';
+  }
+
+  const thead = `
+    <tr>
+      <th${thCls('')} style="cursor:default">Symbol</th>
+      <th${thCls('')} style="cursor:default">Name</th>
+      <th${thCls('')} style="cursor:default">Close</th>
+      <th${thCls('1d')} onclick="sortMarketPerf('1d')">1D${thArrow('1d')}</th>
+      <th${thCls('1w')} onclick="sortMarketPerf('1w')">1W${thArrow('1w')}</th>
+      <th${thCls('1m')} onclick="sortMarketPerf('1m')">1M${thArrow('1m')}</th>
+      <th${thCls('3m')} onclick="sortMarketPerf('3m')">3M${thArrow('3m')}</th>
+      <th${thCls('ytd')} onclick="sortMarketPerf('ytd')">YTD${thArrow('ytd')}</th>
+      <th${thCls('1y')} onclick="sortMarketPerf('1y')">1Y${thArrow('1y')}</th>
+      <th${thCls('shares')} onclick="sortMarketPerf('shares')">Shares Traded${thArrow('shares')}</th>
+      <th${thCls('value')} onclick="sortMarketPerf('value')">Value Traded${thArrow('value')}</th>
+    </tr>`;
+
+  const tbody = sorted.map(s => `
+    <tr>
+      <td>${s.symbol}</td>
+      <td>${s.name || ''}</td>
+      <td>${sym}${s.close != null ? s.close.toFixed(2) : '—'}</td>
+      <td>${pctCell(s.d1)}</td>
+      <td>${pctCell(s.w1)}</td>
+      <td>${pctCell(s.m1)}</td>
+      <td>${pctCell(s.m3)}</td>
+      <td>${pctCell(s.ytd)}</td>
+      <td>${pctCell(s.y1)}</td>
+      <td>${pseFmtVol(s.volume)}</td>
+      <td>${sym}${pseFmtAbsMoney(s.value)}</td>
+    </tr>`).join('');
+
+  if (tableWrap) {
+    tableWrap.innerHTML = `<table class="sectors-table"><thead>${thead}</thead><tbody>${tbody}</tbody></table>`;
+  }
+}
+
+function sortMarketPerf(col) {
+  if (marketPerfSortCol === col) {
+    marketPerfSortDir *= -1;
+  } else {
+    marketPerfSortCol = col;
+    marketPerfSortDir = -1;
+  }
+  renderMarketPerfTable();
 }
 
 // ============================================================

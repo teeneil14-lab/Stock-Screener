@@ -936,6 +936,73 @@ const server = http.createServer(async (req, res) => {
     return res.end(JSON.stringify({ bars: aggBars }));
   }
 
+  // ── PSE market performance: 1D/1W/1M/3M/YTD/1Y returns + turnover for every stock ──
+  if (reqUrl.pathname === '/api/pse/market-performance') {
+    const dates = pseHistory.dates.slice().sort();
+    const latestDate = dates[dates.length - 1];
+    if (!latestDate) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ date: null, totalValue: 0, totalVolume: 0, stocks: [] }));
+    }
+
+    const yearStart = latestDate.slice(0, 4) + '-01-01';
+    const pctReturn = (bars, n) => {
+      if (bars.length < 2) return null;
+      const idx = Math.max(0, bars.length - 1 - n);
+      const past = bars[idx].c;
+      if (!past) return null;
+      return (bars[bars.length - 1].c / past - 1) * 100;
+    };
+    const ytdReturn = (bars) => {
+      if (bars.length < 2) return null;
+      const ytdBar = bars.find(b => b.d >= yearStart);
+      if (!ytdBar || !ytdBar.c) return null;
+      return (bars[bars.length - 1].c / ytdBar.c - 1) * 100;
+    };
+
+    let totalValue = 0, totalVolume = 0;
+    const stocks = [];
+
+    for (const symbol of Object.keys(pseHistory.stocks)) {
+      const stock = pseHistory.stocks[symbol];
+      const sortedDates = Object.keys(stock.days).sort();
+      const bars = sortedDates
+        .map(d => {
+          const day = stock.days[d];
+          const close = Array.isArray(day) ? day[3] : day.close;
+          return close == null ? null : { d, c: close };
+        })
+        .filter(Boolean);
+      if (bars.length < 2) continue;
+
+      const todayDay = stock.days[latestDate];
+      if (!todayDay) continue; // didn't trade on the latest report date
+
+      const volume = Array.isArray(todayDay) ? todayDay[4] : todayDay.volume;
+      const value  = Array.isArray(todayDay) ? todayDay[5] : todayDay.value;
+
+      if (value != null)  totalValue  += value;
+      if (volume != null) totalVolume += volume;
+
+      stocks.push({
+        symbol,
+        name:   stock.name,
+        close:  bars[bars.length - 1].c,
+        d1:     pctReturn(bars, 1),
+        w1:     pctReturn(bars, 5),
+        m1:     pctReturn(bars, 21),
+        m3:     pctReturn(bars, 63),
+        ytd:    ytdReturn(bars),
+        y1:     pctReturn(bars, 252),
+        volume: volume ?? null,
+        value:  value  ?? null,
+      });
+    }
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    return res.end(JSON.stringify({ date: latestDate, totalValue, totalVolume, stocks }));
+  }
+
   // ── PSE history: start build ─────────────────────────────────────────────────
   if (reqUrl.pathname === '/api/pse/build-history' && req.method === 'POST') {
     if (!pseBuild.running) runPSEHistoryBuild().catch(e => console.error('[PSE build]', e.message));
