@@ -131,21 +131,22 @@ async function runPSEHistoryBuild() {
   console.log(`[PSE history] Build complete: ${pseHistory.dates.length} days total`);
 }
 
-function pseWeekDays() {
-  const now = new Date();
-  const dow = now.getDay(); // 0=Sun … 6=Sat
-  const mon = new Date(now);
-  mon.setDate(now.getDate() - (dow === 0 ? 6 : dow - 1));
-  mon.setHours(0, 0, 0, 0);
-
+// Rolling window of the most recent weekday dates, ending today — NOT anchored to the
+// calendar Monday. That anchoring used to leave the window empty on Monday mornings
+// (before Monday's own EOD report was published), producing "no data for the week yet"
+// even though last Thu/Fri's reports were sitting right there. Looking back up to
+// maxLookback calendar days lets it fall back onto the prior trading week automatically.
+function pseWeekDays(n = 5, maxLookback = 14) {
+  const now  = new Date();
   const days = [];
-  for (let d = 0; d < 5; d++) {
-    const day = new Date(mon);
-    day.setDate(mon.getDate() + d);
-    if (day > now) break;
+  for (let back = 0; days.length < n && back < maxLookback; back++) {
+    const day = new Date(now);
+    day.setDate(now.getDate() - back);
+    const dow = day.getDay(); // 0=Sun … 6=Sat
+    if (dow === 0 || dow === 6) continue; // skip weekends
     days.push(day.toISOString().split('T')[0]);
   }
-  return days;
+  return days.reverse(); // oldest → newest
 }
 
 function pseDateLabel(dateStr) {

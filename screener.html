@@ -412,6 +412,26 @@
   .mktperf-top10-bar-wrap { flex: 1; background: var(--border); border-radius: 2px; height: 8px; overflow: hidden; }
   .mktperf-top10-bar { height: 100%; background: var(--accent); }
   .mktperf-top10-pct { width: 46px; text-align: right; color: var(--text3); }
+  .mktperf-filter { display: flex; align-items: center; gap: 6px; }
+  .mktperf-filter-label {
+    font-size: 9px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase;
+    color: var(--text3); white-space: nowrap;
+  }
+  .mktperf-filter-input {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--text);
+    background: transparent;
+    border: 1px solid var(--border2);
+    border-radius: 4px;
+    padding: 3px 6px;
+    width: 100px;
+    outline: none;
+  }
+  .mktperf-filter-input:focus { border-color: var(--accent); }
+  .mktperf-filter-status {
+    font-size: 11px; color: var(--text3); margin-bottom: 8px;
+  }
   .sectors-loading {
     display: flex;
     flex-direction: column;
@@ -3847,6 +3867,14 @@
         <div class="sectors-updated" id="marketperf-updated">Not loaded</div>
       </div>
       <div class="sectors-toolbar-right">
+        <div class="mktperf-filter">
+          <span class="mktperf-filter-label">Min Value Traded</span>
+          <input class="mktperf-filter-input" id="marketperf-min-value" type="number" min="0" placeholder="e.g. 1000000" oninput="updateMarketPerfFilter()">
+        </div>
+        <div class="mktperf-filter">
+          <span class="mktperf-filter-label">Min Shares Traded</span>
+          <input class="mktperf-filter-input" id="marketperf-min-shares" type="number" min="0" placeholder="e.g. 100000" oninput="updateMarketPerfFilter()">
+        </div>
         <button class="sectors-refresh-btn" id="marketperf-refresh-btn" onclick="loadMarketPerformance(true)">↻ REFRESH</button>
       </div>
     </div>
@@ -3857,6 +3885,7 @@
       </div>
       <div id="marketperf-turnover-wrap"></div>
       <div id="marketperf-top10-wrap"></div>
+      <div id="marketperf-filter-status" class="mktperf-filter-status" style="display:none"></div>
       <div id="marketperf-table-wrap"></div>
     </div>
   </div>
@@ -8805,6 +8834,8 @@ let marketPerfLoaded   = false;
 let marketPerfData     = null;   // raw {date, totalValue, totalVolume, stocks} from server
 let marketPerfSortCol  = '1d';
 let marketPerfSortDir  = -1;
+let marketPerfMinValue  = null;  // filter: only show issues with Value Traded >= this
+let marketPerfMinShares = null;  // filter: only show issues with Shares Traded >= this
 let _tweeklyActiveTab  = 'weekly';
 let _tweeklyYTDChart   = null;
 let _tweeklyYTDChartRO = null;
@@ -10199,10 +10230,24 @@ function renderMarketPerfTable() {
       </div>`;
   }
 
-  // Main sortable table
+  // Main sortable table — apply the value/shares traded filter first
+  const filtered = stocks.filter(s =>
+    (marketPerfMinValue  == null || (s.value  ?? 0) >= marketPerfMinValue) &&
+    (marketPerfMinShares == null || (s.volume ?? 0) >= marketPerfMinShares));
+
+  const filterStatus = document.getElementById('marketperf-filter-status');
+  if (filterStatus) {
+    if (marketPerfMinValue != null || marketPerfMinShares != null) {
+      filterStatus.style.display = '';
+      filterStatus.textContent = `Showing ${filtered.length} of ${stocks.length} issues`;
+    } else {
+      filterStatus.style.display = 'none';
+    }
+  }
+
   const colKey = { '1d':'d1', '1w':'w1', '1m':'m1', '3m':'m3', 'ytd':'ytd', '1y':'y1', 'shares':'volume', 'value':'value' };
   const key = colKey[marketPerfSortCol] || 'd1';
-  const sorted = stocks.slice().sort((a, b) => {
+  const sorted = filtered.slice().sort((a, b) => {
     const av = a[key] ?? -Infinity;
     const bv = b[key] ?? -Infinity;
     return marketPerfSortDir * (av - bv);
@@ -10259,6 +10304,14 @@ function sortMarketPerf(col) {
     marketPerfSortDir = -1;
   }
   renderMarketPerfTable();
+}
+
+function updateMarketPerfFilter() {
+  const valueRaw  = document.getElementById('marketperf-min-value')?.value;
+  const sharesRaw = document.getElementById('marketperf-min-shares')?.value;
+  marketPerfMinValue  = valueRaw  !== '' && valueRaw  != null ? Number(valueRaw)  : null;
+  marketPerfMinShares = sharesRaw !== '' && sharesRaw != null ? Number(sharesRaw) : null;
+  if (marketPerfData) renderMarketPerfTable();
 }
 
 // ============================================================
