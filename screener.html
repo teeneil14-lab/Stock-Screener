@@ -4094,13 +4094,18 @@ let marketMode    = 'US'; // 'US' | 'PH'
 
 // Returns the setup IDs that are active for the current market
 function getActiveSetupIds() { return marketMode === 'PH' ? ['ph'] : [1, 2]; }
-// Yahoo Finance uses .PS suffix for PSE-listed stocks
-function toYFTicker(ticker)  { return marketMode === 'PH' ? ticker + '.PS' : ticker; }
+// Yahoo Finance uses .PS suffix for PSE-listed stocks. Accepts an optional mode
+// override so an in-flight scan keeps using the market it started on even if
+// the user switches US/PH mid-scan.
+function toYFTicker(ticker, mode = marketMode)  { return mode === 'PH' ? ticker + '.PS' : ticker; }
 
 let savedWatchlists = [null, null, null]; // each slot: {name, tickers[]} or null
 
 let tickers       = [];
 let results       = [];
+// Bumped every time runScan() starts; lets a finishing scan tell whether a
+// newer scan has since superseded it (so a stale one doesn't overwrite fresh results).
+let scanGeneration = 0;
 let filteredOut   = [];   // tickers removed by EMA50 filter
 
 // Portfolio holdings for correlation analysis
@@ -4201,10 +4206,23 @@ function _restoreMarketState(mode) {
     scanSummaryHTML       = state.scanSummaryHTML;
     activeRow             = state.activeRow;
     activeCriteriaFilters = new Set(state.activeCriteriaFilters);
-    if (resultsArea)      resultsArea.innerHTML           = state.resultsAreaHTML;
-    if (resultCountLabel) resultCountLabel.innerHTML      = state.resultCountLabelHTML;
-    if (listCountLabel)   listCountLabel.textContent      = state.listCountLabelText;
-    if (downloadBtn)      downloadBtn.style.display       = state.downloadBtnDisplay;
+    if (state.resultsAreaHTML) {
+      // Fast path: a plain tab switch, just replay the cached snapshot.
+      if (resultsArea)      resultsArea.innerHTML      = state.resultsAreaHTML;
+      if (resultCountLabel) resultCountLabel.innerHTML = state.resultCountLabelHTML;
+      if (listCountLabel)   listCountLabel.textContent = state.listCountLabelText;
+      if (downloadBtn)      downloadBtn.style.display  = state.downloadBtnDisplay;
+    } else {
+      // A scan for this market finished while the user was on the other market —
+      // there's no cached HTML snapshot, so render the freshly-arrived results now.
+      // (renderResults() sets result-count-label itself, using scanSummaryHTML.)
+      autoRestoreStars();
+      computeAllSimilarityBonuses();
+      renderPatternPanel();
+      renderResults();
+      if (listCountLabel) listCountLabel.textContent = state.listCountLabelText;
+      if (downloadBtn)    downloadBtn.style.display  = state.downloadBtnDisplay;
+    }
     updateTickerDisplay();
   }
 }
@@ -5100,6 +5118,19 @@ async function fetchAllEarningsDates(tickerList) {
 async function runScan() {
   if (!tickers.length) return;
 
+  // Snapshot the market this scan belongs to. Switching US/PH mid-scan reassigns
+  // the shared `tickers`/`results`/`filteredOut`/`currentSetup`/`marketMode` globals
+  // for the OTHER market — reading them live from inside this function would corrupt
+  // or silently halt an in-flight scan. Everything below reads these local snapshots
+  // instead, and only writes back to the live globals if this market is still the
+  // one on screen when the scan finishes (see the commit step at the end).
+  const myScanGen      = ++scanGeneration;
+  const scanMarketMode = marketMode;
+  const scanSetup      = currentSetup;
+  const scanTickers    = tickers.slice();
+  const localResults     = [];
+  const localFilteredOut = [];
+
   const btn           = document.getElementById('scan-btn');
   const progressWrap  = document.getElementById('progress-wrap');   // small header bar
   const progressFill  = document.getElementById('progress-fill');
@@ -5108,6 +5139,21 @@ async function runScan() {
   const scanPct       = document.getElementById('scan-pct');
   const scanBar       = document.getElementById('scan-bar');
   const scanMeta      = document.getElementById('scan-meta');
+
+  // Progress-bar/status-text writes are skipped once the user has switched to the
+  // other market, so a background scan doesn't paint its progress over whatever
+  // screener view is currently on screen. The scan keeps running either way.
+  const setProgress = (pct, metaHTML) => {
+    if (marketMode !== scanMarketMode) return;
+    scanBar.style.width = pct + '%';
+    scanPct.textContent = pct + '%';
+    if (metaHTML != null) scanMeta.innerHTML = metaHTML;
+  };
+  const setSubProgress = (done, tot) => {
+    if (marketMode !== scanMarketMode) return;
+    progressFill.style.width  = Math.round((done / tot) * 100) + '%';
+    progressLabel.textContent = done + ' / ' + tot;
+  };
 
   activeCriteriaFilters.clear();
   renderCriteria();
@@ -5119,14 +5165,11 @@ async function runScan() {
   scanBar.style.width = '0%';
   scanMeta.innerHTML  = 'Starting…';
 
-  tickers.forEach(t => {
+  scanTickers.forEach(t => {
     const el = document.getElementById('status-'+t.ticker);
     if (el) { el.textContent='QUEUED'; el.className='t-status queued'; el.style.cssText=''; }
   });
 
-  results = []; filteredOut = [];
-  sectorRankMap = {}; tickerSectorMap = {}; earningsMap = {};
-  cachedSPXBars = null;
   let noDataCount = 0;
   document.getElementById('data-error-banner').classList.remove('visible');
   // Reset glance view — switch back to list so stale charts aren't shown
@@ -5135,15 +5178,15 @@ async function runScan() {
   // Fire background tasks immediately — they run while Phase 1 scans, so they're
   // likely done (or nearly done) by the time we need them after Phase 1.
   const bgSPX        = ensureSPXBars();
-  const bgSectorRank = marketMode !== 'PH' ? buildSectorRankMap() : Promise.resolve({});
+  const bgSectorRank = scanMarketMode !== 'PH' ? buildSectorRankMap() : Promise.resolve({});
   const bgPortRet    = portfolioHoldings.length > 0 ? fetchPortfolioReturns() : Promise.resolve(null);
 
   // PH mode has no sector/earnings fetch, so just await portfolio returns upfront (it's fast)
-  if (marketMode === 'PH') {
+  if (scanMarketMode === 'PH') {
     await bgPortRet;
   }
 
-  const total     = tickers.length;
+  const total     = scanTickers.length;
   const scanStart = Date.now();
 
   const SCAN_CONCURRENCY = 10; // fetch this many stocks at once; Phase 1 = 10 daily calls, Phase 2 = 20 (weekly+monthly)
@@ -5155,7 +5198,7 @@ async function runScan() {
   const phase1Survivors = []; // accumulates { t, dailyResult } across all batches
 
   for (let i = 0; i < total; i += SCAN_CONCURRENCY) {
-    const batch = tickers.slice(i, Math.min(i + SCAN_CONCURRENCY, total));
+    const batch = scanTickers.slice(i, Math.min(i + SCAN_CONCURRENCY, total));
 
     batch.forEach(t => {
       const el = document.getElementById('status-' + t.ticker);
@@ -5164,39 +5207,37 @@ async function runScan() {
 
     // Progress: Phase 1 occupies 0→50% of the bar
     const pctNow     = Math.round((i / total) * 50);
-    scanBar.style.width = pctNow + '%';
-    scanPct.textContent = pctNow + '%';
     const elapsedSec = (Date.now() - scanStart) / 1000;
     const etaSec     = i > 0 ? Math.round((elapsedSec / i) * (total - i)) : '–';
-    scanMeta.innerHTML = `<span class="scan-progress-ticker">${batch.map(b => b.ticker).join(' · ')}</span> &nbsp;·&nbsp; ${i+1}${batch.length > 1 ? '–'+(i+batch.length) : ''} / ${total} &nbsp;·&nbsp; ${Math.round(elapsedSec)}s elapsed${etaSec !== '–' ? ' &nbsp;·&nbsp; ~' + etaSec + 's left' : ''}`;
+    setProgress(pctNow, `<span class="scan-progress-ticker">${batch.map(b => b.ticker).join(' · ')}</span> &nbsp;·&nbsp; ${i+1}${batch.length > 1 ? '–'+(i+batch.length) : ''} / ${total} &nbsp;·&nbsp; ${Math.round(elapsedSec)}s elapsed${etaSec !== '–' ? ' &nbsp;·&nbsp; ~' + etaSec + 's left' : ''}`);
 
     const dailyFetched = await Promise.all(
-      batch.map(t => fetchDailyOnly(t.ticker).then(dr => ({ t, dailyResult: dr })))
+      batch.map(t => fetchDailyOnly(t.ticker, scanMarketMode).then(dr => ({ t, dailyResult: dr })))
     );
 
     for (const { t, dailyResult } of dailyFetched) {
       const statusEl = document.getElementById('status-' + t.ticker);
       if (dailyResult._noData) noDataCount++;
 
-      if (marketMode !== 'PH' && !dailyResult.above_ema50) {
-        filteredOut.push({ ...t, ...dailyResult, reason: 'Below daily EMA50' });
+      if (scanMarketMode !== 'PH' && !dailyResult.above_ema50) {
+        localFilteredOut.push({ ...t, ...dailyResult, reason: 'Below daily EMA50' });
         if (statusEl) { statusEl.textContent='✗'; statusEl.className='t-status'; statusEl.style.cssText='font-size:9px;padding:1px 5px;color:var(--red);border:1px solid rgba(200,41,58,0.3);background:var(--red-dim);border-radius:2px'; }
-      } else if (marketMode !== 'PH' && (dailyResult.avg_vol_30 || 0) < 500000) {
-        filteredOut.push({ ...t, ...dailyResult, reason: 'Avg vol < 500K' });
+      } else if (scanMarketMode !== 'PH' && (dailyResult.avg_vol_30 || 0) < 500000) {
+        localFilteredOut.push({ ...t, ...dailyResult, reason: 'Avg vol < 500K' });
         if (statusEl) { statusEl.textContent='✗'; statusEl.className='t-status'; statusEl.style.cssText='font-size:9px;padding:1px 5px;color:var(--red);border:1px solid rgba(200,41,58,0.3);background:var(--red-dim);border-radius:2px'; }
-      } else if (marketMode !== 'PH' && dailyResult.touching_lower_bb) {
-        filteredOut.push({ ...t, ...dailyResult, reason: 'Touching lower BB' });
+      } else if (scanMarketMode !== 'PH' && dailyResult.touching_lower_bb) {
+        localFilteredOut.push({ ...t, ...dailyResult, reason: 'Touching lower BB' });
         if (statusEl) { statusEl.textContent='✗'; statusEl.className='t-status'; statusEl.style.cssText='font-size:9px;padding:1px 5px;color:var(--red);border:1px solid rgba(200,41,58,0.3);background:var(--red-dim);border-radius:2px'; }
-      } else if (marketMode !== 'PH' && dailyResult.bb_widest_6m) {
-        filteredOut.push({ ...t, ...dailyResult, reason: 'BB widest in 6 months' });
+      } else if (scanMarketMode !== 'PH' && dailyResult.bb_widest_6m) {
+        localFilteredOut.push({ ...t, ...dailyResult, reason: 'BB widest in 6 months' });
         if (statusEl) { statusEl.textContent='✗'; statusEl.className='t-status'; statusEl.style.cssText='font-size:9px;padding:1px 5px;color:var(--red);border:1px solid rgba(200,41,58,0.3);background:var(--red-dim);border-radius:2px'; }
-      } else if (marketMode !== 'PH' && dailyResult.below_bb_midline) {
-        filteredOut.push({ ...t, ...dailyResult, reason: 'Close below BB midline' });
+      } else if (scanMarketMode !== 'PH' && dailyResult.below_bb_midline) {
+        localFilteredOut.push({ ...t, ...dailyResult, reason: 'Close below BB midline' });
         if (statusEl) { statusEl.textContent='✗'; statusEl.className='t-status'; statusEl.style.cssText='font-size:9px;padding:1px 5px;color:var(--red);border:1px solid rgba(200,41,58,0.3);background:var(--red-dim);border-radius:2px'; }
-      } else if (marketMode === 'PH' && (dailyResult.avg_value_traded || 0) < 1_000_000) {
+      } else if (scanMarketMode === 'PH' && (dailyResult.avg_value_traded || 0) < 1_000_000) {
         const v = dailyResult.avg_value_traded || 0;
         const vLabel = v >= 1000 ? `PHP ${Math.round(v/1000)}K` : `PHP ${Math.round(v)}`;
-        filteredOut.push({ ...t, ...dailyResult, reason: `Avg value ${vLabel} < 100K` });
+        localFilteredOut.push({ ...t, ...dailyResult, reason: `Avg value ${vLabel} < 100K` });
         if (statusEl) { statusEl.textContent='✗'; statusEl.className='t-status'; statusEl.style.cssText='font-size:9px;padding:1px 5px;color:var(--red);border:1px solid rgba(200,41,58,0.3);background:var(--red-dim);border-radius:2px'; }
       } else {
         phase1Survivors.push({ t, dailyResult });
@@ -5205,8 +5246,7 @@ async function runScan() {
     }
 
     const completedCount = Math.min(i + SCAN_CONCURRENCY, total);
-    progressFill.style.width  = Math.round((completedCount / total) * 100) + '%';
-    progressLabel.textContent = completedCount + ' / ' + total;
+    setSubProgress(completedCount, total);
 
     if (i + SCAN_CONCURRENCY < total) await sleep(30);
   }
@@ -5215,12 +5255,10 @@ async function runScan() {
   // Background tasks (SPX, sector rank) have been running during Phase 1 and
   // are likely already resolved. We only fetch sectors/earnings for the smaller
   // survivor set rather than the full watchlist.
-  if (marketMode !== 'PH') {
+  if (scanMarketMode !== 'PH') {
     const survivorCount   = phase1Survivors.length;
     const survivorTickers = phase1Survivors.map(s => s.t.ticker);
-    scanMeta.innerHTML = `Fetching sector &amp; earnings data for ${survivorCount} survivor${survivorCount !== 1 ? 's' : ''}…`;
-    scanBar.style.width = '50%';
-    scanPct.textContent = '50%';
+    setProgress(50, `Fetching sector &amp; earnings data for ${survivorCount} survivor${survivorCount !== 1 ? 's' : ''}…`);
     const [sectorRank, tickerSectors, earnings] = await Promise.all([
       bgSectorRank,
       fetchAllTickerSectors(survivorTickers),
@@ -5243,23 +5281,21 @@ async function runScan() {
 
     // Progress: Phase 2 occupies 50→100% of the bar
     const pctNow     = 50 + Math.round((i / Math.max(survivorTotal, 1)) * 50);
-    scanBar.style.width = pctNow + '%';
-    scanPct.textContent = pctNow + '%';
     const elapsedSec = (Date.now() - scanStart) / 1000;
     const etaSec     = i > 0 ? Math.round((elapsedSec / i) * (survivorTotal - i)) : '–';
-    scanMeta.innerHTML = `<span class="scan-progress-ticker">${batch.map(b => b.t.ticker).join(' · ')}</span> &nbsp;·&nbsp; ${i+1}${batch.length > 1 ? '–'+(i+batch.length) : ''} / ${survivorTotal} survivors &nbsp;·&nbsp; ${Math.round(elapsedSec)}s elapsed${etaSec !== '–' ? ' &nbsp;·&nbsp; ~' + etaSec + 's left' : ''}`;
+    setProgress(pctNow, `<span class="scan-progress-ticker">${batch.map(b => b.t.ticker).join(' · ')}</span> &nbsp;·&nbsp; ${i+1}${batch.length > 1 ? '–'+(i+batch.length) : ''} / ${survivorTotal} survivors &nbsp;·&nbsp; ${Math.round(elapsedSec)}s elapsed${etaSec !== '–' ? ' &nbsp;·&nbsp; ~' + etaSec + 's left' : ''}`);
 
     // Apply earnings filter now that we have the data
     const needsFullFetch = [];
     for (const { t, dailyResult } of batch) {
       const statusEl    = document.getElementById('status-' + t.ticker);
-      const earningsTs   = marketMode !== 'PH' ? earningsMap[t.ticker] : null;
+      const earningsTs   = scanMarketMode !== 'PH' ? earningsMap[t.ticker] : null;
       const earningsDays = earningsTs ? (earningsTs - Date.now() / 1000) / 86400 : Infinity;
       const earningsSoon = earningsDays >= 0 && earningsDays <= 5;
 
       if (earningsSoon) {
         const dLabel = earningsDays < 1 ? 'today' : `in ${Math.ceil(earningsDays)}d`;
-        filteredOut.push({ ...t, ...dailyResult, reason: `Earnings ${dLabel}` });
+        localFilteredOut.push({ ...t, ...dailyResult, reason: `Earnings ${dLabel}` });
         if (statusEl) { statusEl.textContent='⚡'; statusEl.className='t-status'; statusEl.style.cssText='font-size:9px;padding:1px 5px;color:var(--amber);border:1px solid rgba(160,92,0,0.3);background:var(--amber-dim);border-radius:2px'; }
       } else {
         needsFullFetch.push({ t, dailyResult });
@@ -5270,21 +5306,21 @@ async function runScan() {
     if (needsFullFetch.length > 0) {
       const fullFetched = await Promise.all(
         needsFullFetch.map(({ t, dailyResult }) =>
-          fetchWeeklyMonthlyData(t.ticker, dailyResult).then(sd => ({ t, stockData: sd }))
+          fetchWeeklyMonthlyData(t.ticker, dailyResult, scanMarketMode).then(sd => ({ t, stockData: sd }))
         )
       );
 
       for (const { t, stockData } of fullFetched) {
         const statusEl = document.getElementById('status-' + t.ticker);
 
-        if (marketMode !== 'PH' && stockData.had_weekly_crash) {
-          filteredOut.push({ ...t, ...stockData, reason: 'Weekly crash (−20%+)' });
+        if (scanMarketMode !== 'PH' && stockData.had_weekly_crash) {
+          localFilteredOut.push({ ...t, ...stockData, reason: 'Weekly crash (−20%+)' });
           if (statusEl) { statusEl.textContent='✗'; statusEl.className='t-status'; statusEl.style.cssText='font-size:9px;padding:1px 5px;color:var(--red);border:1px solid rgba(200,41,58,0.3);background:var(--red-dim);border-radius:2px'; }
-        } else if (marketMode !== 'PH' && stockData.above_upper_bb) {
-          filteredOut.push({ ...t, ...stockData, reason: 'Extended above upper BB' });
+        } else if (scanMarketMode !== 'PH' && stockData.above_upper_bb) {
+          localFilteredOut.push({ ...t, ...stockData, reason: 'Extended above upper BB' });
           if (statusEl) { statusEl.textContent='✗'; statusEl.className='t-status'; statusEl.style.cssText='font-size:9px;padding:1px 5px;color:var(--red);border:1px solid rgba(200,41,58,0.3);background:var(--red-dim);border-radius:2px'; }
         } else {
-          const scored      = scoreStock(stockData, currentSetup);
+          const scored      = scoreStock(stockData, scanSetup);
           const sectorName  = tickerSectorMap[t.ticker] || '';
           const sectorBonus = sectorRankMap[sectorName]  || 0;
           const rankScore   = scored.score + sectorBonus;
@@ -5292,44 +5328,29 @@ async function runScan() {
           const tickerRets  = portfolioReturns ? getTickerReturns(stockData.daily) : null;
           const corrCoeff   = (portfolioReturns && tickerRets) ? pearsonCorr(tickerRets, portfolioReturns.slice(0, tickerRets.length)) : null;
           const ytdPct = calcStockYtd(stockData.daily);
-          results.push({ ...t, ...stockData, ...scored, sectorBonus, sectorName, rankScore, corrCoeff, ytdPct });
+          localResults.push({ ...t, ...stockData, ...scored, sectorBonus, sectorName, rankScore, corrCoeff, ytdPct });
           if (statusEl) { statusEl.textContent='✓'; statusEl.className='t-status done'; }
         }
       }
     }
 
     const completedCount = Math.min(i + SCAN_CONCURRENCY, survivorTotal);
-    progressFill.style.width  = Math.round((completedCount / survivorTotal) * 100) + '%';
-    progressLabel.textContent = completedCount + ' / ' + survivorTotal;
+    setSubProgress(completedCount, survivorTotal);
 
     if (i + SCAN_CONCURRENCY < survivorTotal) await sleep(30);
   }
 
-  // Finish progress bar at 100%
-  scanBar.style.width = '100%';
-  scanPct.textContent = '100%';
-  scanMeta.textContent = `Done — ${total} tickers scanned in ${Math.round((Date.now()-scanStart)/1000)}s`;
-
-  // Show data-error banner if more than 20% of tickers had no real data
-  if (noDataCount > 0 && noDataCount >= Math.ceil(total * 0.2)) {
-    document.getElementById('data-error-banner').classList.add('visible');
-  }
-
-  autoRestoreStars();
-  computeAllSimilarityBonuses();
-  renderPatternPanel();
-  applySortToResults();
-  activeRow = results.length > 0 ? 0 : -1;
-  renderResults();
-
-  const ema50Removed    = filteredOut.filter(f => f.reason === 'Below daily EMA50').length;
-  const lowVolRemoved   = filteredOut.filter(f => f.reason === 'Avg vol < 500K').length;
-  const earningsRemoved = filteredOut.filter(f => f.reason?.startsWith('Earnings')).length;
-  const crashRemoved    = filteredOut.filter(f => f.reason === 'Weekly crash (−20%+)').length;
-  const upperBBRemoved  = filteredOut.filter(f => f.reason === 'Extended above upper BB').length;
-  const lowerBBRemoved  = filteredOut.filter(f => f.reason === 'Touching lower BB').length;
-  const bbWidestRemoved = filteredOut.filter(f => f.reason === 'BB widest in 6 months').length;
-  const belowMidRemoved = filteredOut.filter(f => f.reason === 'Close below BB midline').length;
+  // Build the "N tickers ranked · X removed" summary from this scan's own local
+  // results — pure data, no DOM/globals touched yet, so it's safe to compute
+  // regardless of whether the user is still looking at this market.
+  const ema50Removed    = localFilteredOut.filter(f => f.reason === 'Below daily EMA50').length;
+  const lowVolRemoved   = localFilteredOut.filter(f => f.reason === 'Avg vol < 500K').length;
+  const earningsRemoved = localFilteredOut.filter(f => f.reason?.startsWith('Earnings')).length;
+  const crashRemoved    = localFilteredOut.filter(f => f.reason === 'Weekly crash (−20%+)').length;
+  const upperBBRemoved  = localFilteredOut.filter(f => f.reason === 'Extended above upper BB').length;
+  const lowerBBRemoved  = localFilteredOut.filter(f => f.reason === 'Touching lower BB').length;
+  const bbWidestRemoved = localFilteredOut.filter(f => f.reason === 'BB widest in 6 months').length;
+  const belowMidRemoved = localFilteredOut.filter(f => f.reason === 'Close below BB midline').length;
   const removedParts    = [];
   if (ema50Removed)    removedParts.push(`<span class="flist-chip" onclick="showFList('Below daily EMA50')"><span style="color:var(--red)">${ema50Removed}</span> below EMA50</span>`);
   if (lowVolRemoved)   removedParts.push(`<span class="flist-chip" onclick="showFList('Avg vol < 500K')"><span style="color:var(--red)">${lowVolRemoved}</span> low volume</span>`);
@@ -5339,19 +5360,76 @@ async function runScan() {
   if (lowerBBRemoved)  removedParts.push(`<span class="flist-chip" onclick="showFList('Touching lower BB')"><span style="color:var(--red)">${lowerBBRemoved}</span> lower BB touch</span>`);
   if (bbWidestRemoved) removedParts.push(`<span class="flist-chip" onclick="showFList('BB widest in 6 months')"><span style="color:var(--red)">${bbWidestRemoved}</span> BB widest 6m</span>`);
   if (belowMidRemoved) removedParts.push(`<span class="flist-chip" onclick="showFList('Close below BB midline')"><span style="color:var(--red)">${belowMidRemoved}</span> below BB mid</span>`);
-  scanSummaryHTML = `<span>${results.length}</span> tickers ranked` +
+  const summaryHTML = `<span>${localResults.length}</span> tickers ranked` +
     (removedParts.length ? ` &nbsp;·&nbsp; ${removedParts.join(' &nbsp;·&nbsp; ')} removed` : '');
-  document.getElementById('result-count-label').innerHTML = scanSummaryHTML;
-  document.getElementById('list-count-label').textContent = results.length + ' tickers';
 
-  if (results.length) {
-    document.getElementById('download-btn').style.display = '';
-    loadChart(results[0]);
-    const todayScanStr = new Date().toLocaleDateString('en-CA');
-    const avgScanScore = Math.round(results.reduce((sum, r) => sum + (r.score || 0), 0) / results.length);
-    saveScanAvg(currentSetup, todayScanStr, avgScanScore, results.length);
+  // A newer scan (Run Scan clicked again) fully supersedes this one — drop these
+  // results rather than let a stale run clobber a fresher one.
+  const isSuperseded = scanGeneration !== myScanGen;
+  // True only if the user is still on (or has switched back to) the market this
+  // scan was for. If false, the user navigated to the other market mid-scan —
+  // don't touch its live globals/DOM, just save the finished results for later.
+  const isActive = !isSuperseded && marketMode === scanMarketMode;
+
+  if (isActive) {
+    tickers         = scanTickers;
+    results         = localResults;
+    filteredOut     = localFilteredOut;
+    scanSummaryHTML = summaryHTML;
+    activeRow       = results.length > 0 ? 0 : -1;
+
+    scanBar.style.width = '100%';
+    scanPct.textContent = '100%';
+    scanMeta.textContent = `Done — ${total} tickers scanned in ${Math.round((Date.now()-scanStart)/1000)}s`;
+
+    if (noDataCount > 0 && noDataCount >= Math.ceil(total * 0.2)) {
+      document.getElementById('data-error-banner').classList.add('visible');
+    }
+
+    autoRestoreStars();
+    computeAllSimilarityBonuses();
+    renderPatternPanel();
+    applySortToResults();
+    renderResults();
+
+    document.getElementById('result-count-label').innerHTML = scanSummaryHTML;
+    document.getElementById('list-count-label').textContent = results.length + ' tickers';
+
+    if (results.length) {
+      document.getElementById('download-btn').style.display = '';
+      loadChart(results[0]);
+      const todayScanStr = new Date().toLocaleDateString('en-CA');
+      const avgScanScore = Math.round(results.reduce((sum, r) => sum + (r.score || 0), 0) / results.length);
+      saveScanAvg(scanSetup, todayScanStr, avgScanScore, results.length);
+    }
+  } else if (!isSuperseded) {
+    // Finished while the user was on the other market — stash the completed
+    // results into that market's saved state so they're waiting when the user
+    // switches back (see _restoreMarketState, which re-renders from raw data
+    // when resultsAreaHTML is blank like this).
+    const stateSlot = {
+      tickers:               scanTickers,
+      results:               localResults,
+      filteredOut:           localFilteredOut,
+      scanSummaryHTML:       summaryHTML,
+      activeRow:             localResults.length > 0 ? 0 : -1,
+      activeCriteriaFilters: new Set(),
+      resultsAreaHTML:       '',
+      resultCountLabelHTML:  summaryHTML,
+      listCountLabelText:    localResults.length + ' tickers',
+      downloadBtnDisplay:    localResults.length ? '' : 'none',
+    };
+    if (scanMarketMode === 'US') _usScreenerState = stateSlot; else _phScreenerState = stateSlot;
+
+    if (localResults.length) {
+      const todayScanStr = new Date().toLocaleDateString('en-CA');
+      const avgScanScore = Math.round(localResults.reduce((sum, r) => sum + (r.score || 0), 0) / localResults.length);
+      saveScanAvg(scanSetup, todayScanStr, avgScanScore, localResults.length);
+    }
   }
 
+  // Resetting the shared Run Scan button/progress bar back to idle is safe
+  // regardless of which market is on screen.
   btn.disabled = false;
   btn.textContent = '▶ RUN SCAN';
   setTimeout(() => {
@@ -5710,11 +5788,11 @@ async function fetchStockData(ticker) {
 
 // Fetch only daily bars for a single ticker — used in scan phase 1.
 // Returns all daily-computable filter fields plus internal markers used by fetchWeeklyMonthlyData.
-async function fetchDailyOnly(ticker) {
-  const yTicker = toYFTicker(ticker);
+async function fetchDailyOnly(ticker, mode = marketMode) {
+  const yTicker = toYFTicker(ticker, mode);
   let daily = null;
 
-  if (marketMode === 'PH') {
+  if (mode === 'PH') {
     const d = await fetchPSEBars(ticker, 'd').catch(e => { console.warn(`[${ticker}] PSE daily failed: ${e.message}`); return null; });
     if (d) daily = { bars: d, meta: null };
   } else {
@@ -5815,7 +5893,7 @@ async function fetchDailyOnly(ticker) {
 
 // Fetch weekly + monthly bars for a ticker that passed phase-1 daily filters.
 // Merges with the dailyResult from fetchDailyOnly and returns a complete stock data object.
-async function fetchWeeklyMonthlyData(ticker, dailyResult) {
+async function fetchWeeklyMonthlyData(ticker, dailyResult, mode = marketMode) {
   if (!dailyResult._daily) {
     // No daily data (mock fallback) — skip extra fetches, return a safe no-data object
     const { _daily, _dailyAboveUpperBB, ...rest } = dailyResult;
@@ -5823,10 +5901,10 @@ async function fetchWeeklyMonthlyData(ticker, dailyResult) {
              weekly: null, monthly: null, spxDaily: cachedSPXBars };
   }
 
-  const yTicker = toYFTicker(ticker);
+  const yTicker = toYFTicker(ticker, mode);
   let weekly = null, monthly = null;
 
-  if (marketMode === 'PH') {
+  if (mode === 'PH') {
     const [w, m] = await Promise.all([
       fetchPSEBars(ticker, 'w').catch(e => { console.warn(`[${ticker}] PSE weekly failed: ${e.message}`);  return null; }),
       fetchPSEBars(ticker, 'm').catch(e => { console.warn(`[${ticker}] PSE monthly failed: ${e.message}`); return null; }),
@@ -8829,8 +8907,13 @@ async function loadPickPerformance(entry) {
 let sectorsLoaded      = false;
 let tweeklyLoaded      = false;
 let tweeklyYTDLoaded   = false;
-let pseDailyLoaded     = false;
-let marketPerfLoaded   = false;
+// Timestamps (not one-shot booleans) — PSE Daily and Market Performance show
+// once-a-day EOD data, so a tab visit re-fetches unless the last fetch was very
+// recent. A plain "loaded once" flag left these stuck showing whatever was
+// fetched on first visit for the rest of the session, even hours later.
+let pseDailyLoadedAt   = 0;
+let marketPerfLoadedAt = 0;
+const TAB_REFRESH_MS   = 60 * 1000; // don't re-fetch more than once a minute from tab switching alone
 let marketPerfData     = null;   // raw {date, totalValue, totalVolume, stocks} from server
 let marketPerfSortCol  = '1d';
 let marketPerfSortDir  = -1;
@@ -8853,8 +8936,8 @@ function switchTab(tab) {
   if (tab === 'imap'      && !imapLoaded      && marketMode !== 'PH') loadIndustryMap(false);
   if (tab === 'tweekly'   && !tweeklyLoaded   && marketMode !== 'PH') loadTweekly(false);
   if (tab === 'timeline'  && !mtlLoaded       && marketMode !== 'PH') loadMarketTimeline(false);
-  if (tab === 'psedaily'  && !pseDailyLoaded)  runPSEScan();
-  if (tab === 'marketperf' && !marketPerfLoaded && marketMode === 'PH') loadMarketPerformance();
+  if (tab === 'psedaily'   && Date.now() - pseDailyLoadedAt   > TAB_REFRESH_MS) runPSEScan();
+  if (tab === 'marketperf' && marketMode === 'PH' && Date.now() - marketPerfLoadedAt > TAB_REFRESH_MS) loadMarketPerformance();
   if (tab === 'picks') {
     _destroyAnalyticsCharts();
     _syncPicksToolbar();
@@ -8901,7 +8984,7 @@ function switchMarket(mode) {
   if (pseDailyBtn) pseDailyBtn.style.display = mode === 'PH' ? '' : 'none';
   const marketPerfBtn = document.getElementById('tab-btn-marketperf');
   if (marketPerfBtn) marketPerfBtn.style.display = mode === 'PH' ? '' : 'none';
-  marketPerfLoaded  = false;
+  marketPerfLoadedAt = 0;
   sectorsLoaded     = false;
   imapLoaded        = false;
   _imapLoadedMode   = null;
@@ -10145,7 +10228,7 @@ function sortBreadth(col) {
 // ============================================================
 
 async function loadMarketPerformance(force) {
-  marketPerfLoaded = true;
+  marketPerfLoadedAt = Date.now();
   const loading = document.getElementById('marketperf-loading');
   const updated = document.getElementById('marketperf-updated');
   if (loading) loading.style.display = 'flex';
@@ -12228,7 +12311,7 @@ async function runPSEScan() {
 
     status.style.display = 'none';
     panels.style.display = 'grid';
-    pseDailyLoaded = true;
+    pseDailyLoadedAt = Date.now();
   } catch (e) {
     status.innerHTML = `<span style="color:var(--red)">Error: ${e.message}</span><br>
       <span style="font-size:11px;color:var(--text3)">Make sure the server is running (node server.js).</span>`;
