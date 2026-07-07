@@ -1502,6 +1502,32 @@
   .cib-ytd.up { color: var(--green); }
   .cib-ytd.down { color: var(--red); }
 
+  .cib-fund {
+    display: grid;
+    grid-template-columns: auto auto;
+    column-gap: 10px;
+    row-gap: 3px;
+  }
+  .cib-fund-label {
+    font-family: 'Inter', sans-serif;
+    font-size: 9px;
+    color: var(--text3);
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+    align-self: center;
+  }
+  .cib-fund-val {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text3);
+    text-align: right;
+    white-space: nowrap;
+    align-self: center;
+  }
+  .cib-fund-val.up { color: var(--green); }
+  .cib-fund-val.down { color: var(--red); }
+
   .pane-toolbar {
     display: flex;
     align-items: center;
@@ -6535,12 +6561,58 @@ function updateChartInfoBar(r) {
       <span style="font-family:'Inter',sans-serif;font-size:7px;color:var(--text3);letter-spacing:0.06em">YTD</span>
       <span class="cib-ytd ${ytdClass}">${ytdStr}</span>
     </div>
+    <div class="cib-divider"></div>
+    <div class="cib-fund">
+      <span class="cib-fund-label">Revenue growth</span>
+      <span class="cib-fund-val" id="cib-rev-growth-val">…</span>
+      <span class="cib-fund-label">Net Income growth</span>
+      <span class="cib-fund-val" id="cib-ni-growth-val">…</span>
+    </div>
   `;
+
+  bar.dataset.ticker = r.ticker;
+  loadChartInfoBarFundamentals(r.ticker, bar);
 
   bar.dataset.populated = '1';
   if (chartInfoBarVisible) {
     bar.classList.add('visible');
     document.getElementById('btn-toggle-info-bar')?.classList.add('active');
+  }
+}
+
+// Session cache so flipping back to a ticker already viewed doesn't refetch —
+// fundamentals only change once a quarter.
+let _fundamentalsCache = {};
+
+function formatGrowthPct(v) {
+  if (v == null || isNaN(v)) return '—';
+  return (v >= 0 ? '+' : '') + (v * 100).toFixed(1) + '%';
+}
+
+async function loadChartInfoBarFundamentals(ticker, bar) {
+  let data = _fundamentalsCache[ticker];
+  if (!data) {
+    try {
+      const res = await fetch(`/api/yf-fundamentals?ticker=${encodeURIComponent(ticker)}`);
+      data = await res.json();
+    } catch {
+      data = { revenueGrowth: null, earningsGrowth: null };
+    }
+    _fundamentalsCache[ticker] = data;
+  }
+
+  // The bar may have moved on to a different ticker while this fetch was in flight
+  if (!bar || bar.dataset.ticker !== ticker) return;
+
+  const revEl = document.getElementById('cib-rev-growth-val');
+  const niEl  = document.getElementById('cib-ni-growth-val');
+  if (revEl) {
+    revEl.textContent = formatGrowthPct(data.revenueGrowth);
+    revEl.className   = 'cib-fund-val' + (data.revenueGrowth == null ? '' : data.revenueGrowth >= 0 ? ' up' : ' down');
+  }
+  if (niEl) {
+    niEl.textContent = formatGrowthPct(data.earningsGrowth);
+    niEl.className   = 'cib-fund-val' + (data.earningsGrowth == null ? '' : data.earningsGrowth >= 0 ? ' up' : ' down');
   }
 }
 

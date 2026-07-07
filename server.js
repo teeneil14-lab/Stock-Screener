@@ -647,6 +647,61 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // ── Yahoo Finance fundamentals (revenue / net income YoY growth) ────────────
+  // Fetched on-demand for a single ticker (whichever chart is currently open),
+  // not for the whole watchlist — fundamentals only change once a quarter so a
+  // long cache is safe and keeps this off the hot path of a full scan.
+  if (reqUrl.pathname === '/api/yf-fundamentals') {
+    const ticker = (reqUrl.searchParams.get('ticker') || '').trim().toUpperCase();
+    if (!ticker) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: 'Missing ticker parameter' }));
+    }
+
+    const CACHE_TTL = 6 * 60 * 60 * 1000; // 6 hours — quarterly data, no need to refetch often
+    if (!server._fundamentalsCache) server._fundamentalsCache = new Map();
+    const cached = server._fundamentalsCache.get(ticker);
+    if (cached && Date.now() - cached.ts < CACHE_TTL) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify(cached.data));
+    }
+
+    await ensureCrumb();
+
+    try {
+      const qs = new URLSearchParams({
+        modules:   'financialData',
+        formatted: 'false',
+      });
+      if (_yfCrumb) qs.set('crumb', _yfCrumb);
+      const raw = await rawHttpsGet({
+        hostname: 'query1.finance.yahoo.com',
+        path:     `/v10/finance/quoteSummary/${encodeURIComponent(ticker)}?${qs}`,
+        headers:  yfHeaders(),
+      });
+
+      const parsed = JSON.parse(raw.body);
+      const fd = parsed?.quoteSummary?.result?.[0]?.financialData;
+      const data = {
+        revenueGrowth: (fd && typeof fd.revenueGrowth === 'number') ? fd.revenueGrowth : null,
+        earningsGrowth: (fd && typeof fd.earningsGrowth === 'number') ? fd.earningsGrowth : null,
+      };
+
+      // Only cache a successful lookup — don't lock in nulls from a transient
+      // crumb/auth failure (raw.status !== 200) for a full 6 hours.
+      if (raw.status === 200 && fd) {
+        server._fundamentalsCache.set(ticker, { ts: Date.now(), data });
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(data));
+    } catch (e) {
+      console.error(`[fundamentals] ${ticker}: ${e.message}`);
+      res.writeHead(502, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return;
+  }
+
   // ── Stooq proxy (used for Philippine / PSE stock data) ──────────────────────
   if (reqUrl.pathname === '/api/stooq') {
     const symbol   = reqUrl.searchParams.get('symbol')   || '';
