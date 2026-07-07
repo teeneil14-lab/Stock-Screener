@@ -3269,7 +3269,26 @@
     color: var(--text3);
     margin-bottom: 5px;
     text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
   }
+  .mtl-picks-toggle-btn {
+    font-family: 'Inter', sans-serif;
+    font-size: 7.5px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 2px 6px;
+    border-radius: 3px;
+    border: 1px solid var(--border2);
+    background: var(--bg3);
+    color: var(--text3);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .mtl-picks-toggle-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
   .mtl-hover-row {
     display: flex;
     align-items: center;
@@ -3284,6 +3303,30 @@
   .mtl-hover-ticker { color: var(--text); font-weight: 700; flex: 1; }
   .mtl-hover-pct-pos { color: var(--green); font-weight: 600; }
   .mtl-hover-pct-neg { color: var(--red);   font-weight: 600; }
+  .mtl-pick-row {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 3px 0;
+    cursor: pointer;
+    border-bottom: 1px solid var(--border);
+  }
+  .mtl-pick-row:last-child { border-bottom: none; }
+  .mtl-pick-row-top {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+  }
+  .mtl-pick-perf-row {
+    display: flex;
+    gap: 8px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9px;
+  }
+  .mtl-pick-perf-item { display: flex; align-items: center; gap: 2px; }
+  .mtl-pick-perf-label { color: var(--text3); }
   .mtl-no-data { font-size: 10px; color: var(--text3); font-family: 'Inter', sans-serif; padding: 3px 0; }
   .mtl-breadth-row {
     display: flex;
@@ -3975,7 +4018,13 @@
           <div class="mtl-hover-grid">
             <!-- Left: My Picks -->
             <div class="mtl-hover-section">
-              <div class="mtl-hover-section-title">My Picks <span style="color:var(--text3);font-size:7px;font-weight:400">▶ click to chart</span></div>
+              <div class="mtl-hover-section-title">
+                <span>My Picks <span style="color:var(--text3);font-size:7px;font-weight:400">▶ click to chart</span></span>
+                <span style="display:flex;gap:4px">
+                  <button class="mtl-picks-toggle-btn active" id="mtl-picks-toggle-score" onclick="_mtlToggleShowScore()">Score</button>
+                  <button class="mtl-picks-toggle-btn active" id="mtl-picks-toggle-perf" onclick="_mtlToggleShowPerf()">Performance</button>
+                </span>
+              </div>
               <div id="mtl-picks-list"></div>
             </div>
             <!-- Right: Sectors + Industries + Breadth stacked -->
@@ -12732,6 +12781,8 @@ let _mtlSyncingCrosshair = false;
 let _mtlSyncingRange     = false;
 let _mtlBarsExtended     = false;   // true once 5y sector/industry data is fully loaded
 let _mtlBarsExtending    = false;   // prevents double-trigger during async load
+let _mtlShowScore        = true;   // My Picks panel: show/hide match score
+let _mtlShowPerf         = true;   // My Picks panel: show/hide 5D/2W/1M/3M performance
 
 const MTL_INDUS_TICKERS = (() => {
   const seen = new Set();
@@ -13114,28 +13165,14 @@ function _mtlPopulateHover(timeSec) {
   }
 
   // ── MY PICKS ──────────────────────────────────────────────────────────────
-  const picksEl = document.getElementById('mtl-picks-list');
-  if (picksEl) {
-    const allLiked = [1, 2].flatMap(sid => { try { return loadLiked(sid); } catch { return []; } });
-    const datePicks = allLiked.filter(e => _mtlDateStr(e.starredAt) === dateStr);
-    const seen = new Map();
-    datePicks.forEach(e => {
-      if (!seen.has(e.ticker) || e.score > seen.get(e.ticker).score) seen.set(e.ticker, e);
-    });
-    const uniq = [...seen.values()].sort((a, b) => b.score - a.score);
-    if (!uniq.length) {
-      picksEl.innerHTML = '<div class="mtl-no-data">No picks this day</div>';
-    } else {
-      picksEl.innerHTML = uniq.map(e => {
-        const pct = Math.round(e.score);
-        const col = pct >= 70 ? 'var(--green)' : pct >= 40 ? 'var(--amber)' : 'var(--red)';
-        return `<div class="mtl-hover-row" style="cursor:pointer" title="Load ${e.ticker} in bottom chart" onclick="_mtlLoadPickInBot('${e.ticker}')">
-          <span class="mtl-hover-ticker">${e.ticker}</span>
-          <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;color:${col}">${pct}%</span>
-        </div>`;
-      }).join('');
-    }
-  }
+  const allLiked = [1, 2].flatMap(sid => { try { return loadLiked(sid); } catch { return []; } });
+  const datePicks = allLiked.filter(e => _mtlDateStr(e.starredAt) === dateStr);
+  const seen = new Map();
+  datePicks.forEach(e => {
+    if (!seen.has(e.ticker) || e.score > seen.get(e.ticker).score) seen.set(e.ticker, e);
+  });
+  _mtlCurrentPicks = [...seen.values()].sort((a, b) => b.score - a.score);
+  _mtlRenderPicksList();
 
   // ── TOP SECTORS — 1W ──────────────────────────────────────────────────────
   const sectEl = document.getElementById('mtl-sectors-list');
@@ -13254,6 +13291,78 @@ function _mtlSyncTimeRanges() {
     try { _mtlTopChart.timeScale().setVisibleLogicalRange(range); } catch {}
     _mtlSyncingRange = false;
   });
+}
+
+// ── My Picks panel: score/performance toggles ─────────────────────────────────
+let _mtlCurrentPicks = []; // picks list currently shown in the hover panel
+let _mtlLastPerfFetchBatch = null; // guards against stale re-renders when the panel moves to a new day mid-fetch
+
+function _mtlToggleShowScore() {
+  _mtlShowScore = !_mtlShowScore;
+  const btn = document.getElementById('mtl-picks-toggle-score');
+  if (btn) btn.classList.toggle('active', _mtlShowScore);
+  _mtlRenderPicksList();
+}
+
+function _mtlToggleShowPerf() {
+  _mtlShowPerf = !_mtlShowPerf;
+  const btn = document.getElementById('mtl-picks-toggle-perf');
+  if (btn) btn.classList.toggle('active', _mtlShowPerf);
+  _mtlRenderPicksList();
+}
+
+function _mtlRenderPicksList() {
+  const picksEl = document.getElementById('mtl-picks-list');
+  if (!picksEl) return;
+  const uniq = _mtlCurrentPicks;
+  if (!uniq.length) {
+    picksEl.innerHTML = '<div class="mtl-no-data">No picks this day</div>';
+    return;
+  }
+
+  const perfPeriods = ['5d', '2w', '1m', '3m'];
+  const needsFetch  = [];
+
+  picksEl.innerHTML = uniq.map(e => {
+    const pct = Math.round(e.score);
+    const col = pct >= 70 ? 'var(--green)' : pct >= 40 ? 'var(--amber)' : 'var(--red)';
+    const scoreHtml = _mtlShowScore
+      ? `<span style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;color:${col}">${pct}%</span>`
+      : '';
+
+    let perfHtml = '';
+    if (_mtlShowPerf) {
+      const cached = _picksPerf[`${e.ticker}_${e.starredAt}`];
+      if (!cached) needsFetch.push(e);
+      const items = perfPeriods.map(p => {
+        const v = cached ? cached[p] : undefined;
+        const valHtml = (v === null || v === undefined)
+          ? `<span style="color:var(--text3)">…</span>`
+          : `<span style="color:${v >= 0 ? 'var(--green)' : 'var(--red)'};font-weight:600">${v >= 0 ? '+' : ''}${v.toFixed(1)}%</span>`;
+        return `<span class="mtl-pick-perf-item"><span class="mtl-pick-perf-label">${p.toUpperCase()}</span>${valHtml}</span>`;
+      }).join('');
+      perfHtml = `<div class="mtl-pick-perf-row">${items}</div>`;
+    }
+
+    return `<div class="mtl-pick-row" title="Load ${e.ticker} in bottom chart" onclick="_mtlLoadPickInBot('${e.ticker}')">
+      <div class="mtl-pick-row-top">
+        <span class="mtl-hover-ticker">${e.ticker}</span>
+        ${scoreHtml}
+      </div>
+      ${perfHtml}
+    </div>`;
+  }).join('');
+
+  if (needsFetch.length) {
+    (async () => {
+      const BATCH = 4;
+      for (let i = 0; i < needsFetch.length; i += BATCH) {
+        await Promise.all(needsFetch.slice(i, i + BATCH).map(e => loadPickPerformance(e)));
+        if (_mtlShowPerf && needsFetch === _mtlLastPerfFetchBatch) _mtlRenderPicksList();
+      }
+    })();
+    _mtlLastPerfFetchBatch = needsFetch;
+  }
 }
 
 // ── Click a pick row → load that stock in the bottom chart ───────────────────
