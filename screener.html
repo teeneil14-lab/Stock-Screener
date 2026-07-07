@@ -3562,6 +3562,12 @@
               <button class="view-btn" id="glance-col-5" onclick="setGlanceCols(5)">5</button>
               <button class="view-btn" id="glance-col-6" onclick="setGlanceCols(6)">6</button>
             </div>
+            <button class="tweekly-cam-btn" id="view-cam-btn" onclick="screenshotCurrentView()" title="Screenshot current view to clipboard" style="margin-right:6px">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                <circle cx="12" cy="13" r="4"/>
+              </svg>
+            </button>
             <button class="view-btn" id="btn-hide-list" onclick="togglePane('list')" title="Hide list">↑ HIDE LIST</button>
           </div>
         </div>
@@ -11084,6 +11090,139 @@ async function screenshotTweekly() {
   btn.disabled = false;
 }
 
+// ── Screenshot: LIST / GLANCE / SECTOR views ────────────────────────────────
+const SCREENSHOT_TOP_N = 25;
+
+async function screenshotCurrentView() {
+  const btn = document.getElementById('view-cam-btn');
+  if (typeof html2canvas === 'undefined') {
+    showToast('Screenshot library not loaded yet — try again in a moment.', 'error');
+    return;
+  }
+  if (!sortedResults.length) {
+    showToast('Run a scan first — nothing to screenshot yet.', 'error');
+    return;
+  }
+  btn.disabled = true;
+  try {
+    if (sectorView) await _screenshotSectorView();
+    else if (glanceView) await _screenshotGlanceView();
+    else await _screenshotListView();
+  } catch (e) {
+    showToast('Screenshot failed: ' + e.message, 'error');
+  }
+  btn.disabled = false;
+}
+
+async function _captureElementToClipboard(target, toastMsg) {
+  const canvas = await html2canvas(target, {
+    backgroundColor: '#f5f6f8',
+    scale: 2,
+    useCORS: true,
+    logging: false,
+  });
+  const blob = await new Promise(r => canvas.toBlob(r, 'image/png'));
+  await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+  showToast(toastMsg);
+}
+
+function _screenshotTopLabel() {
+  return sortedResults.length > SCREENSHOT_TOP_N
+    ? `top ${SCREENSHOT_TOP_N}`
+    : `all ${sortedResults.length}`;
+}
+
+async function _screenshotListView() {
+  const area   = document.getElementById('results-area');
+  const vsTop  = document.getElementById('vs-top');
+  const vsBot  = document.getElementById('vs-bot');
+  const vsRows = document.getElementById('vs-rows');
+  if (!area || !vsRows) return;
+
+  // Bypass virtual scrolling — render the top N rows in full instead of
+  // just whatever happens to be scrolled into view.
+  const top = sortedResults.slice(0, SCREENSHOT_TOP_N);
+  vsTop.style.height = '0px';
+  vsBot.style.height = '0px';
+  vsRows.innerHTML   = top.map((r, j) => rankRow(r, j + 1, j)).join('');
+
+  const savedOverflow  = area.style.overflowY;
+  const savedHeight    = area.style.height;
+  const savedMinHeight = area.style.minHeight;
+  area.style.overflowY = 'visible';
+  area.style.height    = 'auto';
+  // #results-area has `min-height: 0` in its base CSS (so it can shrink and
+  // scroll internally) — without overriding that too, the flex layout keeps
+  // it clamped to its normal viewport height and the capture gets cropped.
+  area.style.minHeight = 'auto';
+
+  await new Promise(r => requestAnimationFrame(r));
+
+  try {
+    await _captureElementToClipboard(area, `Screenshot of ${_screenshotTopLabel()} copied to clipboard — paste into Google Slides!`);
+  } finally {
+    area.style.overflowY = savedOverflow;
+    area.style.height    = savedHeight;
+    area.style.minHeight = savedMinHeight;
+    renderVsRows(); // restore normal virtualized rows at current scroll position
+  }
+}
+
+async function _screenshotGlanceView() {
+  const pane = document.getElementById('glance-pane');
+  const grid = document.getElementById('glance-grid');
+  if (!pane || !grid) return;
+
+  // Build only the top N cards (instead of every card in sortedResults) and
+  // force-build their charts now instead of waiting for the lazy-load
+  // IntersectionObserver, so nothing is blank in the capture.
+  const top = sortedResults.slice(0, SCREENSHOT_TOP_N);
+  grid.innerHTML = top.map((r, idx) => _glanceCardHTML(r, idx)).join('');
+  top.forEach((r, idx) => {
+    const body = document.getElementById(`glance-body-${idx}`);
+    if (body) _buildGlanceChart(body, r);
+  });
+
+  const savedOverflow  = pane.style.overflowY;
+  const savedHeight    = pane.style.height;
+  const savedMinHeight = pane.style.minHeight;
+  pane.style.overflowY = 'visible';
+  pane.style.height    = 'auto';
+  pane.style.minHeight = 'auto';
+
+  // Two frames: one for layout, one for the charts to finish drawing.
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+  try {
+    await _captureElementToClipboard(pane, `Screenshot of ${_screenshotTopLabel()} copied to clipboard — paste into Google Slides!`);
+  } finally {
+    pane.style.overflowY = savedOverflow;
+    pane.style.height    = savedHeight;
+    pane.style.minHeight = savedMinHeight;
+    renderGlanceView(); // rebuild full grid + re-attach lazy-load observer
+  }
+}
+
+async function _screenshotSectorView() {
+  const pane = document.getElementById('sector-pane');
+  if (!pane) return;
+
+  const savedOverflow  = pane.style.overflowY;
+  const savedHeight    = pane.style.height;
+  const savedMinHeight = pane.style.minHeight;
+  pane.style.overflowY = 'visible';
+  pane.style.height    = 'auto';
+  pane.style.minHeight = 'auto';
+
+  try {
+    await _captureElementToClipboard(pane, 'Screenshot copied to clipboard — paste into Google Slides!');
+  } finally {
+    pane.style.overflowY = savedOverflow;
+    pane.style.height    = savedHeight;
+    pane.style.minHeight = savedMinHeight;
+  }
+}
+
 // ── IMAP Glance ────────────────────────────────────────────────────────────
 let _imapGlanceTF     = 'W';
 let _imapGlanceRange  = '6M';
@@ -11633,26 +11772,13 @@ function _rebuildGlanceCharts() {
   });
 }
 
-function renderGlanceView() {
-  _destroyAllGlanceCharts();
-  if (_glanceObserver) { _glanceObserver.disconnect(); _glanceObserver = null; }
-
-  const grid = document.getElementById('glance-grid');
-  grid.style.gridTemplateColumns = `repeat(${glanceCols}, 1fr)`;
-
-  if (!sortedResults.length) {
-    grid.innerHTML = '<div style="padding:40px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;font-size:11px">No results to display</div>';
-    return;
-  }
-
-  // Build all card shells as one HTML string — fast, no chart canvases yet
-  grid.innerHTML = sortedResults.map((r, idx) => {
-    const sc         = r.rankScore ?? r.score;
-    const colorClass = sc >= 70 ? 'score-high' : sc >= 40 ? 'score-mid' : 'score-low';
-    const chgSign    = r.change >= 0 ? '+' : '';
-    const chgColor   = r.change >= 0 ? 'var(--green)' : 'var(--red)';
-    return `<div class="glance-card${idx === activeRow ? ' active' : ''}" id="glance-card-${idx}"
-                 onclick="setActiveRow(${idx},true);document.querySelectorAll('.glance-card').forEach(c=>c.classList.remove('active'));this.classList.add('active')">
+function _glanceCardHTML(r, idx) {
+  const sc         = r.rankScore ?? r.score;
+  const colorClass = sc >= 70 ? 'score-high' : sc >= 40 ? 'score-mid' : 'score-low';
+  const chgSign    = r.change >= 0 ? '+' : '';
+  const chgColor   = r.change >= 0 ? 'var(--green)' : 'var(--red)';
+  return `<div class="glance-card${idx === activeRow ? ' active' : ''}" id="glance-card-${idx}"
+               onclick="setActiveRow(${idx},true);document.querySelectorAll('.glance-card').forEach(c=>c.classList.remove('active'));this.classList.add('active')">
       <div class="glance-card-header">
         <span class="glance-card-ticker">${r.ticker}</span>
         <button class="star-btn${r.isStarred ? ' star-active' : ''}"
@@ -11669,7 +11795,22 @@ function renderGlanceView() {
       </div>
       <div class="glance-card-body" id="glance-body-${idx}" data-idx="${idx}"></div>
     </div>`;
-  }).join('');
+}
+
+function renderGlanceView() {
+  _destroyAllGlanceCharts();
+  if (_glanceObserver) { _glanceObserver.disconnect(); _glanceObserver = null; }
+
+  const grid = document.getElementById('glance-grid');
+  grid.style.gridTemplateColumns = `repeat(${glanceCols}, 1fr)`;
+
+  if (!sortedResults.length) {
+    grid.innerHTML = '<div style="padding:40px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace;font-size:11px">No results to display</div>';
+    return;
+  }
+
+  // Build all card shells as one HTML string — fast, no chart canvases yet
+  grid.innerHTML = sortedResults.map((r, idx) => _glanceCardHTML(r, idx)).join('');
 
   // IntersectionObserver: draw chart only when a card body scrolls into view
   const pane = document.getElementById('glance-pane');
