@@ -408,6 +408,41 @@ async function refreshYFCrumb() {
     console.warn(`[YF crumb] cookie flow status=${r2.status}: ${r2.body.substring(0, 60)}`);
   } catch (e) { console.warn(`[YF crumb] cookie flow error: ${e.message}`); }
 
+  // Strategy C — fc.yahoo.com sets the "A3" consent cookie that Yahoo's crumb
+  // service actually checks; finance.yahoo.com/robots.txt (strategy B) doesn't
+  // set any cookie at all in some network environments, which is why B silently
+  // no-ops there. This is the flow that reliably works when B doesn't.
+  try {
+    const r1 = await rawHttpsGet({
+      hostname: 'fc.yahoo.com',
+      path: '/',
+      headers: { 'User-Agent': UA, 'Accept': '*/*' },
+    });
+    const rawCookies = Array.isArray(r1.headers['set-cookie'])
+      ? r1.headers['set-cookie']
+      : (r1.headers['set-cookie'] ? [r1.headers['set-cookie']] : []);
+    const cookie = rawCookies.map(c => c.split(';')[0]).join('; ');
+
+    const r2 = await rawHttpsGet({
+      hostname: 'query2.finance.yahoo.com',
+      path: '/v1/test/getcrumb',
+      headers: {
+        'User-Agent': UA, 'Accept': '*/*',
+        'Referer':    'https://finance.yahoo.com/',
+        ...(cookie ? { 'Cookie': cookie } : {}),
+      },
+    });
+    const crumb = r2.body.trim();
+    if (r2.status === 200 && crumb && crumb !== 'Unauthorized' && crumb.length > 2) {
+      _yfCrumb   = crumb;
+      _yfCookie  = cookie || null;
+      _yfCrumbTs = Date.now();
+      console.log(`[YF crumb] OK (fc.yahoo.com flow) — ${crumb.substring(0, 8)}…`);
+      return;
+    }
+    console.warn(`[YF crumb] fc.yahoo.com flow status=${r2.status}: ${r2.body.substring(0, 60)}`);
+  } catch (e) { console.warn(`[YF crumb] fc.yahoo.com flow error: ${e.message}`); }
+
   console.warn('[YF crumb] All strategies failed — requests will proceed without crumb');
 }
 
