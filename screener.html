@@ -3289,6 +3289,13 @@
     transition: all 0.15s;
   }
   .mtl-picks-toggle-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .mtl-picks-hitratio {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: normal;
+    text-transform: none;
+  }
   .mtl-hover-row {
     display: flex;
     align-items: center;
@@ -3300,13 +3307,11 @@
   }
   .mtl-hover-row:last-child { border-bottom: none; }
   .mtl-hover-rank   { color: var(--text3); font-size: 10px; min-width: 14px; }
-  .mtl-hover-ticker { color: var(--text); font-weight: 700; flex: 1; }
+  .mtl-hover-ticker { color: var(--text); font-weight: 700; }
   .mtl-hover-pct-pos { color: var(--green); font-weight: 600; }
   .mtl-hover-pct-neg { color: var(--red);   font-weight: 600; }
   .mtl-pick-row {
     display: flex;
-    flex-direction: column;
-    gap: 2px;
     padding: 3px 0;
     cursor: pointer;
     border-bottom: 1px solid var(--border);
@@ -3315,18 +3320,19 @@
   .mtl-pick-row-top {
     display: flex;
     align-items: center;
-    gap: 4px;
+    flex-wrap: wrap;
+    gap: 4px 10px;
     font-family: 'IBM Plex Mono', monospace;
     font-size: 11px;
   }
-  .mtl-pick-perf-row {
+  .mtl-pick-perf-group {
     display: flex;
+    align-items: baseline;
     gap: 8px;
-    font-family: 'IBM Plex Mono', monospace;
-    font-size: 9px;
   }
-  .mtl-pick-perf-item { display: flex; align-items: center; gap: 2px; }
-  .mtl-pick-perf-label { color: var(--text3); }
+  .mtl-pick-perf-item { display: flex; align-items: baseline; gap: 2px; }
+  .mtl-pick-perf-label { color: var(--text3); font-size: 8px; }
+  .mtl-pick-perf-value { font-size: 10px; }
   .mtl-no-data { font-size: 10px; color: var(--text3); font-family: 'Inter', sans-serif; padding: 3px 0; }
   .mtl-breadth-row {
     display: flex;
@@ -4020,9 +4026,12 @@
             <div class="mtl-hover-section">
               <div class="mtl-hover-section-title">
                 <span>My Picks <span style="color:var(--text3);font-size:7px;font-weight:400">▶ click to chart</span></span>
-                <span style="display:flex;gap:4px">
-                  <button class="mtl-picks-toggle-btn active" id="mtl-picks-toggle-score" onclick="_mtlToggleShowScore()">Score</button>
-                  <button class="mtl-picks-toggle-btn active" id="mtl-picks-toggle-perf" onclick="_mtlToggleShowPerf()">Performance</button>
+                <span style="display:flex;align-items:center;gap:8px">
+                  <span id="mtl-picks-hitratio" class="mtl-picks-hitratio"></span>
+                  <span style="display:flex;gap:4px">
+                    <button class="mtl-picks-toggle-btn active" id="mtl-picks-toggle-score" onclick="_mtlToggleShowScore()">Score</button>
+                    <button class="mtl-picks-toggle-btn active" id="mtl-picks-toggle-perf" onclick="_mtlToggleShowPerf()">Performance</button>
+                  </span>
                 </span>
               </div>
               <div id="mtl-picks-list"></div>
@@ -8173,20 +8182,26 @@ function updatePicksSummary() {
   const allVals = Object.values(_picksPerf);
   periods.forEach(p => {
     const vals = allVals.map(v => v[p]).filter(v => v !== null && v !== undefined);
-    const avgEl = document.getElementById(`summary-avg-${p}`);
-    const hitEl = document.getElementById(`summary-hit-${p}`);
-    if (!avgEl || !hitEl) return;
+    const winEl  = document.getElementById(`summary-win-${p}`);
+    const loseEl = document.getElementById(`summary-lose-${p}`);
+    const hitEl  = document.getElementById(`summary-hit-${p}`);
+    if (!winEl || !loseEl || !hitEl) return;
     if (!vals.length) {
-      avgEl.textContent = '—'; avgEl.className = 'picks-perf-na';
-      hitEl.textContent = '—'; hitEl.className = 'picks-summary-hit picks-perf-na';
+      winEl.textContent  = '—'; winEl.className  = 'picks-perf-na';
+      loseEl.textContent = '—'; loseEl.className = 'picks-perf-na';
+      hitEl.textContent  = '—'; hitEl.className  = 'picks-summary-hit picks-perf-na';
       return;
     }
-    const avg = vals.reduce((s, v) => s + v, 0) / vals.length;
-    const hitCount = vals.filter(v => v >= 0).length;
+    const winners = vals.filter(v => v >= 0);
+    const losers  = vals.filter(v => v < 0);
+    const avgWin  = winners.length ? winners.reduce((s, v) => s + v, 0) / winners.length : null;
+    const avgLose = losers.length  ? losers.reduce((s, v) => s + v, 0) / losers.length   : null;
+    winEl.textContent  = avgWin  === null ? '—' : `+${avgWin.toFixed(1)}%`;
+    winEl.className    = avgWin  === null ? 'picks-perf-na' : 'picks-perf-cell picks-perf-pos';
+    loseEl.textContent = avgLose === null ? '—' : `${avgLose.toFixed(1)}%`;
+    loseEl.className   = avgLose === null ? 'picks-perf-na' : 'picks-perf-cell picks-perf-neg';
+    const hitCount = winners.length;
     const hitPct = Math.round((hitCount / vals.length) * 100);
-    const sign = avg >= 0 ? '+' : '';
-    avgEl.textContent = `${sign}${avg.toFixed(1)}%`;
-    avgEl.className = `picks-perf-cell ${avg >= 0 ? 'picks-perf-pos' : 'picks-perf-neg'}`;
     hitEl.textContent = `${hitCount}/${vals.length} (${hitPct}%)`;
     hitEl.className = `picks-summary-hit picks-perf-cell ${hitPct >= 50 ? 'picks-perf-pos' : 'picks-perf-neg'}`;
   });
@@ -8878,13 +8893,23 @@ function renderPicksList() {
         </thead>
         <tbody class="picks-summary-tbody">
           <tr>
-            <td colspan="3" class="picks-summary-label">AVG RETURN</td>
-            <td class="picks-perf-loading" id="summary-avg-5d">…</td>
-            <td class="picks-perf-loading" id="summary-avg-2w">…</td>
-            <td class="picks-perf-loading" id="summary-avg-1m">…</td>
-            <td class="picks-perf-loading" id="summary-avg-3m">…</td>
-            <td class="picks-perf-loading" id="summary-avg-6m">…</td>
-            <td class="picks-perf-loading" id="summary-avg-1y">…</td>
+            <td colspan="3" class="picks-summary-label">AVG WINNER</td>
+            <td class="picks-perf-loading" id="summary-win-5d">…</td>
+            <td class="picks-perf-loading" id="summary-win-2w">…</td>
+            <td class="picks-perf-loading" id="summary-win-1m">…</td>
+            <td class="picks-perf-loading" id="summary-win-3m">…</td>
+            <td class="picks-perf-loading" id="summary-win-6m">…</td>
+            <td class="picks-perf-loading" id="summary-win-1y">…</td>
+            <td></td>
+          </tr>
+          <tr>
+            <td colspan="3" class="picks-summary-label">AVG LOSER</td>
+            <td class="picks-perf-loading" id="summary-lose-5d">…</td>
+            <td class="picks-perf-loading" id="summary-lose-2w">…</td>
+            <td class="picks-perf-loading" id="summary-lose-1m">…</td>
+            <td class="picks-perf-loading" id="summary-lose-3m">…</td>
+            <td class="picks-perf-loading" id="summary-lose-6m">…</td>
+            <td class="picks-perf-loading" id="summary-lose-1y">…</td>
             <td></td>
           </tr>
           <tr>
@@ -13312,57 +13337,81 @@ function _mtlToggleShowPerf() {
 }
 
 function _mtlRenderPicksList() {
-  const picksEl = document.getElementById('mtl-picks-list');
-  if (!picksEl) return;
-  const uniq = _mtlCurrentPicks;
+  const picksEl   = document.getElementById('mtl-picks-list');
+  const hitEl     = document.getElementById('mtl-picks-hitratio');
+  const uniq      = _mtlCurrentPicks;
+  const needsFetch = [];
+
   if (!uniq.length) {
-    picksEl.innerHTML = '<div class="mtl-no-data">No picks this day</div>';
+    if (picksEl) picksEl.innerHTML = '<div class="mtl-no-data">No picks this day</div>';
+    if (hitEl)   hitEl.textContent = '';
     return;
   }
 
   const perfPeriods = ['5d', '2w', '1m', '3m'];
-  const needsFetch  = [];
 
-  picksEl.innerHTML = uniq.map(e => {
-    const pct = Math.round(e.score);
-    const col = pct >= 70 ? 'var(--green)' : pct >= 40 ? 'var(--amber)' : 'var(--red)';
-    const scoreHtml = _mtlShowScore
-      ? `<span style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;color:${col}">${pct}%</span>`
-      : '';
+  if (picksEl) {
+    picksEl.innerHTML = uniq.map(e => {
+      const pct = Math.round(e.score);
+      const col = pct >= 70 ? 'var(--green)' : pct >= 40 ? 'var(--amber)' : 'var(--red)';
+      const scoreHtml = _mtlShowScore
+        ? `<span style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;color:${col}">${pct}%</span>`
+        : '';
 
-    let perfHtml = '';
-    if (_mtlShowPerf) {
       const cached = _picksPerf[`${e.ticker}_${e.starredAt}`];
       if (!cached) needsFetch.push(e);
-      const items = perfPeriods.map(p => {
-        const v = cached ? cached[p] : undefined;
-        const valHtml = (v === null || v === undefined)
-          ? `<span style="color:var(--text3)">…</span>`
-          : `<span style="color:${v >= 0 ? 'var(--green)' : 'var(--red)'};font-weight:600">${v >= 0 ? '+' : ''}${v.toFixed(1)}%</span>`;
-        return `<span class="mtl-pick-perf-item"><span class="mtl-pick-perf-label">${p.toUpperCase()}</span>${valHtml}</span>`;
-      }).join('');
-      perfHtml = `<div class="mtl-pick-perf-row">${items}</div>`;
-    }
 
-    return `<div class="mtl-pick-row" title="Load ${e.ticker} in bottom chart" onclick="_mtlLoadPickInBot('${e.ticker}')">
-      <div class="mtl-pick-row-top">
-        <span class="mtl-hover-ticker">${e.ticker}</span>
-        ${scoreHtml}
-      </div>
-      ${perfHtml}
-    </div>`;
-  }).join('');
+      let perfHtml = '';
+      if (_mtlShowPerf) {
+        const items = perfPeriods.map(p => {
+          const v = cached ? cached[p] : undefined;
+          const valHtml = (v === null || v === undefined)
+            ? `<span class="mtl-pick-perf-value" style="color:var(--text3)">…</span>`
+            : `<span class="mtl-pick-perf-value" style="color:${v >= 0 ? 'var(--green)' : 'var(--red)'};font-weight:600">${v >= 0 ? '+' : ''}${v.toFixed(1)}%</span>`;
+          return `<span class="mtl-pick-perf-item"><span class="mtl-pick-perf-label">${p.toUpperCase()}</span>${valHtml}</span>`;
+        }).join('');
+        perfHtml = `<span class="mtl-pick-perf-group">${items}</span>`;
+      }
+
+      return `<div class="mtl-pick-row" title="Load ${e.ticker} in bottom chart" onclick="_mtlLoadPickInBot('${e.ticker}')">
+        <div class="mtl-pick-row-top">
+          <span class="mtl-hover-ticker">${e.ticker}</span>
+          ${scoreHtml}
+          ${perfHtml}
+        </div>
+      </div>`;
+    }).join('');
+  } else {
+    // Panel list not rendered, but still need to know which picks lack cached 5D data
+    uniq.forEach(e => { if (!_picksPerf[`${e.ticker}_${e.starredAt}`]) needsFetch.push(e); });
+  }
+
+  _mtlUpdatePicksHitRatio();
 
   if (needsFetch.length) {
     (async () => {
       const BATCH = 4;
       for (let i = 0; i < needsFetch.length; i += BATCH) {
         await Promise.all(needsFetch.slice(i, i + BATCH).map(e => loadPickPerformance(e)));
-        if (_mtlShowPerf && needsFetch === _mtlLastPerfFetchBatch) _mtlRenderPicksList();
+        if (needsFetch === _mtlLastPerfFetchBatch) _mtlRenderPicksList();
       }
     })();
     _mtlLastPerfFetchBatch = needsFetch;
   }
+}
+
+// Hit ratio for the picks currently shown: share of that day's picks with a positive 5D return
+function _mtlUpdatePicksHitRatio() {
+  const hitEl = document.getElementById('mtl-picks-hitratio');
+  if (!hitEl) return;
+  const vals = _mtlCurrentPicks
+    .map(e => { const c = _picksPerf[`${e.ticker}_${e.starredAt}`]; return c ? c['5d'] : undefined; })
+    .filter(v => v !== null && v !== undefined);
+  if (!vals.length) { hitEl.textContent = ''; return; }
+  const wins = vals.filter(v => v >= 0).length;
+  const pct  = Math.round((wins / vals.length) * 100);
+  hitEl.textContent = `${wins}/${vals.length} ${pct}% hit`;
+  hitEl.style.color = pct >= 50 ? 'var(--green)' : 'var(--red)';
 }
 
 // ── Click a pick row → load that stock in the bottom chart ───────────────────
