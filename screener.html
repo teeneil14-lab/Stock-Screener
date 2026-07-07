@@ -3318,21 +3318,18 @@
   }
   .mtl-pick-row:last-child { border-bottom: none; }
   .mtl-pick-row-top {
-    display: flex;
+    display: grid;
+    grid-template-columns: 42px repeat(4, 54px) 1fr;
     align-items: center;
-    flex-wrap: wrap;
-    gap: 4px 10px;
+    column-gap: 4px;
     font-family: 'IBM Plex Mono', monospace;
     font-size: 11px;
   }
-  .mtl-pick-perf-group {
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-  }
+  .mtl-pick-perf-group { display: contents; }
   .mtl-pick-perf-item { display: flex; align-items: baseline; gap: 2px; }
-  .mtl-pick-perf-label { color: var(--text3); font-size: 8px; }
+  .mtl-pick-perf-label { color: var(--text3); font-size: 8px; width: 14px; flex: none; }
   .mtl-pick-perf-value { font-size: 10px; }
+  .mtl-pick-score { grid-column: 6; justify-self: end; }
   .mtl-no-data { font-size: 10px; color: var(--text3); font-family: 'Inter', sans-serif; padding: 3px 0; }
   .mtl-breadth-row {
     display: flex;
@@ -13355,7 +13352,7 @@ function _mtlRenderPicksList() {
       const pct = Math.round(e.score);
       const col = pct >= 70 ? 'var(--green)' : pct >= 40 ? 'var(--amber)' : 'var(--red)';
       const scoreHtml = _mtlShowScore
-        ? `<span style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;color:${col}">${pct}%</span>`
+        ? `<span class="mtl-pick-score" style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;color:${col}">${pct}%</span>`
         : '';
 
       const cached = _picksPerf[`${e.ticker}_${e.starredAt}`];
@@ -13376,8 +13373,8 @@ function _mtlRenderPicksList() {
       return `<div class="mtl-pick-row" title="Load ${e.ticker} in bottom chart" onclick="_mtlLoadPickInBot('${e.ticker}')">
         <div class="mtl-pick-row-top">
           <span class="mtl-hover-ticker">${e.ticker}</span>
-          ${scoreHtml}
           ${perfHtml}
+          ${scoreHtml}
         </div>
       </div>`;
     }).join('');
