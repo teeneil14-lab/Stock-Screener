@@ -2954,8 +2954,12 @@
     text-align: right;
     border-bottom: 1px solid var(--border);
     white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
   }
   .pse-table th:first-child { text-align: left; }
+  .pse-table th:hover { color: var(--text); }
+  .pse-table th.sort-active { color: var(--accent); }
   .pse-table td {
     font-family: 'IBM Plex Mono', monospace;
     font-size: 11px;
@@ -12680,26 +12684,76 @@ function renderPSESectorStrip(sectors, nDays) {
   </div>`;
 }
 
+// Sort state + row cache for the three PSE Daily panels — lets clicking a
+// column header re-sort without re-fetching, since each panel keeps its own
+// filtered (but unsliced) row set and current sort col/dir.
+let pseHighRows = [], pseVolRows = [], pseForeignRows = [];
+const pseSortState = {
+  high:    { col: 'rangePos',    dir: -1 },
+  vol:     { col: 'volumeRatio', dir: -1 },
+  foreign: { col: 'netForeign',  dir: -1 },
+};
+
+function pseAddPctChg(list) {
+  list.forEach(s => {
+    s.pctChg = (s.open != null && s.close != null && s.open !== 0)
+      ? (s.close - s.open) / s.open * 100 : null;
+  });
+  return list;
+}
+
 function renderPSEPanels(data) {
   const { stocks } = data;
 
   const liquid   = stocks.filter(s =>
     s.latestValue != null && s.latestValue >= 1_500_000 &&
     !/pref/i.test(s.symbol) && !/pref/i.test(s.name));
-  const nearHigh = liquid
-    .filter(s => s.rangePos >= 75 && s.weekHigh != null && s.weekLow != null && s.weekHigh > s.weekLow)
-    .sort((a, b) => b.rangePos - a.rangePos).slice(0, 30);
 
-  const volSurge = liquid
-    .filter(s => s.volumeRatio != null && s.volumeRatio >= 2.0 && s.avgPrevVol != null && s.avgPrevVol >= 10000)
-    .sort((a, b) => b.volumeRatio - a.volumeRatio).slice(0, 30);
+  pseHighRows = pseAddPctChg(liquid
+    .filter(s => s.rangePos >= 75 && s.weekHigh != null && s.weekLow != null && s.weekHigh > s.weekLow));
 
-  const netBuying = liquid
-    .filter(s => s.netForeign != null && s.netForeign > 0)
-    .sort((a, b) => b.netForeign - a.netForeign).slice(0, 30);
+  pseVolRows = pseAddPctChg(liquid
+    .filter(s => s.volumeRatio != null && s.volumeRatio >= 2.0 && s.avgPrevVol != null && s.avgPrevVol >= 10000));
+
+  pseForeignRows = pseAddPctChg(liquid
+    .filter(s => s.netForeign != null && s.netForeign > 0));
+
+  renderPSEPanelsHTML();
+}
+
+function pseSortRows(rows, col, dir) {
+  return rows.slice().sort((a, b) => {
+    const av = a[col], bv = b[col];
+    if (av == null && bv == null) return 0;
+    if (av == null) return 1;
+    if (bv == null) return -1;
+    return dir * (av - bv);
+  });
+}
+
+function renderPSEPanelsHTML() {
+  const sortedHigh    = pseSortRows(pseHighRows,    pseSortState.high.col,    pseSortState.high.dir).slice(0, 30);
+  const sortedVol     = pseSortRows(pseVolRows,     pseSortState.vol.col,     pseSortState.vol.dir).slice(0, 30);
+  const sortedForeign = pseSortRows(pseForeignRows, pseSortState.foreign.col, pseSortState.foreign.dir).slice(0, 30);
 
   document.getElementById('pse-panels').innerHTML =
-    psePanelHigh(nearHigh) + psePanelVol(volSurge) + psePanelForeign(netBuying);
+    psePanelHigh(sortedHigh) + psePanelVol(sortedVol) + psePanelForeign(sortedForeign);
+}
+
+function sortPSEPanel(panel, col) {
+  const st = pseSortState[panel];
+  if (st.col === col) st.dir *= -1;
+  else { st.col = col; st.dir = -1; }
+  renderPSEPanelsHTML();
+}
+
+function pseThArrow(panel, col) {
+  const st = pseSortState[panel];
+  if (st.col !== col) return '';
+  return st.dir === -1 ? ' ↓' : ' ↑';
+}
+function pseThCls(panel, col) {
+  return pseSortState[panel].col === col ? ' class="sort-active"' : '';
 }
 
 function pseFmt(n, d = 2) {
@@ -12751,7 +12805,12 @@ function psePanelHigh(stocks) {
     ${stocks.length === 0
       ? '<div class="pse-panel-empty">No issues closed near their weekly high today.</div>'
       : `<div class="pse-table-wrap"><table class="pse-table">
-          <thead><tr><th>Issue</th><th>Close</th><th>Chg</th><th>Wk Position</th></tr></thead>
+          <thead><tr>
+            <th style="cursor:default">Issue</th>
+            <th${pseThCls('high','close')} onclick="sortPSEPanel('high','close')">Close${pseThArrow('high','close')}</th>
+            <th${pseThCls('high','pctChg')} onclick="sortPSEPanel('high','pctChg')">Chg${pseThArrow('high','pctChg')}</th>
+            <th${pseThCls('high','rangePos')} onclick="sortPSEPanel('high','rangePos')">Wk Position${pseThArrow('high','rangePos')}</th>
+          </tr></thead>
           <tbody>${rows}</tbody></table></div>`}
   </div>`;
 }
@@ -12777,7 +12836,13 @@ function psePanelVol(stocks) {
     ${stocks.length === 0
       ? '<div class="pse-panel-empty">No significant volume surges today.</div>'
       : `<div class="pse-table-wrap"><table class="pse-table">
-          <thead><tr><th>Issue</th><th>Today Vol</th><th>5D Avg</th><th>Chg</th><th>Ratio</th></tr></thead>
+          <thead><tr>
+            <th style="cursor:default">Issue</th>
+            <th${pseThCls('vol','volume')} onclick="sortPSEPanel('vol','volume')">Today Vol${pseThArrow('vol','volume')}</th>
+            <th${pseThCls('vol','avgPrevVol')} onclick="sortPSEPanel('vol','avgPrevVol')">5D Avg${pseThArrow('vol','avgPrevVol')}</th>
+            <th${pseThCls('vol','pctChg')} onclick="sortPSEPanel('vol','pctChg')">Chg${pseThArrow('vol','pctChg')}</th>
+            <th${pseThCls('vol','volumeRatio')} onclick="sortPSEPanel('vol','volumeRatio')">Ratio${pseThArrow('vol','volumeRatio')}</th>
+          </tr></thead>
           <tbody>${rows}</tbody></table></div>`}
   </div>`;
 }
@@ -12799,7 +12864,12 @@ function psePanelForeign(stocks) {
     ${stocks.length === 0
       ? '<div class="pse-panel-empty">No net foreign buying recorded today.</div>'
       : `<div class="pse-table-wrap"><table class="pse-table">
-          <thead><tr><th>Issue</th><th>Close</th><th>Chg</th><th>Net Foreign</th></tr></thead>
+          <thead><tr>
+            <th style="cursor:default">Issue</th>
+            <th${pseThCls('foreign','close')} onclick="sortPSEPanel('foreign','close')">Close${pseThArrow('foreign','close')}</th>
+            <th${pseThCls('foreign','pctChg')} onclick="sortPSEPanel('foreign','pctChg')">Chg${pseThArrow('foreign','pctChg')}</th>
+            <th${pseThCls('foreign','netForeign')} onclick="sortPSEPanel('foreign','netForeign')">Net Foreign${pseThArrow('foreign','netForeign')}</th>
+          </tr></thead>
           <tbody>${rows}</tbody></table></div>`}
   </div>`;
 }
