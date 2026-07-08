@@ -10376,12 +10376,36 @@ function sortBreadth(col) {
 //  MARKET PERFORMANCE TAB (PH) — 1D/1W/1M/3M/YTD/1Y returns + turnover
 // ============================================================
 
+// Kicks off a server-side check for a newer PSE EOD report and waits (up to ~20s)
+// for it to finish, so the REFRESH button actually re-checks pse.com.ph instead
+// of just re-reading whatever was already cached in memory.
+async function triggerPSEHistoryRefresh() {
+  try {
+    await fetch('/api/pse/build-history', { method: 'POST' });
+    const deadline = Date.now() + 20000;
+    while (Date.now() < deadline) {
+      await new Promise(r => setTimeout(r, 800));
+      const res    = await fetch('/api/pse/history-status');
+      const status = await res.json();
+      if (!status.running) break;
+    }
+  } catch (e) {
+    console.warn('PSE history refresh check failed:', e.message);
+  }
+}
+
 async function loadMarketPerformance(force) {
   marketPerfLoadedAt = Date.now();
-  const loading = document.getElementById('marketperf-loading');
-  const updated = document.getElementById('marketperf-updated');
+  const loading    = document.getElementById('marketperf-loading');
+  const loadingMsg = loading ? loading.querySelector('div:last-child') : null;
+  const updated    = document.getElementById('marketperf-updated');
   if (loading) loading.style.display = 'flex';
   try {
+    if (force) {
+      if (loadingMsg) loadingMsg.textContent = 'Checking PSE for a newer report…';
+      await triggerPSEHistoryRefresh();
+      if (loadingMsg) loadingMsg.textContent = 'Loading market performance…';
+    }
     const res  = await fetch('/api/pse/market-performance');
     const data = await res.json();
     marketPerfData = data;

@@ -1259,6 +1259,11 @@ const server = http.createServer(async (req, res) => {
 // Load PSE history from disk, then fill in any missing recent days in the background
 loadPSEHistory();
 runPSEHistoryBuild().catch(() => {});
+// PSE publishes the EOD report a few hours after the 3:30pm PH close, at an
+// inconsistent time — so poll periodically to pick up today's data as soon as
+// it's posted, instead of waiting for the next server restart. Cheap when
+// already up to date: runPSEHistoryBuild() no-ops if there's nothing missing.
+setInterval(() => runPSEHistoryBuild().catch(() => {}), 15 * 60 * 1000);
 
 // Fetch crumb at startup so the first scan request doesn't have to wait for it
 refreshYFCrumb().catch(() => {});
