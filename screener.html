@@ -1908,6 +1908,17 @@
   .pa-tt-pick   { display:flex; justify-content:space-between; gap:14px; font-family:'IBM Plex Mono',monospace; font-size:10px; margin-bottom:2px; }
   .pa-tt-more   { font-family:'IBM Plex Sans',sans-serif; font-size:9px; color:#9ca3af; margin-top:3px; }
 
+  /* ── Hover 1M daily candle preview (PSE Daily / Market Performance tabs) ── */
+  .hover-chart-popup {
+    position:fixed; display:none; z-index:9999;
+    width:260px; background:#fff; border:1px solid #e5e7eb; border-radius:6px;
+    padding:8px; pointer-events:none; box-shadow:0 4px 16px rgba(0,0,0,0.14);
+  }
+  .hover-chart-head { display:flex; align-items:baseline; justify-content:space-between; margin-bottom:4px; }
+  .hover-chart-sym  { font-family:'IBM Plex Mono',monospace; font-size:12px; font-weight:700; color:#111; }
+  .hover-chart-sub  { font-family:'IBM Plex Sans',sans-serif; font-size:9px; color:#9ca3af; }
+  .hover-chart-canvas { display:block; width:100%; height:140px; }
+
   /* ── Calendar View ──────────────────────────────────────────── */
   .picks-calendar-wrap { padding:16px 20px 24px; width:100%; box-sizing:border-box; }
   .cal-nav-row { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; flex-wrap:wrap; gap:8px; }
@@ -4363,6 +4374,7 @@ window.addEventListener('DOMContentLoaded', () => {
   // fetch today's live values from pse.com.ph and store them (once per day).
   renderPSESectorStripFromStorage();
   refreshPSESectorRolling();
+  initHoverChartPreview();
 });
 
 function startClock() {
@@ -10659,7 +10671,7 @@ function renderMarketPerfTable() {
   const tbody = sorted.map(s => {
     const mktPct = totalValue > 0 && s.value != null ? (s.value / totalValue) * 100 : null;
     return `
-    <tr>
+    <tr data-ticker="${s.symbol}">
       <td>${s.symbol}</td>
       <td>${s.name || ''}</td>
       <td>${sym}${s.close != null ? s.close.toFixed(2) : '—'}</td>
@@ -12909,7 +12921,7 @@ function psePctHtml(open, close) {
 function psePanelHigh(stocks) {
   const rows = stocks.map(s => {
     const fill = Math.max(0, Math.min(100, s.rangePos));
-    return `<tr>
+    return `<tr data-ticker="${s.symbol}">
       <td><span class="pse-sym">${s.symbol}</span><span class="pse-co">${s.name}</span></td>
       <td>${pseFmt(s.close)}</td>
       <td>${psePctHtml(s.open, s.close)}</td>
@@ -12942,7 +12954,7 @@ function psePanelHigh(stocks) {
 function psePanelVol(stocks) {
   const rows = stocks.map(s => {
     const chipCls = s.volumeRatio >= 5 ? 'pse-chip-red' : s.volumeRatio >= 3 ? 'pse-chip-amber' : 'pse-chip-blue';
-    return `<tr>
+    return `<tr data-ticker="${s.symbol}">
       <td><span class="pse-sym">${s.symbol}</span><span class="pse-co">${s.name}</span></td>
       <td>${pseFmtVol(s.volume)}</td>
       <td class="pse-mute">${pseFmtVol(s.avgPrevVol)}</td>
@@ -12972,7 +12984,7 @@ function psePanelVol(stocks) {
 }
 
 function psePanelForeign(stocks) {
-  const rows = stocks.map(s => `<tr>
+  const rows = stocks.map(s => `<tr data-ticker="${s.symbol}">
     <td><span class="pse-sym">${s.symbol}</span><span class="pse-co">${s.name}</span></td>
     <td>${pseFmt(s.close)}</td>
     <td>${psePctHtml(s.open, s.close)}</td>
@@ -12996,6 +13008,101 @@ function psePanelForeign(stocks) {
           </tr></thead>
           <tbody>${rows}</tbody></table></div>`}
   </div>`;
+}
+
+// ── Hover 1-month daily candle preview ───────────────────────────────────────
+// Mousing over a ticker row in the PSE Daily panels or the Market Performance
+// table shows a small floating popup with that ticker's last ~1 month of daily
+// candles (reuses the same canvas renderer and bar cache as the main chart panel).
+let _hoverChartPopup  = null;
+let _hoverChartTimer  = null;
+let _hoverChartTicker = null;
+
+function _ensureHoverChartPopup() {
+  if (_hoverChartPopup) return _hoverChartPopup;
+  const el = document.createElement('div');
+  el.className = 'hover-chart-popup';
+  el.innerHTML = `
+    <div class="hover-chart-head">
+      <span class="hover-chart-sym"></span>
+      <span class="hover-chart-sub">1M Daily</span>
+    </div>
+    <canvas class="hover-chart-canvas"></canvas>`;
+  document.body.appendChild(el);
+  _hoverChartPopup = el;
+  return el;
+}
+
+function _positionHoverChart(clientX, clientY) {
+  const el = _hoverChartPopup;
+  const w  = el.offsetWidth  || 260;
+  const h  = el.offsetHeight || 170;
+  let left = clientX + 18;
+  let top  = clientY - h / 2;
+  if (left + w > window.innerWidth  - 8) left = clientX - w - 18;
+  if (top < 8) top = 8;
+  if (top + h > window.innerHeight - 8) top = window.innerHeight - h - 8;
+  el.style.left = `${left}px`;
+  el.style.top  = `${top}px`;
+}
+
+function hideHoverChart() {
+  clearTimeout(_hoverChartTimer);
+  _hoverChartTicker = null;
+  if (_hoverChartPopup) _hoverChartPopup.style.display = 'none';
+}
+
+async function showHoverChart(ticker, clientX, clientY) {
+  const el = _ensureHoverChartPopup();
+  _hoverChartTicker = ticker;
+  el.querySelector('.hover-chart-sym').textContent = ticker;
+  el.style.display = 'block';
+  _positionHoverChart(clientX, clientY);
+
+  const canvas = el.querySelector('.hover-chart-canvas');
+  try {
+    const ckey = `${ticker}|d`;
+    if (!_pseBarsCache[ckey]) _pseBarsCache[ckey] = await fetchPSEBars(ticker, 'd');
+    if (_hoverChartTicker !== ticker) return; // moved on before the fetch resolved
+    renderOHLCChart(canvas, _pseBarsCache[ckey], { maxBars: 22, showEMA: false, showBB: false, showVolume: false });
+  } catch (e) {
+    if (_hoverChartTicker !== ticker) return;
+    const W = canvas.parentElement.offsetWidth || 244, H = 140;
+    canvas.width = W; canvas.height = H; canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#f4f5f7'; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#aaa'; ctx.font = '10px "IBM Plex Mono"';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('No chart data', W / 2, H / 2);
+  }
+}
+
+function initHoverChartPreview() {
+  const inScope = tr => {
+    const panels = document.getElementById('pse-panels');
+    const mktTbl = document.getElementById('marketperf-table-wrap');
+    return (panels && panels.contains(tr)) || (mktTbl && mktTbl.contains(tr));
+  };
+  document.addEventListener('mouseover', e => {
+    const tr = e.target.closest('tr[data-ticker]');
+    if (!tr || !inScope(tr)) return;
+    const ticker = tr.dataset.ticker;
+    if (_hoverChartTicker === ticker && _hoverChartPopup && _hoverChartPopup.style.display !== 'none') return;
+    clearTimeout(_hoverChartTimer);
+    _hoverChartTimer = setTimeout(() => showHoverChart(ticker, e.clientX, e.clientY), 180);
+  });
+  document.addEventListener('mousemove', e => {
+    if (!_hoverChartPopup || _hoverChartPopup.style.display === 'none') return;
+    const tr = e.target.closest('tr[data-ticker]');
+    if (!tr || tr.dataset.ticker !== _hoverChartTicker) return;
+    _positionHoverChart(e.clientX, e.clientY);
+  });
+  document.addEventListener('mouseout', e => {
+    const tr = e.target.closest('tr[data-ticker]');
+    if (!tr || !inScope(tr)) return;
+    if (tr.contains(e.relatedTarget)) return;
+    hideHoverChart();
+  });
 }
 
 // ============================================================
