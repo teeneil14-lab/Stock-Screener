@@ -4166,13 +4166,19 @@ const SETUPS = {
       { id:"rs_spx",        tf:"YEARLY",  name:"RS vs S&P 500 (5-day)",            desc:"Number of the past 5 trading days the stock outperformed the S&P 500 index", weight:10 },
     ]
   },
-  // PH (Philippine Stock Exchange) — three close-position criteria only
+  // PH (Philippine Stock Exchange) — three close-position criteria, plus
+  // bonus points (added on top of the 100-pt base score, not blended into it)
+  // for showing up on today's PSE Daily lists.
   ph: {
     name: "PH — Close Top 25%",
     criteria: [
       { id:"m_close_top", tf:"MONTHLY", name:"Prior month close — top 25%", desc:"Prior monthly candle closed in top 25% of its H–L range", weight:34 },
       { id:"w_close_top", tf:"WEEKLY",  name:"Prior week close — top 25%",  desc:"Prior weekly candle closed in top 25% of its H–L range",  weight:33 },
       { id:"d_wtd_top",   tf:"DAILY",   name:"Close — top 25% of WTD range", desc:"Today's close in top 25% of week-to-date H–L range",     weight:33 },
+      { id:"ph_near_high",   tf:"DAILY", name:"On PSE Near Weekly High list",     desc:"On today's PSE Daily 'Near Weekly High' list",     weight:10, bonus:true, tagLabel:"NEAR WK HIGH",  tagCls:"momentum" },
+      { id:"ph_vol_surge",   tf:"DAILY", name:"On PSE Volume Surge list",         desc:"On today's PSE Daily 'Volume Surge' list",         weight:10, bonus:true, tagLabel:"PSE VOL SURGE", tagCls:"warn"     },
+      { id:"ph_foreign_buy", tf:"DAILY", name:"On PSE Net Foreign Buying list",   desc:"On today's PSE Daily 'Net Foreign Buying' list",   weight:10, bonus:true, tagLabel:"FOREIGN BUY",   tagCls:"momentum" },
+      { id:"ph_top_value",   tf:"DAILY", name:"Top 20 by value traded",           desc:"Among the top 20 PSE stocks by today's value traded", weight:10, bonus:true, tagLabel:"TOP 20 VALUE", tagCls:"setup1" },
     ]
   }
 };
@@ -4390,7 +4396,8 @@ function renderCriteria() {
   const tfs = ['MONTHLY','WEEKLY','DAILY','YEARLY'];
   let html = '';
   tfs.forEach(tf => {
-    const group = setup.criteria.filter(c => c.tf === tf);
+    const group = setup.criteria.filter(c => c.tf === tf && !c.bonus);
+    if (!group.length) return;
     html += `<div class="criteria-group">
       <div class="criteria-tf-label">${tf}</div>
       ${group.map(c => `
@@ -4401,6 +4408,20 @@ function renderCriteria() {
       </div>`).join('')}
     </div>`;
   });
+  // Bonus criteria (PSE Daily list membership) — stacked on top of the 100-pt
+  // base score above rather than blended into it, so shown as its own group.
+  const bonusGroup = setup.criteria.filter(c => c.bonus);
+  if (bonusGroup.length) {
+    html += `<div class="criteria-group">
+      <div class="criteria-tf-label" style="color:#0a7c4e">BONUS — ADDED ON TOP</div>
+      ${bonusGroup.map(c => `
+      <div class="criteria-row${activeCriteriaFilters.has(c.id) ? ' active' : ''}" onclick="toggleCriteriaFilter('${c.id}')">
+        <div class="criteria-dot-sm"></div>
+        <div class="criteria-text">${c.desc}</div>
+        <div class="criteria-weight-badge" style="color:#0a7c4e">+${c.weight}pt</div>
+      </div>`).join('')}
+    </div>`;
+  }
   document.getElementById('criteria-display').innerHTML = html;
   const hasFilter = activeCriteriaFilters.size > 0;
   const hint = document.getElementById('criteria-filter-hint');
@@ -4724,20 +4745,32 @@ function downloadFiltered() {
 //  SCORING ENGINE
 // ============================================================
 function scoreStock(stockData, setupId) {
-  const setup  = SETUPS[setupId];
-  const totalW = setup.criteria.reduce((a,c) => a+c.weight, 0);
-  let totalScore = 0;
+  const setup     = SETUPS[setupId];
+  const coreCrit  = setup.criteria.filter(c => !c.bonus);
+  const bonusCrit = setup.criteria.filter(c => c.bonus);
+  const totalW    = coreCrit.reduce((a,c) => a+c.weight, 0);
+  let totalScore  = 0;
+  let bonusScore  = 0;
   const criteriaScores = {};
   const tfScores  = { MONTHLY:0, WEEKLY:0, DAILY:0, YEARLY:0 };
   const tfWeights = { MONTHLY:0, WEEKLY:0, DAILY:0, YEARLY:0 };
 
+  // Bonus criteria (e.g. PSE Daily list membership) are scored and tracked
+  // per-criterion just like the core ones, but their points are kept in a
+  // separate pool — they're added on top of the 0-100 base score rather than
+  // being blended into it, so a stock that fully passes the core criteria
+  // always shows 100%, with bonus points stacked on top.
   setup.criteria.forEach(c => {
     const raw = computeCriterion(c, stockData);
     const pts = raw * c.weight;
-    totalScore += pts;
-    criteriaScores[c.id] = { raw, pts, name:c.name, tf:c.tf, desc:c.desc, weight:c.weight };
-    tfScores[c.tf]  += pts;
-    tfWeights[c.tf] += c.weight;
+    criteriaScores[c.id] = { raw, pts, name:c.name, tf:c.tf, desc:c.desc, weight:c.weight, bonus: !!c.bonus };
+    if (c.bonus) {
+      bonusScore += pts;
+    } else {
+      totalScore += pts;
+      tfScores[c.tf]  += pts;
+      tfWeights[c.tf] += c.weight;
+    }
   });
 
   const tfNorm = {};
@@ -4746,6 +4779,7 @@ function scoreStock(stockData, setupId) {
   });
 
   const finalScore = Math.round((totalScore / totalW) * 100);
+  const bonusPts   = Math.round(bonusScore);
 
   const tags = [];
   if (finalScore >= 75) {
@@ -4760,11 +4794,15 @@ function scoreStock(stockData, setupId) {
   if ((criteriaScores['d_rsi']?.raw||0) >= 0.75)         tags.push({ label:'RSI 50–68',     cls:'momentum' });
   if ((criteriaScores['m_close_top']?.raw||0) >= 0.75)  tags.push({ label:'MTH CLOSE TOP', cls:'momentum' });
   if ((criteriaScores['w_close_top']?.raw||0) >= 0.75)  tags.push({ label:'WK CLOSE TOP',  cls:'momentum' });
-  // PH liquidity confirmation — only shown when a criterion is at full score (1.0)
+  // PH liquidity confirmation — only shown when a core criterion is at full score (1.0)
   if (setupId === 'ph' && (stockData.avg_value_traded || 0) >= 1_000_000) {
-    const hasFullScore = SETUPS.ph.criteria.some(c => (criteriaScores[c.id]?.raw ?? 0) >= 1.0);
+    const hasFullScore = coreCrit.some(c => (criteriaScores[c.id]?.raw ?? 0) >= 1.0);
     if (hasFullScore) tags.push({ label: 'AV > 100K', cls: 'setup1' });
   }
+  // Bonus criteria each get their own tag when they hit
+  bonusCrit.forEach(c => {
+    if ((criteriaScores[c.id]?.raw||0) >= 1.0) tags.push({ label: c.tagLabel || c.name, cls: c.tagCls || 'momentum' });
+  });
   if (stockData.change >= 5) tags.push({ label:'+'+stockData.change+'%', cls:'momentum' });
   if (stockData.vol_ratio > 2) tags.push({ label:'VOL SURGE', cls:'warn' });
 
@@ -4772,7 +4810,7 @@ function scoreStock(stockData, setupId) {
   if (rsDays >= 4) tags.push({ label:'RS RISING', cls:'momentum' });
   if (rsDays <= 1) tags.push({ label:'RS FADING', cls:'warn' });
 
-  return { score:finalScore, criteriaScores, tfNorm, tags, rsDays };
+  return { score:finalScore, bonusScore:bonusPts, criteriaScores, tfNorm, tags, rsDays };
 }
 
 // Compute score 0–1 for a single criterion using real OHLCV bar data.
@@ -4796,6 +4834,10 @@ function computeCriterion(criterion, stock) {
     case 'd_rsi':         return computeDailyRSI(stock.daily);
     case 'd_wtd_top':     return computeWTDTop(stock.daily);
     case 'rs_spx':        return computeRSvsSPX(stock.daily, stock.spxDaily);
+    case 'ph_near_high':   return stock.pseNearHigh   ? 1.0 : 0.0;
+    case 'ph_vol_surge':   return stock.pseVolSurge   ? 1.0 : 0.0;
+    case 'ph_foreign_buy': return stock.pseForeignBuy ? 1.0 : 0.0;
+    case 'ph_top_value':   return stock.pseTopValue   ? 1.0 : 0.0;
     default:              return 0.5;
   }
 }
@@ -5221,6 +5263,7 @@ async function runScan() {
   const scanTickers    = tickers.slice();
   const localResults     = [];
   const localFilteredOut = [];
+  let   scanPseSignalMap = {}; // ticker → PSE Daily list membership, PH mode only
 
   const btn           = document.getElementById('scan-btn');
   const progressWrap  = document.getElementById('progress-wrap');   // small header bar
@@ -5268,12 +5311,14 @@ async function runScan() {
 
   // Fire background tasks immediately — they run while Phase 1 scans, so they're
   // likely done (or nearly done) by the time we need them after Phase 1.
-  const bgSPX        = ensureSPXBars();
-  const bgSectorRank = scanMarketMode !== 'PH' ? buildSectorRankMap() : Promise.resolve({});
-  const bgPortRet    = portfolioHoldings.length > 0 ? fetchPortfolioReturns() : Promise.resolve(null);
+  const bgSPX         = ensureSPXBars();
+  const bgSectorRank  = scanMarketMode !== 'PH' ? buildSectorRankMap() : Promise.resolve({});
+  const bgPortRet     = portfolioHoldings.length > 0 ? fetchPortfolioReturns() : Promise.resolve(null);
+  const bgPSESignals  = scanMarketMode === 'PH' ? fetchPSEDailySignalMap() : Promise.resolve({});
 
-  // PH mode has no sector/earnings fetch, so just await portfolio returns upfront (it's fast)
+  // PH mode has no sector/earnings fetch, so just await portfolio returns + PSE signals upfront (both are fast)
   if (scanMarketMode === 'PH') {
+    scanPseSignalMap = await bgPSESignals;
     await bgPortRet;
   }
 
@@ -5411,11 +5456,12 @@ async function runScan() {
           localFilteredOut.push({ ...t, ...stockData, reason: 'Extended above upper BB' });
           if (statusEl) { statusEl.textContent='✗'; statusEl.className='t-status'; statusEl.style.cssText='font-size:9px;padding:1px 5px;color:var(--red);border:1px solid rgba(200,41,58,0.3);background:var(--red-dim);border-radius:2px'; }
         } else {
+          if (scanMarketMode === 'PH') attachPSESignals(stockData, t.ticker, scanPseSignalMap);
           const scored      = scoreStock(stockData, scanSetup);
           const sectorName  = tickerSectorMap[t.ticker] || '';
           const sectorBonus = sectorRankMap[sectorName]  || 0;
-          const rankScore   = scored.score + sectorBonus;
           if (sectorBonus > 0) scored.tags.unshift({ label: `+${sectorBonus} SECTOR`, cls: 'sector-bonus' });
+          const rankScore   = scored.score + sectorBonus + (scored.bonusScore || 0);
           const tickerRets  = portfolioReturns ? getTickerReturns(stockData.daily) : null;
           const corrCoeff   = (portfolioReturns && tickerRets) ? pearsonCorr(tickerRets, portfolioReturns.slice(0, tickerRets.length)) : null;
           const ytdPct = calcStockYtd(stockData.daily);
@@ -5708,6 +5754,57 @@ async function fetchPSEBars(ticker, interval) {
   const json = await res.json();
   if (!json.bars?.length) throw new Error(`No PSE history for ${ticker}`);
   return json.bars;
+}
+
+// ── PSE Daily Scan bonus signals ─────────────────────────────────────────────
+// Builds a symbol → { nearHigh, volSurge, foreignBuy, topValue, valueSharePct }
+// lookup from the same /api/pse/week report that powers the PSE Daily tab, so
+// the PH screener can award bonus points for showing up on today's lists.
+// Thresholds mirror renderPSEPanels()/psePanelHigh()/psePanelVol()/psePanelForeign()
+// exactly, so a tag here always means "this stock is on that PSE Daily panel today".
+async function fetchPSEDailySignalMap() {
+  try {
+    const resp = await fetch('/api/pse/week');
+    if (!resp.ok) return {};
+    const data = await resp.json();
+    const stocks = data.stocks || [];
+
+    const totalValue = stocks.reduce((sum, s) => sum + (s.latestValue || 0), 0);
+    const top20 = new Set(
+      stocks.filter(s => s.latestValue != null)
+        .slice().sort((a, b) => b.latestValue - a.latestValue)
+        .slice(0, 20).map(s => s.symbol)
+    );
+
+    const map = {};
+    stocks.forEach(s => {
+      const liquid = s.latestValue != null && s.latestValue >= 1_500_000 &&
+        !/pref/i.test(s.symbol) && !/pref/i.test(s.name || '');
+      const nearHigh   = liquid && s.rangePos >= 75 && s.weekHigh != null && s.weekLow != null && s.weekHigh > s.weekLow;
+      const volSurge   = liquid && s.volumeRatio != null && s.volumeRatio >= 2.0 && s.avgPrevVol != null && s.avgPrevVol >= 10000;
+      const foreignBuy = liquid && s.netForeign != null && s.netForeign > 0;
+      map[s.symbol] = {
+        nearHigh, volSurge, foreignBuy,
+        topValue: top20.has(s.symbol),
+        valueSharePct: (totalValue > 0 && s.latestValue != null) ? (s.latestValue / totalValue * 100) : null,
+      };
+    });
+    return map;
+  } catch (e) {
+    console.warn('[PSE signals]', e.message);
+    return {};
+  }
+}
+
+// Attaches this ticker's PSE Daily list membership onto stockData so
+// computeCriterion() can score the ph_near_high/ph_vol_surge/ph_foreign_buy/
+// ph_top_value bonus criteria (see SETUPS.ph.criteria).
+function attachPSESignals(stockData, ticker, pseSignalMap) {
+  const sig = (pseSignalMap && pseSignalMap[ticker]) || {};
+  stockData.pseNearHigh   = !!sig.nearHigh;
+  stockData.pseVolSurge   = !!sig.volSurge;
+  stockData.pseForeignBuy = !!sig.foreignBuy;
+  stockData.pseTopValue   = !!sig.topValue;
 }
 
 async function fetchStockData(ticker) {
@@ -6194,7 +6291,7 @@ function rankRow(r, rankNum, idx) {
     </div>
     <div class="rank-score-cell">
       <div>
-        <div class="rank-score-num ${colorClass}">${baseScore}%${r.sectorBonus > 0 ? `<span style="font-size:9px;margin-left:3px;color:#7c3aed">+${r.sectorBonus}</span>` : ''}${r.prefBonus > 0 ? `<span style="font-size:9px;margin-left:3px;color:#d97706">★+${r.prefBonus}</span>` : ''}</div>
+        <div class="rank-score-num ${colorClass}">${baseScore}%${r.sectorBonus > 0 ? `<span style="font-size:9px;margin-left:3px;color:#7c3aed">+${r.sectorBonus}</span>` : ''}${r.bonusScore > 0 ? `<span style="font-size:9px;margin-left:3px;color:#0a7c4e">+${r.bonusScore}</span>` : ''}${r.prefBonus > 0 ? `<span style="font-size:9px;margin-left:3px;color:#d97706">★+${r.prefBonus}</span>` : ''}</div>
         ${r.prefBonus > 0 ? `<div class="rank-score-pref">${Math.round((r.prefSim||0)*100)}% match</div>` : ''}
       </div>
     </div>
@@ -6274,6 +6371,8 @@ async function tabSearchGo() {
 
   // Track which tickers were successfully added/found (in input order)
   const succeeded = [];
+  // Shared across all queries in this batch — fetched once, not per ticker
+  const pseSigPromise = marketMode === 'PH' ? fetchPSEDailySignalMap() : Promise.resolve({});
 
   try {
     // Fetch and score all tickers in parallel
@@ -6287,6 +6386,7 @@ async function tabSearchGo() {
       const stockData = await fetchStockData(query).catch(() => null);
       if (!stockData || stockData.price == null) return;
 
+      if (marketMode === 'PH') attachPSESignals(stockData, query, await pseSigPromise);
       const scored = scoreStock(stockData, currentSetup);
 
       const [sectorMap] = await Promise.all([
@@ -6299,8 +6399,8 @@ async function tabSearchGo() {
 
       const sectorName  = sectorMap[query] || '';
       const sectorBonus = sectorRankMap[sectorName] || 0;
-      const rankScore   = scored.score + sectorBonus;
       if (sectorBonus > 0) scored.tags.unshift({ label: `+${sectorBonus} SECTOR`, cls: 'sector-bonus' });
+      const rankScore = scored.score + sectorBonus + (scored.bonusScore || 0);
 
       const tickerRets = portfolioReturns ? getTickerReturns(stockData.daily) : null;
       const corrCoeff  = (portfolioReturns && tickerRets)
@@ -6600,7 +6700,7 @@ function updateChartInfoBar(r) {
     </div>
     <div class="cib-divider"></div>
     <div style="display:flex;flex-direction:column;align-items:center;gap:0">
-      <span class="cib-score-num ${colorClass}">${baseScore}%${r.sectorBonus > 0 ? `<span style="font-size:9px;margin-left:3px;color:#7c3aed">+${r.sectorBonus}</span>` : ''}${r.prefBonus > 0 ? `<span style="font-size:9px;margin-left:3px;color:#d97706">★+${r.prefBonus}</span>` : ''}</span>
+      <span class="cib-score-num ${colorClass}">${baseScore}%${r.sectorBonus > 0 ? `<span style="font-size:9px;margin-left:3px;color:#7c3aed">+${r.sectorBonus}</span>` : ''}${r.bonusScore > 0 ? `<span style="font-size:9px;margin-left:3px;color:#0a7c4e">+${r.bonusScore}</span>` : ''}${r.prefBonus > 0 ? `<span style="font-size:9px;margin-left:3px;color:#d97706">★+${r.prefBonus}</span>` : ''}</span>
       <div class="cib-score-bar-wrap"><div class="cib-score-bar-fill ${barClass}" style="width:${Math.min(sc,100)}%"></div></div>
     </div>
     <div class="cib-divider"></div>
@@ -7445,8 +7545,22 @@ function openModal(ticker) {
     </div>`;
   })() : '';
 
+  const pseBonusHtml = r.bonusScore > 0 ? (() => {
+    const hits = setup.criteria
+      .filter(c => c.bonus && (r.criteriaScores[c.id]?.raw||0) >= 1.0)
+      .map(c => c.tagLabel || c.name)
+      .join(' · ');
+    return `<div style="display:flex;align-items:center;gap:10px;background:rgba(10,124,78,0.07);border:1px solid rgba(10,124,78,0.2);border-radius:6px;padding:10px 14px;margin-bottom:12px">
+      <div style="font-size:20px;font-weight:700;color:#0a7c4e;font-family:'IBM Plex Mono',monospace">+${r.bonusScore}</div>
+      <div>
+        <div style="font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;color:#0a7c4e;letter-spacing:0.06em">PSE DAILY BONUS</div>
+        <div style="font-size:11px;color:var(--text2);margin-top:2px">${hits}</div>
+      </div>
+    </div>`;
+  })() : '';
+
   document.getElementById('modal-body').innerHTML =
-    stats + prefBonusHtml + sectorBonusHtml +
+    stats + prefBonusHtml + sectorBonusHtml + pseBonusHtml +
     `<div style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3);letter-spacing:0.1em;margin-bottom:8px">TIMEFRAME BREAKDOWN</div>` +
     `<div class="breakdown-grid">${tfCards}</div>` +
     links + tagLine;
@@ -9809,7 +9923,7 @@ function computeAllSimilarityBonuses() {
       const bonus   = prefBonusFromSim(sim);
       r.prefSim     = sim;
       r.prefBonus   = bonus;
-      r.rankScore   = (r.score + (r.sectorBonus || 0) + bonus);
+      r.rankScore   = (r.score + (r.sectorBonus || 0) + (r.bonusScore || 0) + bonus);
       // Add or update amber pref tag
       r.tags = r.tags.filter(t => t.cls !== 'pref');
       if (bonus > 0) r.tags.unshift({ label: `★ +${bonus} MATCH`, cls: 'pref' });
@@ -10020,10 +10134,15 @@ function applyAdaptedWeights() {
   }
   // Re-score all results with new weights
   results.forEach(r => {
+    // r already carries pseNearHigh/pseVolSurge/etc. and sectorBonus from the
+    // original scan, so re-running scoreStock() naturally regenerates the
+    // bonus-criteria tags (see SETUPS.ph.criteria) — just re-add the sector tag,
+    // which (like bonusScore) lives outside scoreStock's own criteria list.
     const s = scoreStock(r, currentSetup);
     r.score = s.score; r.criteriaScores = s.criteriaScores;
-    r.tfNorm = s.tfNorm; r.tags = s.tags;
-    r.rankScore = r.score + (r.sectorBonus || 0) + (r.prefBonus || 0);
+    r.tfNorm = s.tfNorm; r.tags = s.tags; r.bonusScore = s.bonusScore;
+    if (r.sectorBonus > 0) r.tags.unshift({ label: `+${r.sectorBonus} SECTOR`, cls: 'sector-bonus' });
+    r.rankScore = r.score + (r.sectorBonus || 0) + (r.bonusScore || 0) + (r.prefBonus || 0);
   });
   computeAllSimilarityBonuses();
   renderCriteria();
