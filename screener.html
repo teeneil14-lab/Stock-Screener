@@ -10534,9 +10534,12 @@ function renderMarketPerfTable() {
       <th${thCls('1y')} onclick="sortMarketPerf('1y')">1Y${thArrow('1y')}</th>
       <th${thCls('shares')} onclick="sortMarketPerf('shares')">Shares Traded${thArrow('shares')}</th>
       <th${thCls('value')} onclick="sortMarketPerf('value')">Value Traded${thArrow('value')}</th>
+      <th${thCls('value')} onclick="sortMarketPerf('value')">% of Mkt Value${thArrow('value')}</th>
     </tr>`;
 
-  const tbody = sorted.map(s => `
+  const tbody = sorted.map(s => {
+    const mktPct = totalValue > 0 && s.value != null ? (s.value / totalValue) * 100 : null;
+    return `
     <tr>
       <td>${s.symbol}</td>
       <td>${s.name || ''}</td>
@@ -10549,7 +10552,9 @@ function renderMarketPerfTable() {
       <td>${pctCell(s.y1)}</td>
       <td>${pseFmtVol(s.volume)}</td>
       <td>${sym}${pseFmtAbsMoney(s.value)}</td>
-    </tr>`).join('');
+      <td>${mktPct != null ? mktPct.toFixed(2) + '%' : '—'}</td>
+    </tr>`;
+  }).join('');
 
   if (tableWrap) {
     tableWrap.innerHTML = `<table class="sectors-table"><thead>${thead}</thead><tbody>${tbody}</tbody></table>`;
