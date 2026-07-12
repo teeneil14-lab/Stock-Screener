@@ -3755,6 +3755,9 @@
         <button class="picks-view-btn" id="picks-view-toggle" onclick="togglePicksView()">LIST VIEW</button>
         <button class="picks-view-btn" id="picks-analytics-btn" onclick="toggleAnalyticsView()">ANALYTICS</button>
         <button class="picks-view-btn" id="picks-calendar-btn" onclick="toggleCalendarView()">CALENDAR</button>
+        <button class="picks-view-btn" id="picks-export-btn" onclick="exportMyPicks()" title="Save your starred picks to a file">↓ EXPORT</button>
+        <button class="picks-view-btn" id="picks-import-btn" onclick="triggerPicksImport()" title="Load starred picks from a file">↑ IMPORT</button>
+        <input type="file" accept=".json" id="picks-import-input" style="display:none" onchange="handlePicksImportFile(event)">
       </div>
       <div class="picks-add-form">
         <input id="picks-add-input" class="picks-add-input" type="text" placeholder="AAPL MSFT TSLA"
@@ -8144,6 +8147,20 @@ function _syncPicksToolbar() {
   }
 }
 
+// Re-renders whichever My Picks view (grid/list/analytics/calendar) is currently active.
+// Used after importing picks so the newly added ones show up immediately.
+function refreshPicksTabView() {
+  _destroyAnalyticsCharts();
+  _syncPicksToolbar();
+  if (picksViewMode === 'analytics')     renderPicksAnalytics();
+  else if (picksViewMode === 'list')     renderPicksList();
+  else if (picksViewMode === 'calendar') renderPicksCalendar();
+  else                                   renderStarredCharts();
+  computeAllSimilarityBonuses();
+  renderPatternPanel();
+  if (results.length) renderResults();
+}
+
 function togglePicksView() {
   _destroyAnalyticsCharts();
   picksViewMode = picksViewMode === 'grid' ? 'list' : 'grid';
@@ -9885,6 +9902,140 @@ function saveLiked(setupId, arr) {
   } catch (e) {
     console.error('[saveLiked] localStorage write failed:', e);
     return false;
+  }
+}
+
+// ============================================================
+//  MY PICKS — EXPORT / IMPORT
+//  Lets picks be carried over to a new URL (e.g. after moving hosts),
+//  since localStorage is tied to the exact domain the app is opened from.
+// ============================================================
+const MY_PICKS_EXPORT_VERSION = 1;
+const MY_PICKS_SETUP_IDS = [1, 2, 'ph'];
+
+function exportMyPicks() {
+  const pools = {};
+  let total = 0;
+  MY_PICKS_SETUP_IDS.forEach(sid => {
+    pools[sid] = loadLiked(sid);
+    total += pools[sid].length;
+  });
+  if (!total) {
+    showToast('No picks saved yet — star some stocks first, then export.', 'error');
+    return;
+  }
+
+  const payload = {
+    app:        'cts-my-picks',
+    version:    MY_PICKS_EXPORT_VERSION,
+    exportedAt: Date.now(),
+    picks:      pools,
+  };
+
+  const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `my-picks-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+
+  showToast(`Exported ${total} pick${total === 1 ? '' : 's'} to a file.`);
+}
+
+function triggerPicksImport() {
+  document.getElementById('picks-import-input').click();
+}
+
+function handlePicksImportFile(e) {
+  const file = e.target.files[0];
+  e.target.value = ''; // allow re-selecting the same file later and still fire onchange
+  if (!file) return;
+  if (!/\.json$/i.test(file.name)) {
+    showToast("That doesn't look like a My Picks file — please choose the .json file you exported.", 'error');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    let payload;
+    try {
+      payload = JSON.parse(ev.target.result);
+    } catch {
+      showToast("Could not read that file — it doesn't look like a valid My Picks export.", 'error');
+      return;
+    }
+    importMyPicks(payload);
+  };
+  reader.onerror = () => showToast('Could not read that file.', 'error');
+  reader.readAsText(file);
+}
+
+// Backfills any missing fields on an imported entry so it behaves identically
+// to a normally-starred pick (e.g. getStarredProfile() reads criteriaVector unguarded).
+function _normalizeImportedPick(entry, sid) {
+  return {
+    ...entry,
+    setupId:        sid,
+    score:          entry.score ?? 0,
+    sectorBonus:    entry.sectorBonus ?? 0,
+    sectorName:     entry.sectorName ?? '',
+    tfNorm:         entry.tfNorm || {},
+    criteriaVector: entry.criteriaVector || {},
+    dailyBars:      entry.dailyBars   || [],
+    weeklyBars:     entry.weeklyBars  || [],
+    monthlyBars:    entry.monthlyBars || [],
+  };
+}
+
+function importMyPicks(payload) {
+  if (!payload || typeof payload !== 'object' || !payload.picks || typeof payload.picks !== 'object') {
+    showToast("That file doesn't look like a My Picks export.", 'error');
+    return;
+  }
+  if (typeof payload.version === 'number' && payload.version > MY_PICKS_EXPORT_VERSION) {
+    console.warn('[importMyPicks] file is from a newer app version — attempting best-effort import');
+  }
+
+  let totalIncoming = 0, totalAdded = 0, totalSkipped = 0, poolsTouched = 0;
+
+  MY_PICKS_SETUP_IDS.forEach(sid => {
+    // JSON.stringify/parse round-trips numeric object keys 1/2 as strings "1"/"2".
+    const incoming = payload.picks[sid] ?? payload.picks[String(sid)];
+    if (!Array.isArray(incoming) || !incoming.length) return;
+
+    const existing     = loadLiked(sid);
+    const existingKeys = new Set(existing.map(p => `${p.ticker}__${p.starredAt}`));
+    const merged        = existing.slice();
+    let addedHere = false;
+
+    incoming.forEach(entry => {
+      totalIncoming++;
+      if (!entry || typeof entry !== 'object' || !entry.ticker || !entry.starredAt) {
+        totalSkipped++; return;
+      }
+      const key = `${entry.ticker}__${entry.starredAt}`;
+      if (existingKeys.has(key)) { totalSkipped++; return; }
+      existingKeys.add(key);
+      merged.push(_normalizeImportedPick(entry, sid));
+      totalAdded++;
+      addedHere = true;
+    });
+
+    if (addedHere) { saveLiked(sid, merged); poolsTouched++; }
+  });
+
+  if (!totalIncoming) {
+    showToast("That file doesn't contain any picks to import.", 'error');
+    return;
+  }
+
+  if (poolsTouched) refreshPicksTabView();
+
+  if (totalAdded > 0) {
+    showToast(`Imported ${totalAdded} pick${totalAdded === 1 ? '' : 's'}` +
+      (totalSkipped ? ` (${totalSkipped} were already saved here and skipped).` : '.'));
+  } else {
+    showToast('Nothing new to import — every pick in that file is already saved here.');
   }
 }
 
