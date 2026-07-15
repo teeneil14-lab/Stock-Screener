@@ -9507,17 +9507,23 @@ async function fetchListQaReturns(tickerList) {
     else need.push(t);
   });
 
-  const CONC = 8;
+  const CONC = 12;
   for (let i = 0; i < need.length; i += CONC) {
     const batch = need.slice(i, i + CONC);
     const results = await Promise.all(batch.map(async (ticker) => {
       try {
         const yTicker = toYFTicker(ticker);
-        const { bars } = await fetchYF(yTicker, '2y', '1d');
+        // '1y'/'1d' is the exact same range+interval the main scan already fetches
+        // per ticker (fetchDailyOnly) — reusing that cache key means if you've just
+        // run a scan, this tab loads these bars from cache instead of refetching.
+        const { bars } = await fetchYF(yTicker, '1y', '1d');
         if (!bars || bars.length < 2) return { ticker, ytdPct: null, ret1y: null };
         const ytdPct = calcStockYtd(bars);
         const ref = bars[bars.length - 1].c;
-        const ret1y = bars.length > 252 ? (ref / bars[bars.length - 1 - 252].c - 1) * 100 : null;
+        // Use the oldest bar in the ~1y window as the "1 year ago" reference rather
+        // than a strict 252-trading-day offset — '1y' doesn't always return a full
+        // 252+ bars, so a strict offset would intermittently show "—" for no reason.
+        const ret1y = bars.length > 20 ? (ref / bars[0].c - 1) * 100 : null;
         return { ticker, ytdPct, ret1y };
       } catch (e) {
         return { ticker, ytdPct: null, ret1y: null };

@@ -755,13 +755,20 @@ const server = http.createServer(async (req, res) => {
     await ensureCrumb();
 
     const symbols = [...new Set(tickersParam.split(',').map(s => s.trim().toUpperCase()).filter(Boolean))];
-    const CONC    = 6;
+    const CONC    = 10;
     const fundMap = {};
     for (let i = 0; i < symbols.length; i += CONC) {
       const batch   = symbols.slice(i, i + CONC);
+      // Cache-hit tickers resolve instantly (no Yahoo round trip), so only pause
+      // between batches that actually did network work — cuts wait time on
+      // repeat/partial-cache loads without hammering Yahoo on a fully-cold list.
+      const hadMiss = batch.some(t => {
+        const c = _fundamentalsCache.get(t);
+        return !(c && Date.now() - c.ts < FUNDAMENTALS_CACHE_TTL);
+      });
       const results = await Promise.all(batch.map(t => fetchOneFundamentals(t)));
       batch.forEach((t, idx) => { fundMap[t] = results[idx]; });
-      if (i + CONC < symbols.length) await new Promise(r => setTimeout(r, 150));
+      if (hadMiss && i + CONC < symbols.length) await new Promise(r => setTimeout(r, 80));
     }
 
     res.writeHead(200, { 'Content-Type': 'application/json' });
