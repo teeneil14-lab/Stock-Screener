@@ -9442,15 +9442,56 @@ const LISTQA_RETURN_OUTLIER_PTS  = 25; // pp away from the list's own avg YTD re
 const LISTQA_REVGROWTH_OUTLIER_PTS = 20; // pp away from the list's own avg revenue growth
 const LISTQA_EARNGROWTH_OUTLIER_PTS = 25; // pp away from the list's own avg earnings growth
 
-const _listQaReturnsCache = new Map(); // ticker -> {ytdPct, ret1y, ts}
 const LISTQA_RETURNS_TTL  = 30 * 60 * 1000; // 30 minutes
-let _listQaFundCache      = {};             // ticker -> {revenueGrowth, earningsGrowth}
-let _listQaFundCacheTs    = 0;
 const LISTQA_FUND_TTL     = 6 * 60 * 60 * 1000; // 6 hours, matches server cache
+const LISTQA_RETURNS_STORE_KEY = 'cts_listqa_returns_v1';
+const LISTQA_FUND_STORE_KEY    = 'cts_listqa_fund_v1';
+
+// Both caches are hydrated from sessionStorage on first use and re-persisted
+// after every fetch chunk. Large watchlists (hundreds-to-low-thousands of
+// tickers) can take minutes on a cold first load — without this, a page
+// reload (or the dev auto-deploy refresh) wiped everything and forced a full
+// re-fetch from scratch every time, turning one slow load into many.
+let _listQaReturnsCache = null; // ticker -> {ytdPct, ret1y, ts}  (Map, lazy-hydrated)
+let _listQaFundCache    = null; // ticker -> {revenueGrowth, earningsGrowth, ts}  (plain object, lazy-hydrated)
+
+function _listQaEnsureCachesHydrated() {
+  if (_listQaReturnsCache === null) {
+    _listQaReturnsCache = new Map();
+    try {
+      const raw = sessionStorage.getItem(LISTQA_RETURNS_STORE_KEY);
+      if (raw) JSON.parse(raw).forEach(([t, entry]) => _listQaReturnsCache.set(t, entry));
+    } catch (e) {}
+  }
+  if (_listQaFundCache === null) {
+    _listQaFundCache = {};
+    try {
+      const raw = sessionStorage.getItem(LISTQA_FUND_STORE_KEY);
+      if (raw) _listQaFundCache = JSON.parse(raw);
+    } catch (e) {}
+  }
+}
+
+function _listQaPersistReturns() {
+  try { sessionStorage.setItem(LISTQA_RETURNS_STORE_KEY, JSON.stringify([..._listQaReturnsCache.entries()])); } catch (e) {}
+}
+function _listQaPersistFund() {
+  try { sessionStorage.setItem(LISTQA_FUND_STORE_KEY, JSON.stringify(_listQaFundCache)); } catch (e) {}
+}
+
+// Guards against overlapping loads if the user mashes refresh or re-opens the
+// tab while a large (multi-minute) fetch from a prior visit is still running.
+let _listQaLoadToken = 0;
 
 async function loadListQA(force) {
+  const myToken = ++_listQaLoadToken;
+  _listQaEnsureCachesHydrated();
+
+  // savedWatchlists[i].tickers is an array of {ticker, exchange} objects (from
+  // parseTradingViewTxt), not plain strings — extract just the symbol here so
+  // every downstream function can keep treating tickers as plain strings.
   const lists = savedWatchlists
-    .map((wl, i) => wl && wl.tickers && wl.tickers.length ? { slot: i, name: wl.name.replace(/\.txt$/i, ''), tickers: wl.tickers } : null)
+    .map((wl, i) => wl && wl.tickers && wl.tickers.length ? { slot: i, name: wl.name.replace(/\.txt$/i, ''), tickers: wl.tickers.map(t => t.ticker) } : null)
     .filter(Boolean);
 
   const content = document.getElementById('listqa-content');
@@ -9469,20 +9510,31 @@ async function loadListQA(force) {
   if (force) {
     _listQaReturnsCache.clear();
     _listQaFundCache = {};
-    _listQaFundCacheTs = 0;
+    _listQaPersistReturns();
+    _listQaPersistFund();
   }
 
   loading.style.display = 'flex';
   content.innerHTML = '';
 
-  try {
-    const allTickers = [...new Set(lists.flatMap(l => l.tickers))];
-    loadingText.textContent = `Fetching price + fundamentals for ${allTickers.length} stocks…`;
+  const allTickers = [...new Set(lists.flatMap(l => l.tickers))];
+  const progress = { returnsDone: 0, returnsTotal: 0, fundDone: 0, fundTotal: 0 };
+  const updateProgress = () => {
+    if (myToken !== _listQaLoadToken) return; // a newer load superseded this one
+    const bits = [];
+    if (progress.returnsTotal) bits.push(`${progress.returnsDone}/${progress.returnsTotal} prices`);
+    if (progress.fundTotal)    bits.push(`${progress.fundDone}/${progress.fundTotal} fundamentals`);
+    loadingText.textContent = `Fetching ${allTickers.length} stocks… ${bits.join(' · ')}`;
+  };
+  updateProgress();
 
+  try {
     const [returnsMap, fundMap] = await Promise.all([
-      fetchListQaReturns(allTickers),
-      fetchListQaFundamentalsBulk(allTickers),
+      fetchListQaReturns(allTickers, progress, updateProgress),
+      fetchListQaFundamentalsBulk(allTickers, progress, updateProgress),
     ]);
+
+    if (myToken !== _listQaLoadToken) return; // superseded by a newer load — don't render stale results
 
     const listsWithStats = lists.map(l => computeListQaStats(l, returnsMap, fundMap));
 
@@ -9493,16 +9545,18 @@ async function loadListQA(force) {
     listQaLoaded = true;
     document.getElementById('listqa-updated').textContent = `Updated ${new Date().toLocaleTimeString()}`;
   } catch (e) {
-    content.innerHTML = `<div class="listqa-empty">Failed to load: ${e.message}</div>`;
+    if (myToken === _listQaLoadToken) content.innerHTML = `<div class="listqa-empty">Failed to load: ${e.message}</div>`;
   } finally {
-    loading.style.display = 'none';
+    if (myToken === _listQaLoadToken) loading.style.display = 'none';
   }
 }
 
 // Fetches YTD / 1-year return per ticker, reusing the same fetchYF + calcStockYtd
-// helpers the My Picks tab already uses. Concurrency capped at 8 (well below the
+// helpers the My Picks tab already uses. Concurrency capped at 12 (well below the
 // 60-ticker pass that previously starved other tabs), and only runs on tab open.
-async function fetchListQaReturns(tickerList) {
+// Results are persisted to sessionStorage after every batch so a page reload
+// mid-fetch (or revisiting later within the TTL) doesn't lose progress already made.
+async function fetchListQaReturns(tickerList, progress, onProgress) {
   const now = Date.now();
   const out = {};
   const need = [];
@@ -9511,6 +9565,9 @@ async function fetchListQaReturns(tickerList) {
     if (cached && (now - cached.ts) < LISTQA_RETURNS_TTL) out[t] = cached;
     else need.push(t);
   });
+  progress.returnsTotal = tickerList.length;
+  progress.returnsDone  = tickerList.length - need.length;
+  onProgress();
 
   const CONC = 12;
   for (let i = 0; i < need.length; i += CONC) {
@@ -9539,26 +9596,43 @@ async function fetchListQaReturns(tickerList) {
       _listQaReturnsCache.set(r.ticker, entry);
       out[r.ticker] = entry;
     });
+    progress.returnsDone += batch.length;
+    onProgress();
+    _listQaPersistReturns();
   }
   return out;
 }
 
-// Fetches revenue/earnings growth for a whole list in one request (server-side
-// batches it), reusing the /api/yf-fundamentals-bulk endpoint. Client-side cache
-// mirrors the server's 6-hour TTL so revisiting the tab doesn't refetch.
-async function fetchListQaFundamentalsBulk(tickerList) {
-  const now = Date.now();
-  const stale = (now - _listQaFundCacheTs) > LISTQA_FUND_TTL;
-  const need = tickerList.filter(t => stale || !(t in _listQaFundCache));
-  if (!need.length) return _listQaFundCache;
+// Fetches revenue/earnings growth in chunked requests (not one giant call) so:
+// (a) progress is visible instead of one silent multi-minute request, (b) a
+// failure partway through doesn't waste everything already fetched, and
+// (c) results are persisted to sessionStorage after every chunk. Each ticker
+// carries its own timestamp so freshly-fetched names stay cached even if
+// older ones in the same list have since expired.
+const LISTQA_FUND_CHUNK = 150;
+async function fetchListQaFundamentalsBulk(tickerList, progress, onProgress) {
+  const now  = Date.now();
+  const need = tickerList.filter(t => {
+    const c = _listQaFundCache[t];
+    return !(c && (now - c.ts) < LISTQA_FUND_TTL);
+  });
+  progress.fundTotal = tickerList.length;
+  progress.fundDone   = tickerList.length - need.length;
+  onProgress();
 
-  try {
-    const res = await fetch(`/api/yf-fundamentals-bulk?tickers=${encodeURIComponent(need.join(','))}`);
-    const json = await res.json();
-    Object.assign(_listQaFundCache, json);
-    _listQaFundCacheTs = now;
-  } catch (e) {
-    // Leave whatever's already cached; missing tickers just show as "—" downstream.
+  for (let i = 0; i < need.length; i += LISTQA_FUND_CHUNK) {
+    const chunk = need.slice(i, i + LISTQA_FUND_CHUNK);
+    try {
+      const res = await fetch(`/api/yf-fundamentals-bulk?tickers=${encodeURIComponent(chunk.join(','))}`);
+      const json = await res.json();
+      const chunkTs = Date.now();
+      Object.entries(json).forEach(([t, data]) => { _listQaFundCache[t] = { ...data, ts: chunkTs }; });
+    } catch (e) {
+      // Leave whatever's already cached; missing tickers just show as "—" downstream.
+    }
+    progress.fundDone += chunk.length;
+    onProgress();
+    _listQaPersistFund();
   }
   return _listQaFundCache;
 }
