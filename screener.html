@@ -4697,6 +4697,7 @@ function handleSlotFile(e, i) {
     saveSlotToStorage(i);
     renderSlots();
     rebuildTickersFromSlots();
+    listQaLoaded = false; // watchlist contents changed — Watchlist Check tab should refetch next visit
     e.target.value = '';
   };
   reader.readAsText(file);
@@ -4707,12 +4708,14 @@ function clearSlot(i) {
   saveSlotToStorage(i);
   renderSlots();
   rebuildTickersFromSlots();
+  listQaLoaded = false; // watchlist contents changed — Watchlist Check tab should refetch next visit
 }
 
 function clearAllWatchlists() {
   savedWatchlists = [null, null, null];
   for (let i = 0; i < 3; i++) saveSlotToStorage(i);
   tickers = []; results = []; filteredOut = [];
+  listQaLoaded = false; // watchlist contents changed — Watchlist Check tab should refetch next visit
   renderSlots();
   updateTickerDisplay();
   document.getElementById('results-area').innerHTML = `<div class="empty-state">
@@ -9456,7 +9459,9 @@ async function loadListQA(force) {
 
   if (!lists.length) {
     content.innerHTML = '<div class="listqa-empty">No watchlists loaded yet — drop your 3 .txt exports into the Watchlist slots in the sidebar first.</div>';
-    listQaLoaded = true;
+    // Deliberately leave listQaLoaded false: if the tab is opened before any
+    // watchlist is loaded, the next tab click (after loading one) should retry
+    // instead of getting stuck showing this empty message for the rest of the session.
     document.getElementById('listqa-updated').textContent = 'No watchlists loaded';
     return;
   }
