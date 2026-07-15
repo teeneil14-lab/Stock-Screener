@@ -1966,23 +1966,40 @@
     letter-spacing: 0.06em; color: var(--text3); margin-top: 14px; padding-top: 10px;
     border-top: 1px solid var(--border);
   }
-  .listqa-hist-wrap {
-    display: flex; align-items: flex-end; gap: 4px; height: 100px; margin-top: 8px;
-    border-bottom: 2px solid var(--border2); padding-bottom: 0; /* the 0 baseline the bars rise from */
+  .listqa-hist-filter-hint {
+    font-family: 'IBM Plex Sans', sans-serif; font-weight: 400; font-style: italic;
+    letter-spacing: 0; color: var(--text3); text-transform: none;
   }
-  .listqa-hist-bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; min-width: 0; }
+  .listqa-hist-wrap { margin-top: 8px; }
+  .listqa-hist-bars {
+    display: flex; align-items: flex-end; gap: 4px; height: 90px;
+    border-bottom: 2px solid var(--border2); /* the 0 baseline every bar rises from */
+  }
+  .listqa-hist-bar-col {
+    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+    height: 100%; min-width: 0; cursor: pointer; border-radius: 4px 4px 0 0; transition: background 0.1s;
+  }
+  .listqa-hist-bar-col:hover  { background: rgba(10,124,78,0.08); }
+  .listqa-hist-bar-col.active { background: rgba(10,124,78,0.14); }
   .listqa-hist-bar {
     width: 100%; border-radius: 2px 2px 0 0; background: var(--border2); min-height: 2px;
   }
   .listqa-hist-bar.pos { background: var(--green); }
   .listqa-hist-bar.neg { background: var(--red); }
+  .listqa-hist-bar-col.active .listqa-hist-bar { box-shadow: 0 0 0 2px var(--accent) inset; }
   .listqa-hist-count {
     font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 600; color: var(--text2); margin-bottom: 3px;
   }
+  /* Labels sit in their own row below the baseline, not inside the bottom-aligned
+     bar column — keeping them there was what pushed bars to inconsistent heights
+     and crowded the labels right up against the baseline line. */
+  .listqa-hist-labels { display: flex; gap: 4px; margin-top: 5px; }
+  .listqa-hist-label-col { flex: 1; min-width: 0; text-align: center; }
   .listqa-hist-label {
-    font-family: 'IBM Plex Mono', monospace; font-size: 9px; color: var(--text3); margin-top: 6px;
+    font-family: 'IBM Plex Mono', monospace; font-size: 9px; color: var(--text3);
     white-space: nowrap; overflow: hidden; text-overflow: clip;
   }
+  .listqa-hist-label.active { color: var(--accent); font-weight: 700; }
   .listqa-section-title {
     font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600;
     letter-spacing: 0.06em; color: var(--text2); margin: 4px 0 8px;
@@ -1996,17 +2013,20 @@
   }
   .listqa-outlier-col-title.pos { color: var(--green); }
   .listqa-outlier-col-title.neg { color: var(--red); }
-  .listqa-outlier-col-body { max-height: 260px; overflow-y: auto; }
+  /* Sized to show ~15 rows without scrolling (per row: ~46px with the larger
+     font below); anything beyond that gets a short scrollbar rather than a
+     tall list being squeezed into a tiny scrollable box. */
+  .listqa-outlier-col-body { max-height: 700px; overflow-y: auto; }
   .listqa-outlier-row {
     border-left: 3px solid var(--red); background: var(--bg2);
-    padding: 5px 8px; margin-bottom: 4px; border-radius: 0 4px 4px 0;
+    padding: 6px 9px; margin-bottom: 5px; border-radius: 0 4px 4px 0;
   }
   .listqa-outlier-row.pos { border-left-color: var(--green); }
   .listqa-outlier-ticker {
-    font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 700; color: var(--text);
+    font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 700; color: var(--text);
   }
   .listqa-outlier-reason {
-    font-family: 'IBM Plex Sans', sans-serif; font-size: 9px; color: var(--text2);
+    font-family: 'IBM Plex Sans', sans-serif; font-size: 10px; color: var(--text2);
   }
   .listqa-empty {
     font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--text3);
@@ -9505,6 +9525,19 @@ function _listQaPersistFund() {
 // tab while a large (multi-minute) fetch from a prior visit is still running.
 let _listQaLoadToken = 0;
 
+// Last computed per-list stats, cached so clicking a histogram bar to filter
+// the outliers list can just re-render instantly instead of refetching.
+let _listQaLastStats = [];
+// slot -> active histogram bin index (per list). Clicking the same bar again
+// clears the entry, reverting that list's outliers back to the full list.
+let _listQaActiveBucket = {};
+
+function _listQaToggleBucket(slot, binIndex) {
+  if (_listQaActiveBucket[slot] === binIndex) delete _listQaActiveBucket[slot];
+  else _listQaActiveBucket[slot] = binIndex;
+  renderListQaScorecards(_listQaLastStats);
+}
+
 async function loadListQA(force) {
   const myToken = ++_listQaLoadToken;
   _listQaEnsureCachesHydrated();
@@ -9559,6 +9592,7 @@ async function loadListQA(force) {
     if (myToken !== _listQaLoadToken) return; // superseded by a newer load — don't render stale results
 
     const listsWithStats = lists.map(l => computeListQaStats(l, returnsMap, fundMap));
+    _listQaLastStats = listsWithStats; // cached so clicking a histogram bar can re-render without refetching
 
     renderListQaScorecards(listsWithStats);
 
@@ -9733,8 +9767,8 @@ function computeListQaStats(list, returnsMap, fundMap) {
         negMag = Math.max(negMag, -delta);
       }
     }
-    if (posReasons.length) positiveOutliers.push({ ticker: r.ticker, reasons: posReasons, mag: posMag });
-    if (negReasons.length) negativeOutliers.push({ ticker: r.ticker, reasons: negReasons, mag: negMag });
+    if (posReasons.length) positiveOutliers.push({ ticker: r.ticker, reasons: posReasons, mag: posMag, ytdPct: r.ytdPct });
+    if (negReasons.length) negativeOutliers.push({ ticker: r.ticker, reasons: negReasons, mag: negMag, ytdPct: r.ytdPct });
   });
   positiveOutliers.sort((a, b) => b.mag - a.mag);
   negativeOutliers.sort((a, b) => b.mag - a.mag);
@@ -9785,21 +9819,30 @@ const LISTQA_HIST_BINS = [
   { label: '50%+',  min: 50, max: Infinity },
 ];
 
+// Bars are clickable — clicking one filters that list's outlier columns down
+// to just the tickers in that bucket; clicking the same bar again clears it.
 function _listQaHistogramHtml(l) {
   const counts = LISTQA_HIST_BINS.map(bin =>
     l.rows.filter(r => r.ytdPct !== null && r.ytdPct >= bin.min && r.ytdPct < bin.max).length
   );
   const maxCount = Math.max(1, ...counts);
+  const activeBin = _listQaActiveBucket[l.slot];
   return `
-    <div class="listqa-hist-title">YTD RETURN DISTRIBUTION</div>
+    <div class="listqa-hist-title">YTD RETURN DISTRIBUTION ${activeBin !== undefined ? '<span class="listqa-hist-filter-hint">(click the highlighted bar to clear the filter)</span>' : '<span class="listqa-hist-filter-hint">(click a bar to filter outliers to that bucket)</span>'}</div>
     <div class="listqa-hist-wrap">
-      ${LISTQA_HIST_BINS.map((bin, i) => `
-        <div class="listqa-hist-bar-col">
-          <div class="listqa-hist-count">${counts[i] || ''}</div>
-          <div class="listqa-hist-bar ${bin.max <= 0 ? 'neg' : 'pos'}" style="height:${Math.round((counts[i] / maxCount) * 100)}%"></div>
-          <div class="listqa-hist-label">${bin.label}</div>
-        </div>
-      `).join('')}
+      <div class="listqa-hist-bars">
+        ${LISTQA_HIST_BINS.map((bin, i) => `
+          <div class="listqa-hist-bar-col ${activeBin === i ? 'active' : ''}" onclick="_listQaToggleBucket(${l.slot}, ${i})" title="${counts[i]} ticker${counts[i] === 1 ? '' : 's'} in this range — click to filter outliers">
+            <div class="listqa-hist-count">${counts[i] || ''}</div>
+            <div class="listqa-hist-bar ${bin.max <= 0 ? 'neg' : 'pos'}" style="height:${Math.round((counts[i] / maxCount) * 100)}%"></div>
+          </div>
+        `).join('')}
+      </div>
+      <div class="listqa-hist-labels">
+        ${LISTQA_HIST_BINS.map((bin, i) => `
+          <div class="listqa-hist-label-col"><div class="listqa-hist-label ${activeBin === i ? 'active' : ''}">${bin.label}</div></div>
+        `).join('')}
+      </div>
     </div>
   `;
 }
@@ -9872,19 +9915,30 @@ function _listQaOutlierRowsHtml(items, cls) {
 // Lives inside that list's own column (same card as its stats + histogram) —
 // the column splits into a positive/negative pair only for this section,
 // rather than pulling outliers out into a separate full-width area.
+// If a histogram bar is currently active for this list, both columns are
+// filtered down to just the tickers whose YTD return falls in that bucket.
 function _listQaOutlierSectionHtml(l) {
-  const posCount = l.positiveOutliers.length;
-  const negCount = l.negativeOutliers.length;
+  const activeBin = _listQaActiveBucket[l.slot];
+  let posItems = l.positiveOutliers, negItems = l.negativeOutliers, filterNote = '';
+  if (activeBin !== undefined) {
+    const bin = LISTQA_HIST_BINS[activeBin];
+    const inBin = o => o.ytdPct !== null && o.ytdPct >= bin.min && o.ytdPct < bin.max;
+    posItems = posItems.filter(inBin);
+    negItems = negItems.filter(inBin);
+    filterNote = ` <span class="listqa-hist-filter-hint">— filtered to YTD ${bin.label} bucket</span>`;
+  }
+  const posCount = posItems.length;
+  const negCount = negItems.length;
   return `
-    <div class="listqa-hist-title">GROWTH OUTLIERS</div>
+    <div class="listqa-hist-title">GROWTH OUTLIERS${filterNote}</div>
     <div class="listqa-outlier-cols">
       <div>
         <div class="listqa-outlier-col-title pos">HIGHER GROWTH (${posCount}${posCount > LISTQA_OUTLIER_DISPLAY_CAP ? `, top ${LISTQA_OUTLIER_DISPLAY_CAP}` : ''})</div>
-        <div class="listqa-outlier-col-body">${_listQaOutlierRowsHtml(l.positiveOutliers, 'pos')}</div>
+        <div class="listqa-outlier-col-body">${_listQaOutlierRowsHtml(posItems, 'pos')}</div>
       </div>
       <div>
         <div class="listqa-outlier-col-title neg">LOWER GROWTH (${negCount}${negCount > LISTQA_OUTLIER_DISPLAY_CAP ? `, top ${LISTQA_OUTLIER_DISPLAY_CAP}` : ''})</div>
-        <div class="listqa-outlier-col-body">${_listQaOutlierRowsHtml(l.negativeOutliers, 'neg')}</div>
+        <div class="listqa-outlier-col-body">${_listQaOutlierRowsHtml(negItems, 'neg')}</div>
       </div>
     </div>
   `;
