@@ -463,6 +463,51 @@ function yfHeaders() {
   return h;
 }
 
+// ─── Yahoo Finance fundamentals (revenue / net income YoY growth) ───────────
+// Fetched on-demand (single ticker for the open chart, or in bulk for the
+// Watchlist Check tab) — fundamentals only change once a quarter so a long
+// cache is safe and keeps this off the hot path of a full scan.
+const _fundamentalsCache      = new Map();
+const FUNDAMENTALS_CACHE_TTL  = 6 * 60 * 60 * 1000; // 6 hours
+
+// Fetches + parses fundamentals for one ticker, sharing the cache above.
+// Used by both the single-ticker route and the bulk route so there's only
+// one place that knows how to talk to Yahoo's quoteSummary endpoint.
+async function fetchOneFundamentals(ticker) {
+  const cached = _fundamentalsCache.get(ticker);
+  if (cached && Date.now() - cached.ts < FUNDAMENTALS_CACHE_TTL) return cached.data;
+
+  try {
+    const qs = new URLSearchParams({
+      modules:   'financialData',
+      formatted: 'false',
+    });
+    if (_yfCrumb) qs.set('crumb', _yfCrumb);
+    const raw = await rawHttpsGet({
+      hostname: 'query1.finance.yahoo.com',
+      path:     `/v10/finance/quoteSummary/${encodeURIComponent(ticker)}?${qs}`,
+      headers:  yfHeaders(),
+    });
+
+    const parsed = JSON.parse(raw.body);
+    const fd = parsed?.quoteSummary?.result?.[0]?.financialData;
+    const data = {
+      revenueGrowth: (fd && typeof fd.revenueGrowth === 'number') ? fd.revenueGrowth : null,
+      earningsGrowth: (fd && typeof fd.earningsGrowth === 'number') ? fd.earningsGrowth : null,
+    };
+
+    // Only cache a successful lookup — don't lock in nulls from a transient
+    // crumb/auth failure (raw.status !== 200) for a full 6 hours.
+    if (raw.status === 200 && fd) {
+      _fundamentalsCache.set(ticker, { ts: Date.now(), data });
+    }
+    return data;
+  } catch (e) {
+    console.error(`[fundamentals] ${ticker}: ${e.message}`);
+    return { revenueGrowth: null, earningsGrowth: null };
+  }
+}
+
 // ─── Yahoo Finance chart proxy ───────────────────────────────────────────────
 async function proxyYahoo(ticker, range, interval) {
   const cacheKey = `${ticker}|${range}|${interval}`;
@@ -682,10 +727,6 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // ── Yahoo Finance fundamentals (revenue / net income YoY growth) ────────────
-  // Fetched on-demand for a single ticker (whichever chart is currently open),
-  // not for the whole watchlist — fundamentals only change once a quarter so a
-  // long cache is safe and keeps this off the hot path of a full scan.
   if (reqUrl.pathname === '/api/yf-fundamentals') {
     const ticker = (reqUrl.searchParams.get('ticker') || '').trim().toUpperCase();
     if (!ticker) {
@@ -693,47 +734,38 @@ const server = http.createServer(async (req, res) => {
       return res.end(JSON.stringify({ error: 'Missing ticker parameter' }));
     }
 
-    const CACHE_TTL = 6 * 60 * 60 * 1000; // 6 hours — quarterly data, no need to refetch often
-    if (!server._fundamentalsCache) server._fundamentalsCache = new Map();
-    const cached = server._fundamentalsCache.get(ticker);
-    if (cached && Date.now() - cached.ts < CACHE_TTL) {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      return res.end(JSON.stringify(cached.data));
+    await ensureCrumb();
+    const data = await fetchOneFundamentals(ticker);
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(data));
+    return;
+  }
+
+  // Bulk fundamentals for the Watchlist Check tab — one request for a whole
+  // watchlist instead of one per ticker. Fans out server-side at a modest
+  // concurrency (quoteSummary is a heavier call than the /v7/finance/quote
+  // batching used by /api/yf-earnings above, so this stays lower: 6 at a time).
+  if (reqUrl.pathname === '/api/yf-fundamentals-bulk') {
+    const tickersParam = reqUrl.searchParams.get('tickers');
+    if (!tickersParam) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: 'Missing tickers parameter' }));
     }
 
     await ensureCrumb();
 
-    try {
-      const qs = new URLSearchParams({
-        modules:   'financialData',
-        formatted: 'false',
-      });
-      if (_yfCrumb) qs.set('crumb', _yfCrumb);
-      const raw = await rawHttpsGet({
-        hostname: 'query1.finance.yahoo.com',
-        path:     `/v10/finance/quoteSummary/${encodeURIComponent(ticker)}?${qs}`,
-        headers:  yfHeaders(),
-      });
-
-      const parsed = JSON.parse(raw.body);
-      const fd = parsed?.quoteSummary?.result?.[0]?.financialData;
-      const data = {
-        revenueGrowth: (fd && typeof fd.revenueGrowth === 'number') ? fd.revenueGrowth : null,
-        earningsGrowth: (fd && typeof fd.earningsGrowth === 'number') ? fd.earningsGrowth : null,
-      };
-
-      // Only cache a successful lookup — don't lock in nulls from a transient
-      // crumb/auth failure (raw.status !== 200) for a full 6 hours.
-      if (raw.status === 200 && fd) {
-        server._fundamentalsCache.set(ticker, { ts: Date.now(), data });
-      }
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(data));
-    } catch (e) {
-      console.error(`[fundamentals] ${ticker}: ${e.message}`);
-      res.writeHead(502, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: e.message }));
+    const symbols = [...new Set(tickersParam.split(',').map(s => s.trim().toUpperCase()).filter(Boolean))];
+    const CONC    = 6;
+    const fundMap = {};
+    for (let i = 0; i < symbols.length; i += CONC) {
+      const batch   = symbols.slice(i, i + CONC);
+      const results = await Promise.all(batch.map(t => fetchOneFundamentals(t)));
+      batch.forEach((t, idx) => { fundMap[t] = results[idx]; });
+      if (i + CONC < symbols.length) await new Promise(r => setTimeout(r, 150));
     }
+
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(fundMap));
     return;
   }
 

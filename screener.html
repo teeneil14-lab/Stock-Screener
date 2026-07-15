@@ -1920,6 +1920,77 @@
   .hover-chart-canvas-wrap { width:100%; height:140px; position:relative; overflow:hidden; }
   .hover-chart-canvas { display:block; }
 
+  /* ── Watchlist Check tab ────────────────────────────────────── */
+  .listqa-lists-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px; margin-bottom: 20px;
+  }
+  .listqa-list-col {
+    background: var(--bg2); border: 1px solid var(--border); border-radius: 8px;
+    padding: 14px 16px;
+  }
+  .listqa-list-name {
+    font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 700;
+    color: var(--text); letter-spacing: 0.03em; margin-bottom: 2px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .listqa-list-count {
+    font-family: 'IBM Plex Sans', sans-serif; font-size: 10px; color: var(--text3);
+    margin-bottom: 10px;
+  }
+  .listqa-stat-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px 14px; margin-bottom: 10px;
+  }
+  .listqa-stat-label {
+    font-family: 'IBM Plex Mono', monospace; font-size: 8px; letter-spacing: 0.06em;
+    color: var(--text3); margin-bottom: 2px;
+  }
+  .listqa-stat-val {
+    font-family: 'IBM Plex Mono', monospace; font-size: 15px; font-weight: 700; color: var(--text);
+  }
+  .listqa-winlose-row {
+    display: flex; gap: 14px; padding-top: 8px; border-top: 1px solid var(--border);
+    margin-bottom: 4px;
+  }
+  .listqa-winlose-col { flex: 1; }
+  .listqa-hist-wrap { display: flex; align-items: flex-end; gap: 3px; height: 70px; margin-top: 8px; }
+  .listqa-hist-bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; }
+  .listqa-hist-bar {
+    width: 100%; border-radius: 2px 2px 0 0; background: var(--border2); min-height: 2px;
+  }
+  .listqa-hist-bar.pos { background: var(--green); }
+  .listqa-hist-bar.neg { background: var(--red); }
+  .listqa-hist-count {
+    font-family: 'IBM Plex Mono', monospace; font-size: 8px; color: var(--text3); margin-bottom: 2px;
+  }
+  .listqa-hist-label {
+    font-family: 'IBM Plex Mono', monospace; font-size: 7px; color: var(--text3); margin-top: 3px;
+    writing-mode: vertical-rl; text-orientation: mixed; white-space: nowrap;
+  }
+  .listqa-section-title {
+    font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600;
+    letter-spacing: 0.06em; color: var(--text2); margin: 4px 0 8px;
+  }
+  .listqa-outlier-row {
+    border-left: 3px solid var(--red); background: var(--bg2);
+    padding: 8px 12px; margin-bottom: 6px; border-radius: 0 4px 4px 0;
+    display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  }
+  .listqa-outlier-ticker {
+    font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 700; color: var(--text);
+    min-width: 60px;
+  }
+  .listqa-outlier-list {
+    font-family: 'IBM Plex Sans', sans-serif; font-size: 9px; color: var(--text3);
+  }
+  .listqa-outlier-reason {
+    font-family: 'IBM Plex Sans', sans-serif; font-size: 11px; color: var(--text2); flex: 1;
+  }
+  .listqa-empty {
+    font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--text3);
+    text-align: center; padding: 20px;
+  }
+
   /* ── Calendar View ──────────────────────────────────────────── */
   .picks-calendar-wrap { padding:16px 20px 24px; width:100%; box-sizing:border-box; }
   .cal-nav-row { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; flex-wrap:wrap; gap:8px; }
@@ -3422,6 +3493,7 @@
   <button class="tab-btn" id="tab-btn-picks"   onclick="switchTab('picks')">★ My Picks</button>
   <button class="tab-btn" id="tab-btn-tweekly" onclick="switchTab('tweekly')">Tweekly</button>
   <button class="tab-btn" id="tab-btn-timeline" onclick="switchTab('timeline')">Market Timeline</button>
+  <button class="tab-btn" id="tab-btn-listqa" onclick="switchTab('listqa')">Watchlist Check</button>
   <button class="tab-btn" id="tab-btn-psedaily" onclick="switchTab('psedaily')" style="display:none">PSE Daily</button>
   <button class="tab-btn" id="tab-btn-marketperf" onclick="switchTab('marketperf')" style="display:none">Market Performance</button>
   <div class="tab-search-wrap">
@@ -4075,6 +4147,28 @@
     </div>
   </div>
 </div><!-- /tab-timeline -->
+
+<!-- WATCHLIST CHECK TAB -->
+<div id="tab-listqa" class="tab-page" style="display:none">
+  <div class="sectors-page">
+    <div class="sectors-toolbar">
+      <div class="sectors-toolbar-left">
+        <div class="sectors-title">WATCHLIST CHECK</div>
+        <div class="sectors-updated" id="listqa-updated">Not loaded</div>
+      </div>
+      <div class="sectors-toolbar-right">
+        <button class="sectors-refresh-btn" id="listqa-refresh-btn" onclick="loadListQA(true)">↻ REFRESH</button>
+      </div>
+    </div>
+    <div class="sectors-body" id="listqa-body">
+      <div class="sectors-loading" id="listqa-loading" style="display:none">
+        <div class="sectors-spinner"></div>
+        <div id="listqa-loading-text">Loading watchlist data…</div>
+      </div>
+      <div id="listqa-content"></div>
+    </div>
+  </div>
+</div><!-- /tab-listqa -->
 
 <!-- MODAL -->
 <div class="toast" id="app-toast"></div>
@@ -9202,6 +9296,7 @@ async function loadPickPerformance(entry) {
 }
 
 let sectorsLoaded      = false;
+let listQaLoaded       = false;
 let tweeklyLoaded      = false;
 let tweeklyYTDLoaded   = false;
 // Timestamps (not one-shot booleans) — PSE Daily and Market Performance show
@@ -9223,7 +9318,7 @@ let _tweeklyMOChart    = null;
 let _tweeklyMOChartRO  = null;
 
 function switchTab(tab) {
-  ['screener','sectors','imap','picks','tweekly','timeline','psedaily','marketperf'].forEach(t => {
+  ['screener','sectors','imap','picks','tweekly','timeline','listqa','psedaily','marketperf'].forEach(t => {
     const page = document.getElementById(`tab-${t}`);
     const btn  = document.getElementById(`tab-btn-${t}`);
     if (page) page.style.display = tab === t ? '' : 'none';
@@ -9233,6 +9328,7 @@ function switchTab(tab) {
   if (tab === 'imap'      && !imapLoaded      && marketMode !== 'PH') loadIndustryMap(false);
   if (tab === 'tweekly'   && !tweeklyLoaded   && marketMode !== 'PH') loadTweekly(false);
   if (tab === 'timeline'  && !mtlLoaded       && marketMode !== 'PH') loadMarketTimeline(false);
+  if (tab === 'listqa'    && !listQaLoaded    && marketMode !== 'PH') loadListQA(false);
   if (tab === 'psedaily'   && Date.now() - pseDailyLoadedAt   > TAB_REFRESH_MS) runPSEScan();
   if (tab === 'marketperf' && marketMode === 'PH' && Date.now() - marketPerfLoadedAt > TAB_REFRESH_MS) loadMarketPerformance();
   if (tab === 'picks') {
@@ -9273,7 +9369,7 @@ function switchMarket(mode) {
   document.getElementById('mkt-lbl-ph').classList.toggle('active', mode === 'PH');
 
   // Show/hide US-only tabs; reset their loaded flags so data re-fetches on next visit
-  ['sectors','imap','tweekly','timeline'].forEach(t => {
+  ['sectors','imap','tweekly','timeline','listqa'].forEach(t => {
     const btn = document.getElementById(`tab-btn-${t}`);
     if (btn) btn.style.display = mode === 'PH' ? 'none' : '';
   });
@@ -9287,6 +9383,7 @@ function switchMarket(mode) {
   _imapLoadedMode   = null;
   tweeklyLoaded     = false;
   mtlLoaded         = false;
+  listQaLoaded      = false;
   _mtlDestroyCharts();
   tweeklyYTDLoaded  = false;
   _tweeklyActiveTab = 'weekly';
@@ -9326,6 +9423,335 @@ function switchMarket(mode) {
   // Navigate to appropriate tab, then restore this market's screener state
   switchTab(mode === 'PH' ? 'psedaily' : 'screener');
   _restoreMarketState(mode);
+}
+
+// ============================================================
+//  WATCHLIST CHECK — compare the 3 saved watchlists' performance
+//  and fundamentals against each other, and flag tickers that look
+//  out of place relative to the rest of their own list.
+// ============================================================
+
+// Fixed, non-adjustable thresholds (consistent with the rest of the app —
+// no sliders). Comparison point is always "this list's own average", never
+// a hardcoded "this is what High Growth means" rule, since the app doesn't
+// know or need to know which list represents which fundamental thesis.
+const LISTQA_RETURN_OUTLIER_PTS  = 25; // pp away from the list's own avg YTD return
+const LISTQA_REVGROWTH_OUTLIER_PTS = 20; // pp away from the list's own avg revenue growth
+const LISTQA_EARNGROWTH_OUTLIER_PTS = 25; // pp away from the list's own avg earnings growth
+
+const _listQaReturnsCache = new Map(); // ticker -> {ytdPct, ret1y, ts}
+const LISTQA_RETURNS_TTL  = 30 * 60 * 1000; // 30 minutes
+let _listQaFundCache      = {};             // ticker -> {revenueGrowth, earningsGrowth}
+let _listQaFundCacheTs    = 0;
+const LISTQA_FUND_TTL     = 6 * 60 * 60 * 1000; // 6 hours, matches server cache
+
+async function loadListQA(force) {
+  const lists = savedWatchlists
+    .map((wl, i) => wl && wl.tickers && wl.tickers.length ? { slot: i, name: wl.name.replace(/\.txt$/i, ''), tickers: wl.tickers } : null)
+    .filter(Boolean);
+
+  const content = document.getElementById('listqa-content');
+  const loading = document.getElementById('listqa-loading');
+  const loadingText = document.getElementById('listqa-loading-text');
+
+  if (!lists.length) {
+    content.innerHTML = '<div class="listqa-empty">No watchlists loaded yet — drop your 3 .txt exports into the Watchlist slots in the sidebar first.</div>';
+    listQaLoaded = true;
+    document.getElementById('listqa-updated').textContent = 'No watchlists loaded';
+    return;
+  }
+
+  if (force) {
+    _listQaReturnsCache.clear();
+    _listQaFundCache = {};
+    _listQaFundCacheTs = 0;
+  }
+
+  loading.style.display = 'flex';
+  content.innerHTML = '';
+
+  try {
+    const allTickers = [...new Set(lists.flatMap(l => l.tickers))];
+    loadingText.textContent = `Fetching price + fundamentals for ${allTickers.length} stocks…`;
+
+    const [returnsMap, fundMap] = await Promise.all([
+      fetchListQaReturns(allTickers),
+      fetchListQaFundamentalsBulk(allTickers),
+    ]);
+
+    const listsWithStats = lists.map(l => computeListQaStats(l, returnsMap, fundMap));
+
+    renderListQaScorecards(listsWithStats);
+    renderListQaHistograms(listsWithStats);
+    renderListQaOutliers(listsWithStats);
+
+    listQaLoaded = true;
+    document.getElementById('listqa-updated').textContent = `Updated ${new Date().toLocaleTimeString()}`;
+  } catch (e) {
+    content.innerHTML = `<div class="listqa-empty">Failed to load: ${e.message}</div>`;
+  } finally {
+    loading.style.display = 'none';
+  }
+}
+
+// Fetches YTD / 1-year return per ticker, reusing the same fetchYF + calcStockYtd
+// helpers the My Picks tab already uses. Concurrency capped at 8 (well below the
+// 60-ticker pass that previously starved other tabs), and only runs on tab open.
+async function fetchListQaReturns(tickerList) {
+  const now = Date.now();
+  const out = {};
+  const need = [];
+  tickerList.forEach(t => {
+    const cached = _listQaReturnsCache.get(t);
+    if (cached && (now - cached.ts) < LISTQA_RETURNS_TTL) out[t] = cached;
+    else need.push(t);
+  });
+
+  const CONC = 8;
+  for (let i = 0; i < need.length; i += CONC) {
+    const batch = need.slice(i, i + CONC);
+    const results = await Promise.all(batch.map(async (ticker) => {
+      try {
+        const yTicker = toYFTicker(ticker);
+        const { bars } = await fetchYF(yTicker, '2y', '1d');
+        if (!bars || bars.length < 2) return { ticker, ytdPct: null, ret1y: null };
+        const ytdPct = calcStockYtd(bars);
+        const ref = bars[bars.length - 1].c;
+        const ret1y = bars.length > 252 ? (ref / bars[bars.length - 1 - 252].c - 1) * 100 : null;
+        return { ticker, ytdPct, ret1y };
+      } catch (e) {
+        return { ticker, ytdPct: null, ret1y: null };
+      }
+    }));
+    results.forEach(r => {
+      const entry = { ytdPct: r.ytdPct, ret1y: r.ret1y, ts: now };
+      _listQaReturnsCache.set(r.ticker, entry);
+      out[r.ticker] = entry;
+    });
+  }
+  return out;
+}
+
+// Fetches revenue/earnings growth for a whole list in one request (server-side
+// batches it), reusing the /api/yf-fundamentals-bulk endpoint. Client-side cache
+// mirrors the server's 6-hour TTL so revisiting the tab doesn't refetch.
+async function fetchListQaFundamentalsBulk(tickerList) {
+  const now = Date.now();
+  const stale = (now - _listQaFundCacheTs) > LISTQA_FUND_TTL;
+  const need = tickerList.filter(t => stale || !(t in _listQaFundCache));
+  if (!need.length) return _listQaFundCache;
+
+  try {
+    const res = await fetch(`/api/yf-fundamentals-bulk?tickers=${encodeURIComponent(need.join(','))}`);
+    const json = await res.json();
+    Object.assign(_listQaFundCache, json);
+    _listQaFundCacheTs = now;
+  } catch (e) {
+    // Leave whatever's already cached; missing tickers just show as "—" downstream.
+  }
+  return _listQaFundCache;
+}
+
+function _listQaAvg(vals) {
+  const v = vals.filter(x => x !== null && x !== undefined && !isNaN(x));
+  return v.length ? v.reduce((s, x) => s + x, 0) / v.length : null;
+}
+
+// Joins a watchlist's tickers against fetched returns/fundamentals and the last
+// completed scan's results (if any), computes averages, the winner/loser split,
+// and flags tickers that stray far from their own list's averages.
+function computeListQaStats(list, returnsMap, fundMap) {
+  const rows = list.tickers.map(ticker => {
+    const ret  = returnsMap[ticker] || {};
+    const fund = fundMap[ticker] || {};
+    const scanned = results.find(r => r.ticker === ticker);
+    const failedFilter = filteredOut.find(f => f.ticker === ticker);
+    return {
+      ticker,
+      ytdPct: ret.ytdPct ?? null,
+      ret1y: ret.ret1y ?? null,
+      revenueGrowth: typeof fund.revenueGrowth === 'number' ? fund.revenueGrowth * 100 : null,
+      earningsGrowth: typeof fund.earningsGrowth === 'number' ? fund.earningsGrowth * 100 : null,
+      score: scanned ? scanned.score : null,
+      filterReason: failedFilter ? failedFilter.reason : null,
+    };
+  });
+
+  const ytdVals   = rows.map(r => r.ytdPct);
+  const ret1yVals = rows.map(r => r.ret1y);
+  const revVals   = rows.map(r => r.revenueGrowth);
+  const earnVals  = rows.map(r => r.earningsGrowth);
+  const scoreVals = rows.map(r => r.score);
+
+  const avgYtd   = _listQaAvg(ytdVals);
+  const avgRet1y = _listQaAvg(ret1yVals);
+  const avgRev   = _listQaAvg(revVals);
+  const avgEarn  = _listQaAvg(earnVals);
+  const avgScore = _listQaAvg(scoreVals);
+
+  const withYtd   = rows.filter(r => r.ytdPct !== null);
+  const winners   = withYtd.filter(r => r.ytdPct >= 0);
+  const losers    = withYtd.filter(r => r.ytdPct < 0);
+  const avgWinner = _listQaAvg(winners.map(r => r.ytdPct));
+  const avgLoser  = _listQaAvg(losers.map(r => r.ytdPct));
+  const winRate   = withYtd.length ? Math.round((winners.length / withYtd.length) * 100) : null;
+
+  const outliers = [];
+  rows.forEach(r => {
+    const reasons = [];
+    if (r.ytdPct !== null && avgYtd !== null && Math.abs(r.ytdPct - avgYtd) > LISTQA_RETURN_OUTLIER_PTS) {
+      reasons.push(`YTD return ${r.ytdPct >= 0 ? '+' : ''}${r.ytdPct.toFixed(1)}% — this list's average is ${avgYtd >= 0 ? '+' : ''}${avgYtd.toFixed(1)}%`);
+    }
+    if (r.revenueGrowth !== null && avgRev !== null && Math.abs(r.revenueGrowth - avgRev) > LISTQA_REVGROWTH_OUTLIER_PTS) {
+      reasons.push(`Revenue growth ${r.revenueGrowth.toFixed(1)}% — this list's average is ${avgRev.toFixed(1)}%`);
+    }
+    if (r.earningsGrowth !== null && avgEarn !== null && Math.abs(r.earningsGrowth - avgEarn) > LISTQA_EARNGROWTH_OUTLIER_PTS) {
+      reasons.push(`Earnings growth ${r.earningsGrowth.toFixed(1)}% — this list's average is ${avgEarn.toFixed(1)}%`);
+    }
+    if (reasons.length) outliers.push({ ticker: r.ticker, reasons });
+  });
+
+  return {
+    slot: list.slot, name: list.name, rows,
+    count: rows.length,
+    avgYtd, avgRet1y, avgRev, avgEarn, avgScore,
+    avgWinner, avgLoser, winRate,
+    winnerCount: winners.length, loserCount: losers.length,
+    scoredCount: scoreVals.filter(v => v !== null).length,
+    filteredCount: rows.filter(r => r.filterReason).length,
+    outliers,
+  };
+}
+
+function _listQaFmtPct(val, decimals = 1) {
+  if (val === null || val === undefined || isNaN(val)) return '—';
+  const sign = val >= 0 ? '+' : '';
+  return `${sign}${val.toFixed(decimals)}%`;
+}
+
+function _listQaPctClass(val) {
+  if (val === null || val === undefined || isNaN(val)) return '';
+  return val >= 0 ? 'picks-perf-pos' : 'picks-perf-neg';
+}
+
+function renderListQaScorecards(listsWithStats) {
+  const html = listsWithStats.map(l => `
+    <div class="listqa-list-col">
+      <div class="listqa-list-name" title="${l.name}">${l.name}</div>
+      <div class="listqa-list-count">${l.count} tickers${l.scoredCount ? ` · ${l.scoredCount} scanned` : ' · not scanned yet'}${l.filteredCount ? ` · ${l.filteredCount} failed hard filter` : ''}</div>
+      <div class="listqa-stat-grid">
+        <div>
+          <div class="listqa-stat-label">AVG YTD RETURN</div>
+          <div class="listqa-stat-val ${_listQaPctClass(l.avgYtd)}">${_listQaFmtPct(l.avgYtd)}</div>
+        </div>
+        <div>
+          <div class="listqa-stat-label">AVG 1YR RETURN</div>
+          <div class="listqa-stat-val ${_listQaPctClass(l.avgRet1y)}">${_listQaFmtPct(l.avgRet1y)}</div>
+        </div>
+        <div>
+          <div class="listqa-stat-label">AVG REVENUE GROWTH</div>
+          <div class="listqa-stat-val ${_listQaPctClass(l.avgRev)}">${_listQaFmtPct(l.avgRev)}</div>
+        </div>
+        <div>
+          <div class="listqa-stat-label">AVG EARNINGS GROWTH</div>
+          <div class="listqa-stat-val ${_listQaPctClass(l.avgEarn)}">${_listQaFmtPct(l.avgEarn)}</div>
+        </div>
+        <div>
+          <div class="listqa-stat-label">AVG SCREENER SCORE</div>
+          <div class="listqa-stat-val">${l.avgScore !== null ? Math.round(l.avgScore) : '—'}</div>
+        </div>
+        <div>
+          <div class="listqa-stat-label">OUTLIERS FLAGGED</div>
+          <div class="listqa-stat-val">${l.outliers.length}</div>
+        </div>
+      </div>
+      <div class="listqa-winlose-row">
+        <div class="listqa-winlose-col">
+          <div class="listqa-stat-label">AVG WINNER (${l.winnerCount})</div>
+          <div class="listqa-stat-val picks-perf-pos">${_listQaFmtPct(l.avgWinner)}</div>
+        </div>
+        <div class="listqa-winlose-col">
+          <div class="listqa-stat-label">AVG LOSER (${l.loserCount})</div>
+          <div class="listqa-stat-val picks-perf-neg">${_listQaFmtPct(l.avgLoser)}</div>
+        </div>
+        <div class="listqa-winlose-col">
+          <div class="listqa-stat-label">WIN RATE</div>
+          <div class="listqa-stat-val">${l.winRate !== null ? l.winRate + '%' : '—'}</div>
+        </div>
+      </div>
+    </div>
+  `).join('');
+  document.getElementById('listqa-content').innerHTML = `<div class="listqa-lists-grid" id="listqa-scorecards">${html}</div>`;
+}
+
+// Fixed return buckets shared by every list so the histograms are visually comparable.
+const LISTQA_HIST_BINS = [
+  { label: '<-20%',    min: -Infinity, max: -20 },
+  { label: '-20/-10%', min: -20, max: -10 },
+  { label: '-10/0%',   min: -10, max: 0 },
+  { label: '0/10%',    min: 0, max: 10 },
+  { label: '10/20%',   min: 10, max: 20 },
+  { label: '20/30%',   min: 20, max: 30 },
+  { label: '30/50%',   min: 30, max: 50 },
+  { label: '50%+',     min: 50, max: Infinity },
+];
+
+function renderListQaHistograms(listsWithStats) {
+  const wrap = document.createElement('div');
+  wrap.className = 'listqa-section-title';
+  wrap.textContent = 'YTD RETURN DISTRIBUTION';
+  const grid = document.createElement('div');
+  grid.className = 'listqa-lists-grid';
+
+  listsWithStats.forEach(l => {
+    const counts = LISTQA_HIST_BINS.map(bin =>
+      l.rows.filter(r => r.ytdPct !== null && r.ytdPct >= bin.min && r.ytdPct < bin.max).length
+    );
+    const maxCount = Math.max(1, ...counts);
+    const col = document.createElement('div');
+    col.className = 'listqa-list-col';
+    col.innerHTML = `
+      <div class="listqa-list-name" title="${l.name}">${l.name}</div>
+      <div class="listqa-hist-wrap">
+        ${LISTQA_HIST_BINS.map((bin, i) => `
+          <div class="listqa-hist-bar-col">
+            <div class="listqa-hist-count">${counts[i] || ''}</div>
+            <div class="listqa-hist-bar ${bin.max <= 0 ? 'neg' : 'pos'}" style="height:${Math.round((counts[i] / maxCount) * 100)}%"></div>
+            <div class="listqa-hist-label">${bin.label}</div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+    grid.appendChild(col);
+  });
+
+  const content = document.getElementById('listqa-content');
+  content.appendChild(wrap);
+  content.appendChild(grid);
+}
+
+function renderListQaOutliers(listsWithStats) {
+  const title = document.createElement('div');
+  title.className = 'listqa-section-title';
+  title.textContent = 'OUTLIERS — TICKERS THAT DON\'T MATCH THE REST OF THEIR LIST';
+  const body = document.createElement('div');
+
+  const allOutliers = listsWithStats.flatMap(l => l.outliers.map(o => ({ ...o, listName: l.name })));
+  if (!allOutliers.length) {
+    body.innerHTML = '<div class="listqa-empty">No outliers flagged — every ticker looks consistent with the rest of its own list.</div>';
+  } else {
+    body.innerHTML = allOutliers.map(o => `
+      <div class="listqa-outlier-row">
+        <div class="listqa-outlier-ticker">${o.ticker}</div>
+        <div class="listqa-outlier-list">${o.listName}</div>
+        <div class="listqa-outlier-reason">${o.reasons.join(' · ')}</div>
+      </div>
+    `).join('');
+  }
+
+  const content = document.getElementById('listqa-content');
+  content.appendChild(title);
+  content.appendChild(body);
 }
 
 // ============================================================
