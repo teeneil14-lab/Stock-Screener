@@ -1948,6 +1948,14 @@
   .listqa-stat-val {
     font-family: 'IBM Plex Mono', monospace; font-size: 15px; font-weight: 700; color: var(--text);
   }
+  /* Graduated by magnitude, not just sign — same hex values as the app's
+     existing pct-cell scale, applied directly to text color (no pill/background)
+     to match this tab's plain bold-number stat style. */
+  .listqa-stat-val.qa-strong-up   { color: #0a7c4e; }
+  .listqa-stat-val.qa-mild-up     { color: #2a9d6e; }
+  .listqa-stat-val.qa-flat        { color: var(--text3); }
+  .listqa-stat-val.qa-mild-down   { color: #c82828; }
+  .listqa-stat-val.qa-strong-down { color: #a01c1c; }
   .listqa-winlose-row {
     display: flex; gap: 14px; padding-top: 8px; border-top: 1px solid var(--border);
     margin-bottom: 4px;
@@ -1979,33 +1987,26 @@
     font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600;
     letter-spacing: 0.06em; color: var(--text2); margin: 4px 0 8px;
   }
-  .listqa-outlier-block { margin-bottom: 22px; }
-  .listqa-outlier-block-title {
-    font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 700;
-    color: var(--text); margin-bottom: 8px;
-  }
   .listqa-outlier-cols {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 2px;
   }
   .listqa-outlier-col-title {
-    font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 600;
-    letter-spacing: 0.06em; margin-bottom: 6px;
+    font-family: 'IBM Plex Mono', monospace; font-size: 8px; font-weight: 600;
+    letter-spacing: 0.04em; margin-bottom: 6px;
   }
   .listqa-outlier-col-title.pos { color: var(--green); }
   .listqa-outlier-col-title.neg { color: var(--red); }
-  .listqa-outlier-col-body { max-height: 520px; overflow-y: auto; }
+  .listqa-outlier-col-body { max-height: 260px; overflow-y: auto; }
   .listqa-outlier-row {
     border-left: 3px solid var(--red); background: var(--bg2);
-    padding: 8px 12px; margin-bottom: 6px; border-radius: 0 4px 4px 0;
-    display: flex; justify-content: space-between; align-items: center; gap: 12px;
+    padding: 5px 8px; margin-bottom: 4px; border-radius: 0 4px 4px 0;
   }
   .listqa-outlier-row.pos { border-left-color: var(--green); }
   .listqa-outlier-ticker {
-    font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 700; color: var(--text);
-    min-width: 60px;
+    font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 700; color: var(--text);
   }
   .listqa-outlier-reason {
-    font-family: 'IBM Plex Sans', sans-serif; font-size: 11px; color: var(--text2); flex: 1;
+    font-family: 'IBM Plex Sans', sans-serif; font-size: 9px; color: var(--text2);
   }
   .listqa-empty {
     font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--text3);
@@ -9560,7 +9561,6 @@ async function loadListQA(force) {
     const listsWithStats = lists.map(l => computeListQaStats(l, returnsMap, fundMap));
 
     renderListQaScorecards(listsWithStats);
-    renderListQaOutliers(listsWithStats);
 
     listQaLoaded = true;
     document.getElementById('listqa-updated').textContent = `Updated ${new Date().toLocaleTimeString()}`;
@@ -9716,20 +9716,20 @@ function computeListQaStats(list, returnsMap, fundMap) {
     if (r.revenueGrowth !== null && avgRev !== null) {
       const delta = r.revenueGrowth - avgRev;
       if (delta > LISTQA_REVGROWTH_OUTLIER_PTS) {
-        posReasons.push(`Revenue growth ${r.revenueGrowth.toFixed(1)}% — this list's average is ${avgRev.toFixed(1)}%`);
+        posReasons.push(`Revenue growth ${r.revenueGrowth.toFixed(1)}%`);
         posMag = Math.max(posMag, delta);
       } else if (delta < -LISTQA_REVGROWTH_OUTLIER_PTS) {
-        negReasons.push(`Revenue growth ${r.revenueGrowth.toFixed(1)}% — this list's average is ${avgRev.toFixed(1)}%`);
+        negReasons.push(`Revenue growth ${r.revenueGrowth.toFixed(1)}%`);
         negMag = Math.max(negMag, -delta);
       }
     }
     if (r.earningsGrowth !== null && avgEarn !== null) {
       const delta = r.earningsGrowth - avgEarn;
       if (delta > LISTQA_EARNGROWTH_OUTLIER_PTS) {
-        posReasons.push(`Earnings growth ${r.earningsGrowth.toFixed(1)}% — this list's average is ${avgEarn.toFixed(1)}%`);
+        posReasons.push(`Earnings growth ${r.earningsGrowth.toFixed(1)}%`);
         posMag = Math.max(posMag, delta);
       } else if (delta < -LISTQA_EARNGROWTH_OUTLIER_PTS) {
-        negReasons.push(`Earnings growth ${r.earningsGrowth.toFixed(1)}% — this list's average is ${avgEarn.toFixed(1)}%`);
+        negReasons.push(`Earnings growth ${r.earningsGrowth.toFixed(1)}%`);
         negMag = Math.max(negMag, -delta);
       }
     }
@@ -9758,9 +9758,17 @@ function _listQaFmtPct(val, decimals = 1) {
   return `${sign}${val.toFixed(decimals)}%`;
 }
 
+// Graduated color by magnitude (not just sign) — reuses the same green/red
+// shades as the rest of the app's pct-cell scale, calibrated to the wider
+// range these return/growth numbers span (YTD/1yr return, revenue/earnings
+// growth) rather than the tighter daily-move thresholds pctCell() uses.
 function _listQaPctClass(val) {
   if (val === null || val === undefined || isNaN(val)) return '';
-  return val >= 0 ? 'picks-perf-pos' : 'picks-perf-neg';
+  if      (val >=  30) return 'qa-strong-up';
+  else if (val >=  10) return 'qa-mild-up';
+  else if (val >= -10) return 'qa-flat';
+  else if (val >= -30) return 'qa-mild-down';
+  else                 return 'qa-strong-down';
 }
 
 // Fixed return buckets shared by every list so the histograms are visually comparable.
@@ -9833,11 +9841,11 @@ function renderListQaScorecards(listsWithStats) {
       <div class="listqa-winlose-row">
         <div class="listqa-winlose-col">
           <div class="listqa-stat-label">AVG WINNER (${l.winnerCount})</div>
-          <div class="listqa-stat-val picks-perf-pos">${_listQaFmtPct(l.avgWinner)}</div>
+          <div class="listqa-stat-val ${_listQaPctClass(l.avgWinner)}">${_listQaFmtPct(l.avgWinner)}</div>
         </div>
         <div class="listqa-winlose-col">
           <div class="listqa-stat-label">AVG LOSER (${l.loserCount})</div>
-          <div class="listqa-stat-val picks-perf-neg">${_listQaFmtPct(l.avgLoser)}</div>
+          <div class="listqa-stat-val ${_listQaPctClass(l.avgLoser)}">${_listQaFmtPct(l.avgLoser)}</div>
         </div>
         <div class="listqa-winlose-col">
           <div class="listqa-stat-label">WIN RATE</div>
@@ -9845,6 +9853,7 @@ function renderListQaScorecards(listsWithStats) {
         </div>
       </div>
       ${_listQaHistogramHtml(l)}
+      ${_listQaOutlierSectionHtml(l)}
     </div>
   `).join('');
   document.getElementById('listqa-content').innerHTML = `<div class="listqa-lists-grid" id="listqa-scorecards">${html}</div>`;
@@ -9860,36 +9869,25 @@ function _listQaOutlierRowsHtml(items, cls) {
   `).join('');
 }
 
-// Renders one block per list (right below that list's own data), each split
-// into a positive-growth-outlier column and a negative-growth-outlier column,
-// capped at the top 25 (by size of deviation from the list's own average) per column.
-function renderListQaOutliers(listsWithStats) {
-  const wrap = document.createElement('div');
-  wrap.className = 'listqa-section-title';
-  wrap.textContent = 'GROWTH OUTLIERS — TICKERS WHOSE REVENUE/EARNINGS GROWTH DOESN\'T MATCH THE REST OF THEIR LIST';
-  const content = document.getElementById('listqa-content');
-  content.appendChild(wrap);
-
-  listsWithStats.forEach(l => {
-    const block = document.createElement('div');
-    block.className = 'listqa-outlier-block';
-    const posCount = l.positiveOutliers.length;
-    const negCount = l.negativeOutliers.length;
-    block.innerHTML = `
-      <div class="listqa-outlier-block-title" title="${l.name}">${l.name}</div>
-      <div class="listqa-outlier-cols">
-        <div>
-          <div class="listqa-outlier-col-title pos">HIGHER GROWTH THAN THE REST OF THIS LIST (${posCount}${posCount > LISTQA_OUTLIER_DISPLAY_CAP ? `, top ${LISTQA_OUTLIER_DISPLAY_CAP} shown` : ''})</div>
-          <div class="listqa-outlier-col-body">${_listQaOutlierRowsHtml(l.positiveOutliers, 'pos')}</div>
-        </div>
-        <div>
-          <div class="listqa-outlier-col-title neg">LOWER GROWTH THAN THE REST OF THIS LIST (${negCount}${negCount > LISTQA_OUTLIER_DISPLAY_CAP ? `, top ${LISTQA_OUTLIER_DISPLAY_CAP} shown` : ''})</div>
-          <div class="listqa-outlier-col-body">${_listQaOutlierRowsHtml(l.negativeOutliers, 'neg')}</div>
-        </div>
+// Lives inside that list's own column (same card as its stats + histogram) —
+// the column splits into a positive/negative pair only for this section,
+// rather than pulling outliers out into a separate full-width area.
+function _listQaOutlierSectionHtml(l) {
+  const posCount = l.positiveOutliers.length;
+  const negCount = l.negativeOutliers.length;
+  return `
+    <div class="listqa-hist-title">GROWTH OUTLIERS</div>
+    <div class="listqa-outlier-cols">
+      <div>
+        <div class="listqa-outlier-col-title pos">HIGHER GROWTH (${posCount}${posCount > LISTQA_OUTLIER_DISPLAY_CAP ? `, top ${LISTQA_OUTLIER_DISPLAY_CAP}` : ''})</div>
+        <div class="listqa-outlier-col-body">${_listQaOutlierRowsHtml(l.positiveOutliers, 'pos')}</div>
       </div>
-    `;
-    content.appendChild(block);
-  });
+      <div>
+        <div class="listqa-outlier-col-title neg">LOWER GROWTH (${negCount}${negCount > LISTQA_OUTLIER_DISPLAY_CAP ? `, top ${LISTQA_OUTLIER_DISPLAY_CAP}` : ''})</div>
+        <div class="listqa-outlier-col-body">${_listQaOutlierRowsHtml(l.negativeOutliers, 'neg')}</div>
+      </div>
+    </div>
+  `;
 }
 
 // ============================================================
