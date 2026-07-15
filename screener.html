@@ -1953,23 +1953,27 @@
     margin-bottom: 4px;
   }
   .listqa-winlose-col { flex: 1; }
-  .listqa-hist-grid { display: grid; grid-template-columns: 1fr; gap: 14px; margin-bottom: 20px; }
+  .listqa-hist-title {
+    font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 600;
+    letter-spacing: 0.06em; color: var(--text3); margin-top: 14px; padding-top: 10px;
+    border-top: 1px solid var(--border);
+  }
   .listqa-hist-wrap {
-    display: flex; align-items: flex-end; gap: 6px; height: 130px; margin-top: 10px;
+    display: flex; align-items: flex-end; gap: 4px; height: 100px; margin-top: 8px;
     border-bottom: 2px solid var(--border2); padding-bottom: 0; /* the 0 baseline the bars rise from */
   }
-  .listqa-hist-bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; }
+  .listqa-hist-bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; min-width: 0; }
   .listqa-hist-bar {
     width: 100%; border-radius: 2px 2px 0 0; background: var(--border2); min-height: 2px;
   }
   .listqa-hist-bar.pos { background: var(--green); }
   .listqa-hist-bar.neg { background: var(--red); }
   .listqa-hist-count {
-    font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600; color: var(--text2); margin-bottom: 3px;
+    font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 600; color: var(--text2); margin-bottom: 3px;
   }
   .listqa-hist-label {
-    font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--text3); margin-top: 6px;
-    white-space: nowrap;
+    font-family: 'IBM Plex Mono', monospace; font-size: 9px; color: var(--text3); margin-top: 6px;
+    white-space: nowrap; overflow: hidden; text-overflow: clip;
   }
   .listqa-section-title {
     font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600;
@@ -9556,7 +9560,6 @@ async function loadListQA(force) {
     const listsWithStats = lists.map(l => computeListQaStats(l, returnsMap, fundMap));
 
     renderListQaScorecards(listsWithStats);
-    renderListQaHistograms(listsWithStats);
     renderListQaOutliers(listsWithStats);
 
     listQaLoaded = true;
@@ -9760,6 +9763,42 @@ function _listQaPctClass(val) {
   return val >= 0 ? 'picks-perf-pos' : 'picks-perf-neg';
 }
 
+// Fixed return buckets shared by every list so the histograms are visually comparable.
+// Labels are the bin's lower edge (standard histogram convention) — short
+// enough to read horizontally at a legible size without crowding.
+const LISTQA_HIST_BINS = [
+  { label: '<-20%', min: -Infinity, max: -20 },
+  { label: '-20%',  min: -20, max: -10 },
+  { label: '-10%',  min: -10, max: 0 },
+  { label: '0%',    min: 0, max: 10 },
+  { label: '10%',   min: 10, max: 20 },
+  { label: '20%',   min: 20, max: 30 },
+  { label: '30%',   min: 30, max: 50 },
+  { label: '50%+',  min: 50, max: Infinity },
+];
+
+function _listQaHistogramHtml(l) {
+  const counts = LISTQA_HIST_BINS.map(bin =>
+    l.rows.filter(r => r.ytdPct !== null && r.ytdPct >= bin.min && r.ytdPct < bin.max).length
+  );
+  const maxCount = Math.max(1, ...counts);
+  return `
+    <div class="listqa-hist-title">YTD RETURN DISTRIBUTION</div>
+    <div class="listqa-hist-wrap">
+      ${LISTQA_HIST_BINS.map((bin, i) => `
+        <div class="listqa-hist-bar-col">
+          <div class="listqa-hist-count">${counts[i] || ''}</div>
+          <div class="listqa-hist-bar ${bin.max <= 0 ? 'neg' : 'pos'}" style="height:${Math.round((counts[i] / maxCount) * 100)}%"></div>
+          <div class="listqa-hist-label">${bin.label}</div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+// Scorecard stats + histogram live in the same per-list column, side by side
+// with the other lists (not stacked full-width one below another), so the
+// 3 lists stay directly comparable at a glance.
 function renderListQaScorecards(listsWithStats) {
   const html = listsWithStats.map(l => `
     <div class="listqa-list-col">
@@ -9805,59 +9844,10 @@ function renderListQaScorecards(listsWithStats) {
           <div class="listqa-stat-val">${l.winRate !== null ? l.winRate + '%' : '—'}</div>
         </div>
       </div>
+      ${_listQaHistogramHtml(l)}
     </div>
   `).join('');
   document.getElementById('listqa-content').innerHTML = `<div class="listqa-lists-grid" id="listqa-scorecards">${html}</div>`;
-}
-
-// Fixed return buckets shared by every list so the histograms are visually comparable.
-// Labels are the bin's lower edge (standard histogram convention) — short
-// enough to read horizontally at a legible size without crowding.
-const LISTQA_HIST_BINS = [
-  { label: '<-20%', min: -Infinity, max: -20 },
-  { label: '-20%',  min: -20, max: -10 },
-  { label: '-10%',  min: -10, max: 0 },
-  { label: '0%',    min: 0, max: 10 },
-  { label: '10%',   min: 10, max: 20 },
-  { label: '20%',   min: 20, max: 30 },
-  { label: '30%',   min: 30, max: 50 },
-  { label: '50%+',  min: 50, max: Infinity },
-];
-
-function renderListQaHistograms(listsWithStats) {
-  const wrap = document.createElement('div');
-  wrap.className = 'listqa-section-title';
-  wrap.textContent = 'YTD RETURN DISTRIBUTION';
-  // Full-width, one list per row (not the 3-column scorecard grid) — gives each
-  // bin enough room for horizontal, legible labels instead of squeezed/sideways text.
-  const grid = document.createElement('div');
-  grid.className = 'listqa-hist-grid';
-
-  listsWithStats.forEach(l => {
-    const counts = LISTQA_HIST_BINS.map(bin =>
-      l.rows.filter(r => r.ytdPct !== null && r.ytdPct >= bin.min && r.ytdPct < bin.max).length
-    );
-    const maxCount = Math.max(1, ...counts);
-    const col = document.createElement('div');
-    col.className = 'listqa-list-col';
-    col.innerHTML = `
-      <div class="listqa-list-name" title="${l.name}">${l.name}</div>
-      <div class="listqa-hist-wrap">
-        ${LISTQA_HIST_BINS.map((bin, i) => `
-          <div class="listqa-hist-bar-col">
-            <div class="listqa-hist-count">${counts[i] || ''}</div>
-            <div class="listqa-hist-bar ${bin.max <= 0 ? 'neg' : 'pos'}" style="height:${Math.round((counts[i] / maxCount) * 100)}%"></div>
-            <div class="listqa-hist-label">${bin.label}</div>
-          </div>
-        `).join('')}
-      </div>
-    `;
-    grid.appendChild(col);
-  });
-
-  const content = document.getElementById('listqa-content');
-  content.appendChild(wrap);
-  content.appendChild(grid);
 }
 
 function _listQaOutlierRowsHtml(items, cls) {
