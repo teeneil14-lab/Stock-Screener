@@ -1788,6 +1788,12 @@
   }
   .picks-view-btn:hover { background:var(--bg3); }
   .picks-view-btn.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .picks-view-btn.danger { color:var(--red); border-color:rgba(200,41,58,0.35); }
+  .picks-view-btn.danger:hover { background:var(--red-dim); border-color:var(--red); }
+  .picks-view-btn:disabled { opacity:0.4; cursor:not-allowed; }
+  .picks-view-btn:disabled:hover { background:transparent; }
+  .picks-card-select { margin-right:8px; cursor:pointer; width:14px; height:14px; }
+  .picks-list-select-col { width:28px; text-align:center !important; }
   .picks-list-wrap { width:100%; }
   .picks-list-table { width:100%; border-collapse:collapse; font-family:'IBM Plex Mono',monospace; font-size:11px; }
   .picks-list-table thead th {
@@ -3869,6 +3875,9 @@
         <button class="picks-view-btn" id="picks-view-toggle" onclick="togglePicksView()">LIST VIEW</button>
         <button class="picks-view-btn" id="picks-analytics-btn" onclick="toggleAnalyticsView()">ANALYTICS</button>
         <button class="picks-view-btn" id="picks-calendar-btn" onclick="toggleCalendarView()">CALENDAR</button>
+        <button class="picks-view-btn" id="picks-select-toggle" onclick="togglePicksSelectMode()" title="Select multiple picks to delete at once">SELECT</button>
+        <button class="picks-view-btn" id="picks-select-all-btn" onclick="toggleSelectAllPicks()" style="display:none">SELECT ALL</button>
+        <button class="picks-view-btn danger" id="picks-delete-selected-btn" onclick="deleteSelectedPicks()" style="display:none" disabled>DELETE SELECTED (0)</button>
         <button class="picks-view-btn" id="picks-export-btn" onclick="exportMyPicks()" title="Save your starred picks to a file">↓ EXPORT</button>
         <button class="picks-view-btn" id="picks-import-btn" onclick="triggerPicksImport()" title="Load starred picks from a file">↑ IMPORT</button>
         <input type="file" accept=".json" id="picks-import-input" style="display:none" onchange="handlePicksImportFile(event)">
@@ -7953,6 +7962,8 @@ function removeStarredFromTab(ticker, starredAt) {
   getActiveSetupIds().forEach(sid => {
     saveLiked(sid, loadLiked(sid).filter(l => !(l.ticker === ticker && l.starredAt === starredAt)));
   });
+  picksSelectedKeys.delete(_pickKey(ticker, starredAt));
+  _syncPicksToolbar();
 
   // Destroy chart instance
   if (_lwCharts[ticker]) {
@@ -8022,14 +8033,16 @@ async function _addSinglePickWorker(ticker, starredAt) {
     weeklyBars:  (r.weekly  || []).slice(-52) .map(b => ({ t:b.t, o:b.o, h:b.h, l:b.l, c:b.c })),
     monthlyBars: (r.monthly || []).slice(-36) .map(b => ({ t:b.t, o:b.o, h:b.h, l:b.l, c:b.c })),
   };
+  let saveOk = false;
   getActiveSetupIds().forEach(sid => {
     const existing = loadLiked(sid).filter(l => l.ticker !== ticker);
     const scored   = scoreStock(r, sid);
     const criteriaVector = {};
     SETUPS[sid].criteria.forEach(c => { criteriaVector[c.id] = scored.criteriaScores?.[c.id]?.raw ?? 0; });
     existing.push({ ...sharedBase, score: scored.score, tfNorm: { ...scored.tfNorm }, setupId: sid, criteriaVector });
-    saveLiked(sid, existing);
+    if (saveLiked(sid, existing)) saveOk = true;
   });
+  if (!saveOk) throw new Error('storage may be full');
 }
 
 async function addPickByTicker(rawInput, dateStr) {
@@ -8238,6 +8251,11 @@ let picksViewMode        = 'grid'; // 'grid' | 'list' | 'analytics' | 'calendar'
 let calendarCurrentDate  = new Date();
 let calendarShowPicks    = false;
 
+// ── Multi-select for bulk delete (grid + list view only) ─────────────────────
+let picksSelectMode   = false;
+let picksSelectedKeys = new Set(); // "ticker|starredAt"
+function _pickKey(ticker, starredAt) { return `${ticker}|${starredAt}`; }
+
 function _syncPicksToolbar() {
   const tfGroup      = document.getElementById('picks-tf-controls');
   const viewToggle   = document.getElementById('picks-view-toggle');
@@ -8247,6 +8265,24 @@ function _syncPicksToolbar() {
   const calendarEl   = document.getElementById('picks-calendar-wrap');
   const calChartEl   = document.getElementById('picks-calendar-chart');
   const gridEl       = document.getElementById('picks-grid');
+  const selectToggle = document.getElementById('picks-select-toggle');
+  const selectAllBtn = document.getElementById('picks-select-all-btn');
+  const deleteBtn    = document.getElementById('picks-delete-selected-btn');
+
+  // Selection only makes sense where individual picks are listed (grid/list)
+  const selectable = picksViewMode === 'grid' || picksViewMode === 'list';
+  if (!selectable && picksSelectMode) { picksSelectMode = false; picksSelectedKeys.clear(); }
+  if (selectToggle) {
+    selectToggle.style.display = selectable ? '' : 'none';
+    selectToggle.textContent   = picksSelectMode ? 'CANCEL' : 'SELECT';
+    selectToggle.classList.toggle('active', picksSelectMode);
+  }
+  if (selectAllBtn) selectAllBtn.style.display = (selectable && picksSelectMode) ? '' : 'none';
+  if (deleteBtn) {
+    deleteBtn.style.display   = (selectable && picksSelectMode) ? '' : 'none';
+    deleteBtn.disabled        = picksSelectedKeys.size === 0;
+    deleteBtn.textContent     = `DELETE SELECTED (${picksSelectedKeys.size})`;
+  }
   if (picksViewMode === 'analytics') {
     if (tfGroup)      tfGroup.style.display    = 'none';
     if (viewToggle) { viewToggle.style.display = ''; viewToggle.textContent = 'CHART VIEW'; }
@@ -8284,6 +8320,53 @@ function _syncPicksToolbar() {
     if (calChartEl)   calChartEl.style.display  = 'none';
     if (gridEl)       gridEl.style.display      = '';
   }
+}
+
+function togglePicksSelectMode() {
+  picksSelectMode = !picksSelectMode;
+  if (!picksSelectMode) picksSelectedKeys.clear();
+  _syncPicksToolbar();
+  if (picksViewMode === 'list') renderPicksList(); else renderStarredCharts();
+}
+
+function togglePickSelected(ticker, starredAt) {
+  const key = _pickKey(ticker, starredAt);
+  if (picksSelectedKeys.has(key)) picksSelectedKeys.delete(key);
+  else picksSelectedKeys.add(key);
+  _syncPicksToolbar(); // just refreshes the DELETE SELECTED count/enabled state
+}
+
+function toggleSelectAllPicks() {
+  const liked   = loadLiked(currentSetup);
+  const allKeys = liked.map(e => _pickKey(e.ticker, e.starredAt));
+  const allSelected = allKeys.length > 0 && allKeys.every(k => picksSelectedKeys.has(k));
+  picksSelectedKeys = allSelected ? new Set() : new Set(allKeys);
+  _syncPicksToolbar();
+  if (picksViewMode === 'list') renderPicksList(); else renderStarredCharts();
+}
+
+function deleteSelectedPicks() {
+  const n = picksSelectedKeys.size;
+  if (!n) return;
+  if (!confirm(`Remove ${n} pick${n === 1 ? '' : 's'} from My Picks? This can't be undone.`)) return;
+
+  const keysToRemove = picksSelectedKeys;
+  getActiveSetupIds().forEach(sid => {
+    const remaining = loadLiked(sid).filter(l => !keysToRemove.has(_pickKey(l.ticker, l.starredAt)));
+    saveLiked(sid, remaining);
+  });
+
+  picksSelectedKeys = new Set();
+  picksSelectMode   = false;
+  _syncPicksToolbar();
+
+  autoRestoreStars();
+  computeAllSimilarityBonuses();
+  renderPatternPanel();
+  if (results.length) renderResults();
+
+  if (picksViewMode === 'list') renderPicksList(); else renderStarredCharts();
+  showToast(`Removed ${n} pick${n === 1 ? '' : 's'} from My Picks`);
 }
 
 // Re-renders whichever My Picks view (grid/list/analytics/calendar) is currently active.
@@ -8368,11 +8451,17 @@ function renderStarredCharts() {
     card.id          = `picks-card-${entry.ticker}-${entry.starredAt}`;
 
     const tf0 = picksGlobalTF;
+    const checkboxHtml = picksSelectMode
+      ? `<input type="checkbox" class="picks-card-select" onclick="event.stopPropagation();togglePickSelected('${entry.ticker}',${entry.starredAt})" ${picksSelectedKeys.has(_pickKey(entry.ticker, entry.starredAt)) ? 'checked' : ''}>`
+      : '';
 
     card.innerHTML = `
       <div class="picks-card-header">
         <div class="picks-card-top">
-          <div class="picks-card-ticker">${entry.ticker}</div>
+          <div style="display:flex;align-items:center">
+            ${checkboxHtml}
+            <div class="picks-card-ticker">${entry.ticker}</div>
+          </div>
           <button class="picks-card-remove" onclick="removeStarredFromTab('${entry.ticker}',${entry.starredAt})" title="Remove from My Picks">×</button>
         </div>
         <div class="picks-card-name">${entry.name}</div>
@@ -9156,13 +9245,16 @@ function renderPicksList() {
   const sub = document.getElementById('picks-subtitle');
   if (sub) sub.textContent = `${liked.length} pick${liked.length === 1 ? '' : 's'} — charts frozen at the moment you starred them`;
 
-  const sorted = [...liked].sort((a, b) => b.starredAt - a.starredAt);
+  const sorted   = [...liked].sort((a, b) => b.starredAt - a.starredAt);
+  const selCol   = picksSelectMode;
+  const colspan0 = selCol ? 4 : 3;
 
   grid.innerHTML = `
     <div class="picks-list-wrap">
       <table class="picks-list-table">
         <thead>
           <tr>
+            ${selCol ? '<th class="picks-list-select-col"></th>' : ''}
             <th>TICKER</th>
             <th>STARRED AT</th>
             <th>SCORE</th>
@@ -9177,7 +9269,7 @@ function renderPicksList() {
         </thead>
         <tbody class="picks-summary-tbody">
           <tr>
-            <td colspan="3" class="picks-summary-label">AVG WINNER</td>
+            <td colspan="${colspan0}" class="picks-summary-label">AVG WINNER</td>
             <td class="picks-perf-loading" id="summary-win-5d">…</td>
             <td class="picks-perf-loading" id="summary-win-2w">…</td>
             <td class="picks-perf-loading" id="summary-win-1m">…</td>
@@ -9187,7 +9279,7 @@ function renderPicksList() {
             <td></td>
           </tr>
           <tr>
-            <td colspan="3" class="picks-summary-label">AVG LOSER</td>
+            <td colspan="${colspan0}" class="picks-summary-label">AVG LOSER</td>
             <td class="picks-perf-loading" id="summary-lose-5d">…</td>
             <td class="picks-perf-loading" id="summary-lose-2w">…</td>
             <td class="picks-perf-loading" id="summary-lose-1m">…</td>
@@ -9197,7 +9289,7 @@ function renderPicksList() {
             <td></td>
           </tr>
           <tr>
-            <td colspan="3" class="picks-summary-label">HIT RATIO</td>
+            <td colspan="${colspan0}" class="picks-summary-label">HIT RATIO</td>
             <td class="picks-perf-loading" id="summary-hit-5d">…</td>
             <td class="picks-perf-loading" id="summary-hit-2w">…</td>
             <td class="picks-perf-loading" id="summary-hit-1m">…</td>
@@ -9211,6 +9303,7 @@ function renderPicksList() {
           ${sorted.map(entry => {
             const dateStr = new Date(entry.starredAt).toLocaleDateString('en-US', { day:'numeric', month:'short', year:'numeric' });
             return `<tr id="picks-list-row-${entry.ticker}-${entry.starredAt}">
+              ${selCol ? `<td class="picks-list-select-col"><input type="checkbox" onclick="togglePickSelected('${entry.ticker}',${entry.starredAt})" ${picksSelectedKeys.has(_pickKey(entry.ticker, entry.starredAt)) ? 'checked' : ''}></td>` : ''}
               <td>
                 <div class="picks-list-ticker">${entry.ticker}</div>
                 <div class="picks-list-name">${entry.name}</div>
@@ -10505,7 +10598,6 @@ function loadLiked(setupId) {
 }
 
 function saveLiked(setupId, arr) {
-  _likedCache[setupId] = arr; // keep cache in sync so next loadLiked is instant
   try {
     const compact = arr.map(e => ({
       ...e,
@@ -10514,6 +10606,7 @@ function saveLiked(setupId, arr) {
       monthlyBars: _compactBars(e.monthlyBars),
     }));
     localStorage.setItem(`cts_liked_setup_${setupId}`, LZString.compressToBase64(JSON.stringify(compact)));
+    _likedCache[setupId] = arr; // only sync the in-memory copy once the write actually succeeded
     return true;
   } catch (e) {
     console.error('[saveLiked] localStorage write failed:', e);
