@@ -107,6 +107,36 @@
   }
   .tab-btn:hover { color: var(--text2); }
   .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .picks-tab-wrap { position: relative; display: flex; align-items: stretch; }
+  .picks-tab-dropdown {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: 2px;
+    min-width: 150px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    z-index: 200;
+    padding: 4px;
+  }
+  .picks-tab-dropdown.open { display: block; }
+  .picks-tab-dropdown-item {
+    font-family: 'Inter', sans-serif;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text2);
+    padding: 8px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s;
+  }
+  .picks-tab-dropdown-item:hover { background: var(--bg3); }
+  .picks-tab-dropdown-item.active { background: var(--accent); color: #fff; }
 
   /* TICKER SEARCH (tab bar) */
   .tab-search-wrap {
@@ -3538,7 +3568,15 @@
   <button class="tab-btn active" id="tab-btn-screener" onclick="switchTab('screener')">Screener</button>
   <button class="tab-btn" id="tab-btn-sectors" onclick="switchTab('sectors')">Sector Performance</button>
   <button class="tab-btn" id="tab-btn-imap"    onclick="switchTab('imap')">Industry Map</button>
-  <button class="tab-btn" id="tab-btn-picks"   onclick="switchTab('picks')">★ My Picks</button>
+  <div class="picks-tab-wrap" id="picks-tab-wrap">
+    <button class="tab-btn" id="tab-btn-picks" onclick="handlePicksTabClick()" ondblclick="handlePicksTabDblClick()" title="Click: choose a view · Double-click: open My Picks">★ My Picks</button>
+    <div class="picks-tab-dropdown" id="picks-tab-dropdown">
+      <div class="picks-tab-dropdown-item" data-picks-view="list" onclick="selectPicksView('list')">List View</div>
+      <div class="picks-tab-dropdown-item" data-picks-view="grid" onclick="selectPicksView('grid')">Chart View</div>
+      <div class="picks-tab-dropdown-item" data-picks-view="analytics" onclick="selectPicksView('analytics')">Analytics</div>
+      <div class="picks-tab-dropdown-item" data-picks-view="calendar" onclick="selectPicksView('calendar')">Calendar</div>
+    </div>
+  </div>
   <button class="tab-btn" id="tab-btn-tweekly" onclick="switchTab('tweekly')">Tweekly</button>
   <button class="tab-btn" id="tab-btn-timeline" onclick="switchTab('timeline')">Market Timeline</button>
   <button class="tab-btn" id="tab-btn-listqa" onclick="switchTab('listqa')">Watchlist Check</button>
@@ -8277,6 +8315,9 @@ function _syncPicksToolbar() {
     selectToggle.textContent   = picksSelectMode ? 'CANCEL' : 'SELECT';
     selectToggle.classList.toggle('active', picksSelectMode);
   }
+  document.querySelectorAll('.picks-tab-dropdown-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.picksView === picksViewMode);
+  });
   if (selectAllBtn) selectAllBtn.style.display = (selectable && picksSelectMode) ? '' : 'none';
   if (deleteBtn) {
     deleteBtn.style.display   = (selectable && picksSelectMode) ? '' : 'none';
@@ -8410,6 +8451,48 @@ function toggleCalendarView() {
   if (picksViewMode === 'calendar') renderPicksCalendar();
   else                              renderStarredCharts();
 }
+
+// ── My Picks tab button: single click opens a view-picker dropdown (List/Chart/
+// Analytics/Calendar); double click bypasses it and jumps straight into whichever
+// view was last showing, same as clicking the tab always used to.
+let _picksTabClickTimer = null;
+
+function handlePicksTabClick() {
+  if (_picksTabClickTimer) return; // already waiting on a pending single click
+  _picksTabClickTimer = setTimeout(() => {
+    _picksTabClickTimer = null;
+    togglePicksTabDropdown();
+  }, 220);
+}
+
+function handlePicksTabDblClick() {
+  if (_picksTabClickTimer) { clearTimeout(_picksTabClickTimer); _picksTabClickTimer = null; }
+  closePicksTabDropdown();
+  switchTab('picks');
+}
+
+function togglePicksTabDropdown() {
+  document.getElementById('picks-tab-dropdown')?.classList.toggle('open');
+}
+
+function closePicksTabDropdown() {
+  document.getElementById('picks-tab-dropdown')?.classList.remove('open');
+}
+
+function selectPicksView(mode) {
+  picksViewMode = mode;
+  if (mode === 'calendar' && !analyticsLiveMode) {
+    analyticsLiveMode = true;
+    document.getElementById('pa-mode-live')?.classList.add('active');
+  }
+  closePicksTabDropdown();
+  switchTab('picks');
+}
+
+document.addEventListener('click', (e) => {
+  const wrap = document.getElementById('picks-tab-wrap');
+  if (wrap && !wrap.contains(e.target)) closePicksTabDropdown();
+});
 
 async function switchAllPicksCharts(tf) {
   picksGlobalTF = tf;
