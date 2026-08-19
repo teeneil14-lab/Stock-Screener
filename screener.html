@@ -4188,6 +4188,14 @@
         <div class="mtl-updated" id="prl-count">Not loaded</div>
       </div>
       <div class="mtl-toolbar-right">
+        <div class="mktperf-filter">
+          <span class="mktperf-filter-label">Min Avg Volume</span>
+          <input class="mktperf-filter-input" id="prl-min-avgvol" type="number" min="0" placeholder="e.g. 100000" oninput="updatePriorityListFilter()">
+        </div>
+        <div class="mktperf-filter">
+          <span class="mktperf-filter-label">Min Value Traded</span>
+          <input class="mktperf-filter-input" id="prl-min-value" type="number" min="0" placeholder="e.g. 1000000" value="1500000" oninput="updatePriorityListFilter()">
+        </div>
         <button class="mtl-refresh-btn" id="prl-refresh-btn" onclick="runPSEScan()">↻ REFRESH</button>
       </div>
     </div>
@@ -14043,18 +14051,29 @@ function renderPSEPanels(data) {
 // ranked list — tickers strong on both counts float to the top. Score blends
 // weekly-range position (0-100%) and volume ratio (capped at 10x) 50/50.
 let prlRows          = [];
+let prlTotalCount    = 0;
 let prlActiveTicker  = null;
+let prlMinValue      = 1_500_000;  // filter: only show issues with Value Traded >= this (defaults to the same 1.5M liquidity floor used elsewhere)
+let prlMinAvgVol     = null;  // filter: only show issues with 5D Avg Volume >= this
 
 function buildPriorityList() {
   const map = new Map();
   pseHighRows.forEach(s => map.set(s.symbol, Object.assign({}, map.get(s.symbol), {
     symbol: s.symbol, name: s.name, rangePos: s.rangePos,
+    latestValue: s.latestValue, avgPrevVol: s.avgPrevVol,
   })));
   pseVolRows.forEach(s => map.set(s.symbol, Object.assign({}, map.get(s.symbol), {
     symbol: s.symbol, name: s.name, volumeRatio: s.volumeRatio,
+    latestValue: s.latestValue, avgPrevVol: s.avgPrevVol,
   })));
 
-  const rows = Array.from(map.values());
+  let rows = Array.from(map.values());
+  prlTotalCount = rows.length;
+
+  rows = rows.filter(r =>
+    (prlMinValue  == null || (r.latestValue ?? 0) >= prlMinValue) &&
+    (prlMinAvgVol == null || (r.avgPrevVol  ?? 0) >= prlMinAvgVol));
+
   rows.forEach(r => {
     const rp = r.rangePos != null ? r.rangePos : 0;
     const vr = r.volumeRatio != null ? Math.min(r.volumeRatio, 10) : 0;
@@ -14070,14 +14089,29 @@ function buildPriorityList() {
   }
 }
 
+function updatePriorityListFilter() {
+  const valueRaw  = document.getElementById('prl-min-value')?.value;
+  const avgVolRaw = document.getElementById('prl-min-avgvol')?.value;
+  prlMinValue  = valueRaw  !== '' && valueRaw  != null ? Number(valueRaw)  : null;
+  prlMinAvgVol = avgVolRaw !== '' && avgVolRaw != null ? Number(avgVolRaw) : null;
+  buildPriorityList();
+}
+
 function renderPriorityList() {
   const wrap  = document.getElementById('prl-list');
   const count = document.getElementById('prl-count');
   if (!wrap) return;
-  if (count) count.textContent = prlRows.length + ' issues';
+  if (count) {
+    const filterActive = prlMinValue != null || prlMinAvgVol != null;
+    count.textContent = filterActive
+      ? `${prlRows.length} of ${prlTotalCount} issues`
+      : `${prlRows.length} issues`;
+  }
 
   if (!prlRows.length) {
-    wrap.innerHTML = '<div class="pse-panel-empty">No issues on today\'s Near Weekly High or Volume Surge lists.</div>';
+    wrap.innerHTML = prlTotalCount > 0
+      ? '<div class="pse-panel-empty">No issues match the current filters.</div>'
+      : '<div class="pse-panel-empty">No issues on today\'s Near Weekly High or Volume Surge lists.</div>';
     return;
   }
 
@@ -14111,7 +14145,7 @@ async function loadPriorityChart(ticker) {
   try {
     const ckey = `${ticker}|d`;
     if (!_pseBarsCache[ckey]) _pseBarsCache[ckey] = await fetchPSEBars(ticker, 'd');
-    renderOHLCChart(canvas, _pseBarsCache[ckey], { maxBars: 126 });
+    renderOHLCChart(canvas, _pseBarsCache[ckey], { maxBars: 252 });
   } catch (e) {
     console.warn(`[Priority list] ${ticker}:`, e.message);
     const parent = canvas.parentElement;
