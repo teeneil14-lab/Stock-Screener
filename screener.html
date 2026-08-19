@@ -3158,6 +3158,68 @@
   .pse-neg  { color: var(--red); }
   .pse-mute { color: var(--text3); }
 
+  /* ── PRIORITY LIST TAB ──────────────────────────────────────────────────── */
+  .prl-page {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: var(--bg);
+  }
+  .prl-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg2);
+    flex-shrink: 0;
+  }
+  .prl-body {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    overflow: hidden;
+  }
+  .prl-list-panel {
+    flex: 0 0 33%;
+    max-width: 33%;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+  }
+  .prl-chart-panel {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .prl-chart-container {
+    flex: 1;
+    min-height: 0;
+    position: relative;
+  }
+  .prl-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--bg2);
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+  .prl-row:hover  { background: rgba(10,124,78,0.04); }
+  .prl-row.active { background: var(--green-dim); }
+  .prl-rank {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    color: var(--text3);
+    width: 18px;
+    flex-shrink: 0;
+    text-align: right;
+  }
+  .prl-sym-wrap  { flex: 1; min-width: 0; }
+  .prl-badges    { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; flex-shrink: 0; }
+
   /* ── PSE SECTOR STRIP ───────────────────────────────────────────────────── */
   .pse-sector-strip {
     padding: 16px 24px 0;
@@ -3582,6 +3644,7 @@
   <button class="tab-btn" id="tab-btn-listqa" onclick="switchTab('listqa')">Watchlist Check</button>
   <button class="tab-btn" id="tab-btn-psedaily" onclick="switchTab('psedaily')" style="display:none">PSE Daily</button>
   <button class="tab-btn" id="tab-btn-marketperf" onclick="switchTab('marketperf')" style="display:none">Market Performance</button>
+  <button class="tab-btn" id="tab-btn-prioritylist" onclick="switchTab('prioritylist')" style="display:none">Priority List</button>
   <div class="tab-search-wrap">
     <input type="text" id="tab-search-input" class="tab-search-input" placeholder="AAPL or AVGO, AAPL, SMCI…"
       oninput="tabSearchOnInput()" onkeydown="if(event.key==='Enter')tabSearchGo()" />
@@ -4115,6 +4178,34 @@
   <div id="pse-sector-strip" class="pse-sector-strip" style="display:none"></div>
   <div id="pse-panels" class="pse-panels" style="display:none"></div>
 </div><!-- /tab-psedaily -->
+
+<!-- PRIORITY LIST TAB (PH) -->
+<div id="tab-prioritylist" class="tab-page" style="display:none">
+  <div class="prl-page">
+    <div class="prl-toolbar">
+      <div class="mtl-toolbar-left">
+        <div class="mtl-title">Priority List</div>
+        <div class="mtl-updated" id="prl-count">Not loaded</div>
+      </div>
+      <div class="mtl-toolbar-right">
+        <button class="mtl-refresh-btn" id="prl-refresh-btn" onclick="runPSEScan()">↻ REFRESH</button>
+      </div>
+    </div>
+    <div class="prl-body">
+      <div class="prl-list-panel" id="prl-list">
+        <div class="pse-panel-empty">Loading PSE daily lists…</div>
+      </div>
+      <div class="prl-chart-panel">
+        <div class="mtl-chart-header">
+          <div class="mtl-chart-label" id="prl-chart-symbol">Select a ticker</div>
+        </div>
+        <div class="prl-chart-container">
+          <canvas id="prl-chart-canvas"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+</div><!-- /tab-prioritylist -->
 
 <!-- MARKET PERFORMANCE TAB (PH) -->
 <div id="tab-marketperf" class="tab-page" style="display:none">
@@ -9541,7 +9632,7 @@ let _tweeklyMOChart    = null;
 let _tweeklyMOChartRO  = null;
 
 function switchTab(tab) {
-  ['screener','sectors','imap','picks','tweekly','timeline','listqa','psedaily','marketperf'].forEach(t => {
+  ['screener','sectors','imap','picks','tweekly','timeline','listqa','psedaily','marketperf','prioritylist'].forEach(t => {
     const page = document.getElementById(`tab-${t}`);
     const btn  = document.getElementById(`tab-btn-${t}`);
     if (page) page.style.display = tab === t ? '' : 'none';
@@ -9554,6 +9645,16 @@ function switchTab(tab) {
   if (tab === 'listqa'    && !listQaLoaded    && marketMode !== 'PH') loadListQA(false);
   if (tab === 'psedaily'   && Date.now() - pseDailyLoadedAt   > TAB_REFRESH_MS) runPSEScan();
   if (tab === 'marketperf' && marketMode === 'PH' && Date.now() - marketPerfLoadedAt > TAB_REFRESH_MS) loadMarketPerformance();
+  if (tab === 'prioritylist') {
+    if (Date.now() - pseDailyLoadedAt > TAB_REFRESH_MS) {
+      runPSEScan();
+    } else {
+      buildPriorityList();
+      // Re-draw even if the active ticker didn't change — a build that happened
+      // while this pane was hidden would have rendered onto a 0-size canvas.
+      if (prlActiveTicker) loadPriorityChart(prlActiveTicker);
+    }
+  }
   if (tab === 'picks') {
     _destroyAnalyticsCharts();
     _syncPicksToolbar();
@@ -9600,6 +9701,8 @@ function switchMarket(mode) {
   if (pseDailyBtn) pseDailyBtn.style.display = mode === 'PH' ? '' : 'none';
   const marketPerfBtn = document.getElementById('tab-btn-marketperf');
   if (marketPerfBtn) marketPerfBtn.style.display = mode === 'PH' ? '' : 'none';
+  const priorityListBtn = document.getElementById('tab-btn-prioritylist');
+  if (priorityListBtn) priorityListBtn.style.display = mode === 'PH' ? '' : 'none';
   marketPerfLoadedAt = 0;
   sectorsLoaded     = false;
   imapLoaded        = false;
@@ -13932,7 +14035,102 @@ function renderPSEPanels(data) {
     .filter(s => s.netForeign != null && s.netForeign > 0));
 
   renderPSEPanelsHTML();
+  buildPriorityList();
 }
+
+// ── PRIORITY LIST ─────────────────────────────────────────────────────────
+// Combines the "Near Weekly High" and "Volume Surge" PSE Daily lists into one
+// ranked list — tickers strong on both counts float to the top. Score blends
+// weekly-range position (0-100%) and volume ratio (capped at 10x) 50/50.
+let prlRows          = [];
+let prlActiveTicker  = null;
+
+function buildPriorityList() {
+  const map = new Map();
+  pseHighRows.forEach(s => map.set(s.symbol, Object.assign({}, map.get(s.symbol), {
+    symbol: s.symbol, name: s.name, rangePos: s.rangePos,
+  })));
+  pseVolRows.forEach(s => map.set(s.symbol, Object.assign({}, map.get(s.symbol), {
+    symbol: s.symbol, name: s.name, volumeRatio: s.volumeRatio,
+  })));
+
+  const rows = Array.from(map.values());
+  rows.forEach(r => {
+    const rp = r.rangePos != null ? r.rangePos : 0;
+    const vr = r.volumeRatio != null ? Math.min(r.volumeRatio, 10) : 0;
+    r.prlScore = (rp / 100) * 0.5 + (vr / 10) * 0.5;
+  });
+  rows.sort((a, b) => b.prlScore - a.prlScore);
+
+  prlRows = rows;
+  renderPriorityList();
+
+  if (rows.length && !rows.some(r => r.symbol === prlActiveTicker)) {
+    selectPriorityTicker(rows[0].symbol);
+  }
+}
+
+function renderPriorityList() {
+  const wrap  = document.getElementById('prl-list');
+  const count = document.getElementById('prl-count');
+  if (!wrap) return;
+  if (count) count.textContent = prlRows.length + ' issues';
+
+  if (!prlRows.length) {
+    wrap.innerHTML = '<div class="pse-panel-empty">No issues on today\'s Near Weekly High or Volume Surge lists.</div>';
+    return;
+  }
+
+  wrap.innerHTML = prlRows.map((s, i) => {
+    const badges = [];
+    if (s.rangePos != null) badges.push(`<span class="pse-chip pse-chip-blue" title="Weekly range position">${s.rangePos}% WK</span>`);
+    if (s.volumeRatio != null) {
+      const cls = s.volumeRatio >= 5 ? 'pse-chip-red' : s.volumeRatio >= 3 ? 'pse-chip-amber' : 'pse-chip-blue';
+      badges.push(`<span class="pse-chip ${cls}" title="Volume vs. 5-day average">${s.volumeRatio}× VOL</span>`);
+    }
+    const active = s.symbol === prlActiveTicker ? ' active' : '';
+    return `<div class="prl-row${active}" data-ticker="${s.symbol}" onclick="selectPriorityTicker('${s.symbol}')">
+      <div class="prl-rank">${i + 1}</div>
+      <div class="prl-sym-wrap"><span class="pse-sym">${s.symbol}</span><span class="pse-co">${s.name || ''}</span></div>
+      <div class="prl-badges">${badges.join('')}</div>
+    </div>`;
+  }).join('');
+}
+
+function selectPriorityTicker(ticker) {
+  prlActiveTicker = ticker;
+  document.querySelectorAll('#prl-list .prl-row').forEach(r => r.classList.toggle('active', r.dataset.ticker === ticker));
+  const label = document.getElementById('prl-chart-symbol');
+  if (label) label.textContent = ticker;
+  loadPriorityChart(ticker);
+}
+
+async function loadPriorityChart(ticker) {
+  const canvas = document.getElementById('prl-chart-canvas');
+  if (!canvas) return;
+  try {
+    const ckey = `${ticker}|d`;
+    if (!_pseBarsCache[ckey]) _pseBarsCache[ckey] = await fetchPSEBars(ticker, 'd');
+    renderOHLCChart(canvas, _pseBarsCache[ckey], { maxBars: 126 });
+  } catch (e) {
+    console.warn(`[Priority list] ${ticker}:`, e.message);
+    const parent = canvas.parentElement;
+    const W = parent?.offsetWidth  || 300;
+    const H = parent?.offsetHeight || 200;
+    canvas.width = W; canvas.height = H;
+    canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#f4f5f7'; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#aaa'; ctx.font = '11px "IBM Plex Mono"';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(`No data for ${ticker}`, W / 2, H / 2);
+  }
+}
+
+window.addEventListener('resize', () => {
+  const page = document.getElementById('tab-prioritylist');
+  if (page && page.style.display !== 'none' && prlActiveTicker) loadPriorityChart(prlActiveTicker);
+});
 
 function pseSortRows(rows, col, dir) {
   return rows.slice().sort((a, b) => {
