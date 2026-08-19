@@ -8073,7 +8073,9 @@ async function _addSinglePickWorker(ticker, starredAt) {
   };
   let saveOk = false;
   getActiveSetupIds().forEach(sid => {
-    const existing = loadLiked(sid).filter(l => l.ticker !== ticker);
+    // Only drop an exact duplicate (same ticker + same date) — every other dated
+    // entry for this ticker is a separate pick and must be kept.
+    const existing = loadLiked(sid).filter(l => !(l.ticker === ticker && l.starredAt === starredAt));
     const scored   = scoreStock(r, sid);
     const criteriaVector = {};
     SETUPS[sid].criteria.forEach(c => { criteriaVector[c.id] = scored.criteriaScores?.[c.id]?.raw ?? 0; });
@@ -10663,32 +10665,163 @@ function _expandBars(bars) {
 // don't decompress + parse the localStorage blob every time.
 const _likedCache = {};
 
+// A pick's chart snapshot (name/price/sector/daily-weekly-monthly bars) is identical
+// no matter which setup it's filed under, so it's kept once here — keyed by
+// ticker+starredAt — instead of being duplicated inside every setup's own storage key.
+// Only score/tfNorm/criteriaVector actually differ per setup; those stay in
+// cts_liked_setup_<id>. Old saves (a full duplicate per setup) are migrated into this
+// shape the first time they're read — see the migration block in loadLiked() below.
+let _sharedBarsCache = null;
+function _pickRefKey(ticker, starredAt) { return `${ticker}|${starredAt}`; }
+
+function _loadSharedBarsMap() {
+  if (_sharedBarsCache) return _sharedBarsCache;
+  const map = new Map();
+  try {
+    const raw = localStorage.getItem('cts_picks_bars') || '[]';
+    const str = LZString.decompressFromBase64(raw) || raw;
+    JSON.parse(str).forEach(e => {
+      map.set(_pickRefKey(e.ticker, e.starredAt), {
+        ticker:      e.ticker,
+        name:        e.name,
+        starredAt:   e.starredAt,
+        price:       e.price,
+        sectorBonus: e.sectorBonus || 0,
+        sectorName:  e.sectorName  || '',
+        dailyBars:   _expandBars(e.dailyBars),
+        weeklyBars:  _expandBars(e.weeklyBars),
+        monthlyBars: _expandBars(e.monthlyBars),
+      });
+    });
+  } catch {}
+  _sharedBarsCache = map;
+  return map;
+}
+
+function _saveSharedBarsMap(map) {
+  try {
+    const compact = Array.from(map.values()).map(e => ({
+      ...e,
+      dailyBars:   _compactBars(e.dailyBars),
+      weeklyBars:  _compactBars(e.weeklyBars),
+      monthlyBars: _compactBars(e.monthlyBars),
+    }));
+    localStorage.setItem('cts_picks_bars', LZString.compressToBase64(JSON.stringify(compact)));
+    _sharedBarsCache = map;
+    return true;
+  } catch (e) {
+    console.error('[saveSharedBarsMap] localStorage write failed:', e);
+    return false;
+  }
+}
+
+// Drops any shared chart snapshot no longer referenced by ANY setup's pick list
+// (e.g. after a pick was removed), then persists the shared pool.
+function _gcSharedBars(map) {
+  const referenced = new Set();
+  [1, 2, 'ph'].forEach(sid => {
+    try {
+      const raw = localStorage.getItem(`cts_liked_setup_${sid}`) || '[]';
+      const str = LZString.decompressFromBase64(raw) || raw;
+      JSON.parse(str).forEach(e => referenced.add(_pickRefKey(e.ticker, e.starredAt)));
+    } catch {}
+  });
+  Array.from(map.keys()).forEach(k => { if (!referenced.has(k)) map.delete(k); });
+  return _saveSharedBarsMap(map);
+}
+
 function loadLiked(setupId) {
   if (_likedCache[setupId]) return _likedCache[setupId];
   try {
     const raw = localStorage.getItem(`cts_liked_setup_${setupId}`) || '[]';
     // Decompress if compressed (decompressFromBase64 returns null for plain JSON)
     const str = LZString.decompressFromBase64(raw) || raw;
-    const arr = JSON.parse(str).map(e => ({
-      ...e,
-      dailyBars:   _expandBars(e.dailyBars),
-      weeklyBars:  _expandBars(e.weeklyBars),
-      monthlyBars: _expandBars(e.monthlyBars),
-    }));
+    const stored = JSON.parse(str);
+    const sharedMap = _loadSharedBarsMap();
+
+    // One-time migration: entries saved before the dedup change carry their
+    // full chart snapshot directly. Lift that into the shared pool so it isn't
+    // stored twice (once per setup) from now on.
+    let migrated = false;
+    stored.forEach(e => {
+      if (e.dailyBars || e.weeklyBars || e.monthlyBars) {
+        migrated = true;
+        const key = _pickRefKey(e.ticker, e.starredAt);
+        if (!sharedMap.has(key)) {
+          sharedMap.set(key, {
+            ticker:      e.ticker,
+            name:        e.name,
+            starredAt:   e.starredAt,
+            price:       e.price,
+            sectorBonus: e.sectorBonus || 0,
+            sectorName:  e.sectorName  || '',
+            dailyBars:   _expandBars(e.dailyBars),
+            weeklyBars:  _expandBars(e.weeklyBars),
+            monthlyBars: _expandBars(e.monthlyBars),
+          });
+        }
+      }
+    });
+
+    const arr = stored.map(e => {
+      const shared = sharedMap.get(_pickRefKey(e.ticker, e.starredAt)) || {};
+      return {
+        ticker:         e.ticker,
+        starredAt:      e.starredAt,
+        setupId:        e.setupId,
+        score:          e.score,
+        tfNorm:         e.tfNorm || {},
+        criteriaVector: e.criteriaVector || {},
+        name:           shared.name ?? e.name,
+        price:          shared.price ?? e.price,
+        sectorBonus:    shared.sectorBonus ?? e.sectorBonus ?? 0,
+        sectorName:     shared.sectorName  ?? e.sectorName  ?? '',
+        dailyBars:      shared.dailyBars   || [],
+        weeklyBars:     shared.weeklyBars  || [],
+        monthlyBars:    shared.monthlyBars || [],
+      };
+    });
+
     _likedCache[setupId] = arr;
+
+    if (migrated) {
+      _saveSharedBarsMap(sharedMap);
+      saveLiked(setupId, arr); // re-save this pool in the new slim (deduplicated) format
+    }
+
     return arr;
   } catch { return []; }
 }
 
 function saveLiked(setupId, arr) {
   try {
-    const compact = arr.map(e => ({
-      ...e,
-      dailyBars:   _compactBars(e.dailyBars),
-      weeklyBars:  _compactBars(e.weeklyBars),
-      monthlyBars: _compactBars(e.monthlyBars),
+    const sharedMap = _loadSharedBarsMap();
+    arr.forEach(e => {
+      sharedMap.set(_pickRefKey(e.ticker, e.starredAt), {
+        ticker:      e.ticker,
+        name:        e.name,
+        starredAt:   e.starredAt,
+        price:       e.price,
+        sectorBonus: e.sectorBonus || 0,
+        sectorName:  e.sectorName  || '',
+        dailyBars:   e.dailyBars   || [],
+        weeklyBars:  e.weeklyBars  || [],
+        monthlyBars: e.monthlyBars || [],
+      });
+    });
+
+    const slim = arr.map(e => ({
+      ticker:         e.ticker,
+      starredAt:      e.starredAt,
+      setupId:        e.setupId,
+      score:          e.score,
+      tfNorm:         e.tfNorm || {},
+      criteriaVector: e.criteriaVector || {},
     }));
-    localStorage.setItem(`cts_liked_setup_${setupId}`, LZString.compressToBase64(JSON.stringify(compact)));
+    localStorage.setItem(`cts_liked_setup_${setupId}`, LZString.compressToBase64(JSON.stringify(slim)));
+
+    if (!_gcSharedBars(sharedMap)) return false;
+
     _likedCache[setupId] = arr; // only sync the in-memory copy once the write actually succeeded
     return true;
   } catch (e) {
