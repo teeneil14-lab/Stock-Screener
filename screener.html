@@ -12185,7 +12185,10 @@ function _addChartEndLabels(chart, seriesList, containerEl) {
   // Times are 'YYYY-MM-DD' strings — sort lexicographically to find the latest.
   const globalLastTime = seriesList.map(s => s.lastTime).sort().at(-1);
 
-  function draw() {
+  // Renders labels pinned at the fixed right-edge x, ranked/stacked vertically
+  // by whatever value getValue() returns per series. Hovering re-ranks the
+  // labels by swapping in the value at the hovered time — the x never moves.
+  function renderLabels(getValue) {
     overlay.innerHTML = '';
     const h = containerEl.offsetHeight;
 
@@ -12194,13 +12197,15 @@ function _addChartEndLabels(chart, seriesList, containerEl) {
     const xn = Math.round(sharedX);
 
     const items = [];
-    seriesList.forEach(({ series, lastValue, label, color }) => {
+    seriesList.forEach((s) => {
       try {
-        const y = series.priceToCoordinate(lastValue);
+        const value = getValue(s);
+        if (value == null || isNaN(value)) return;
+        const y = s.series.priceToCoordinate(value);
         if (y == null || isNaN(y)) return;
         const yn = Math.round(y);
         if (yn < 0 || yn > h) return;
-        items.push({ y: yn, label, color });
+        items.push({ y: yn, label: s.label, color: s.color });
       } catch {}
     });
 
@@ -12234,9 +12239,24 @@ function _addChartEndLabels(chart, seriesList, containerEl) {
     });
   }
 
+  function drawDefault() {
+    renderLabels(s => s.lastValue);
+  }
+
+  // On hover, re-rank labels using each series' value at the hovered time;
+  // when the cursor leaves the chart, fall back to the latest-value ranking.
+  chart.subscribeCrosshairMove((param) => {
+    if (!param.point || !param.time) { drawDefault(); return; }
+    renderLabels((s) => {
+      const d = param.seriesData.get(s.series);
+      if (d == null) return null;
+      return typeof d.value === 'number' ? d.value : d.close;
+    });
+  });
+
   // Initial render (slight delay lets the chart finish its first paint)
-  setTimeout(draw, 120);
-  chart.timeScale().subscribeVisibleTimeRangeChange(draw);
+  setTimeout(drawDefault, 120);
+  chart.timeScale().subscribeVisibleTimeRangeChange(drawDefault);
 }
 
 function renderTweeklyYTD(seriesData) {
