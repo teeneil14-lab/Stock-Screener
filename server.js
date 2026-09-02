@@ -30,6 +30,47 @@ function setCache(key, status, body) {
   yfCache.set(key, { ts: Date.now(), status, body });
 }
 
+// ─── Market report (Golden Hotpot HQ) proxy ──────────────────────────────────
+// Scrapes the daily trading-report site for that date's US Macro/Company news
+// slides. Each archived page embeds its full data as `const REPORT = {...};`
+// inline in the HTML — no JS rendering needed, just fetch + regex + JSON.parse.
+const marketReportCache = new Map(); // key = 'YYYY-MM-DD', value = { ts, data }
+const MARKET_REPORT_TTL = 30 * 60 * 1000; // 30 minutes
+const MARKET_REPORT_HOST = 'trading-slides-site-production.up.railway.app';
+
+async function fetchMarketReport(dateStr) {
+  const cached = marketReportCache.get(dateStr);
+  if (cached && Date.now() - cached.ts < MARKET_REPORT_TTL) return cached.data;
+
+  const reportUrl = `https://${MARKET_REPORT_HOST}/archive/${dateStr}.html`;
+  const raw = await rawHttpsGet({
+    hostname: MARKET_REPORT_HOST,
+    path: `/archive/${dateStr}.html`,
+    headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'text/html' },
+  });
+
+  let data;
+  if (raw.status === 404) {
+    data = { found: false };
+  } else if (raw.status !== 200) {
+    throw new Error(`HTTP ${raw.status}`);
+  } else {
+    const m = raw.body.match(/const REPORT = (\{.*\});/);
+    if (!m) throw new Error('REPORT data not found in page');
+    const parsed = JSON.parse(m[1]);
+    data = {
+      found: true,
+      date: parsed.report_date || dateStr,
+      reportUrl,
+      macroNews: (parsed.slide4_us_macro || {}).macro_news || [],
+      companyNews: (parsed.slide5_us_company || {}).company_news || [],
+    };
+  }
+
+  marketReportCache.set(dateStr, { ts: Date.now(), data });
+  return data;
+}
+
 // ─── PSE EOD PDF scraper ─────────────────────────────────────────────────────
 
 const pseCache = new Map(); // key = 'YYYY-MM-DD', value = { ts, stocks }
@@ -1274,6 +1315,24 @@ const server = http.createServer(async (req, res) => {
       return res.end(JSON.stringify({ date, sectors }));
     } catch (e) {
       console.error(`[PSE sectors] ${e.message}`);
+      res.writeHead(502, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: e.message }));
+    }
+  }
+
+  // ── Market report (Golden Hotpot HQ): daily US Macro/Company news for the Timeline hover panel
+  if (reqUrl.pathname === '/api/market-report') {
+    const date = reqUrl.searchParams.get('date') || '';
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: 'date must be YYYY-MM-DD' }));
+    }
+    try {
+      const data = await fetchMarketReport(date);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify(data));
+    } catch (e) {
+      console.error(`[market-report] ${date}: ${e.message}`);
       res.writeHead(502, { 'Content-Type': 'application/json' });
       return res.end(JSON.stringify({ error: e.message }));
     }
