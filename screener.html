@@ -4115,8 +4115,8 @@
         <div class="tweekly-updated" id="tweekly-updated">Not loaded</div>
       </div>
       <div class="tweekly-toolbar-right">
-        <input type="text" id="tweekly-add-input" class="tweekly-tb-input" placeholder="+ Add ticker"
-               onkeydown="if(event.key==='Enter')addTweeklyYTDTicker()" title="Add ticker to YTD/1-Month tracking list" />
+        <input type="text" id="tweekly-add-input" class="tweekly-tb-input" placeholder="+ Add ticker(s)"
+               onkeydown="if(event.key==='Enter')addTweeklyYTDTicker()" title="Add ticker(s) to YTD/1-Month tracking list — separate multiple with space or comma" />
         <input type="text" id="tweekly-remove-input" class="tweekly-tb-input" placeholder="− Remove ticker"
                onkeydown="if(event.key==='Enter')removeTweeklyYTDTicker()" title="Remove ticker from YTD/1-Month tracking list" />
         <button class="tweekly-cam-btn" id="tweekly-cam-btn" onclick="screenshotTweekly()" title="Screenshot to clipboard">
@@ -12208,11 +12208,18 @@ function addTweeklyYTDTicker() {
   const input = document.getElementById('tweekly-add-input');
   const raw = input.value.trim().toUpperCase();
   input.value = '';
-  if (!raw || !/^[A-Z0-9.\-^=]{1,10}$/.test(raw)) return;
-  if (YTD_PERF_TICKERS.some(t => t.label === raw)) return;
-  YTD_PERF_TICKERS.push({ label: raw, yf: raw });
-  saveTweeklyYTDTickerList();
-  loadTweeklyYTD(true);
+  if (!raw) return;
+  let added = false;
+  raw.split(/[\s,]+/).filter(Boolean).forEach(tk => {
+    if (!/^[A-Z0-9.\-^=]{1,10}$/.test(tk)) return;
+    if (YTD_PERF_TICKERS.some(t => t.label === tk)) return;
+    YTD_PERF_TICKERS.push({ label: tk, yf: tk });
+    added = true;
+  });
+  if (added) {
+    saveTweeklyYTDTickerList();
+    loadTweeklyYTD(true);
+  }
 }
 
 function removeTweeklyYTDTicker() {
