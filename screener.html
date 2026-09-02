@@ -3447,11 +3447,36 @@
     position: relative;
   }
 
+  /* Drag handle between the charts and the hover panel */
+  .mtl-resizer {
+    flex: 0 0 7px;
+    background: var(--bg2);
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    cursor: row-resize;
+    position: relative;
+    touch-action: none;
+  }
+  .mtl-resizer::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 34px;
+    height: 3px;
+    border-radius: 2px;
+    background: var(--border2);
+  }
+  .mtl-resizer:hover,
+  .mtl-resizer.dragging { background: var(--green-dim); }
+  .mtl-resizer:hover::after,
+  .mtl-resizer.dragging::after { background: var(--accent); }
+
   /* HOVER PANEL */
   .mtl-hover-panel {
     flex: 0 0 220px;
     background: var(--bg2);
-    border-top: 2px solid var(--border);
     overflow-y: auto;
     padding: 0;
   }
@@ -4342,6 +4367,7 @@
           <div class="mtl-chart-container" id="mtl-container-bot"></div>
         </div>
       </div>
+      <div class="mtl-resizer" id="mtl-resizer" title="Drag to resize"></div>
       <!-- Panel — populated on hover (or locked to a clicked day) -->
       <div class="mtl-hover-panel" id="mtl-hover-panel">
         <div class="mtl-hover-empty" id="mtl-hover-empty">Hover over the chart — click any day to pin it</div>
@@ -14582,6 +14608,60 @@ let _mtlSectorBarsLoading = false;
 let _mtlLastClickSec     = null;
 let _mtlActiveHoverSec   = null;
 let _mtlNewsCache        = {}; // { 'YYYY-MM-DD': {loading:true} | {found:false} | {found:true, macroNews, companyNews, reportUrl} }
+
+// ── Drag-to-resize between the charts and the hover panel below ─────────────
+(function _mtlInitResizer() {
+  const resizer = document.getElementById('mtl-resizer');
+  const panel   = document.getElementById('mtl-hover-panel');
+  const body    = document.querySelector('#tab-timeline .mtl-body');
+  if (!resizer || !panel || !body) return;
+
+  const MIN_PANEL_H  = 90;   // never shrink the data panel below this
+  const MIN_CHARTS_H = 160;  // never shrink the charts below this
+
+  const saved = parseInt(localStorage.getItem('cts_mtl_panel_height'), 10);
+  if (saved > 0) panel.style.flexBasis = saved + 'px';
+
+  let dragging = false, startY = 0, startHeight = 0;
+
+  function clamp(h) {
+    const maxHeight = body.getBoundingClientRect().height - MIN_CHARTS_H - 7; // 7px resizer bar
+    return Math.max(MIN_PANEL_H, Math.min(h, Math.max(MIN_PANEL_H, maxHeight)));
+  }
+  function onMove(e) {
+    if (!dragging) return;
+    const y = e.touches ? e.touches[0].clientY : e.clientY;
+    panel.style.flexBasis = clamp(startHeight + (startY - y)) + 'px';
+    e.preventDefault();
+  }
+  function onUp() {
+    if (!dragging) return;
+    dragging = false;
+    resizer.classList.remove('dragging');
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+    localStorage.setItem('cts_mtl_panel_height', String(parseInt(panel.style.flexBasis, 10) || 220));
+    window.removeEventListener('mousemove', onMove);
+    window.removeEventListener('mouseup', onUp);
+    window.removeEventListener('touchmove', onMove);
+    window.removeEventListener('touchend', onUp);
+  }
+  function onDown(e) {
+    dragging     = true;
+    startY       = e.touches ? e.touches[0].clientY : e.clientY;
+    startHeight  = panel.getBoundingClientRect().height;
+    resizer.classList.add('dragging');
+    document.body.style.cursor    = 'row-resize';
+    document.body.style.userSelect = 'none';
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    window.addEventListener('touchmove', onMove, { passive: false });
+    window.addEventListener('touchend', onUp);
+    e.preventDefault();
+  }
+  resizer.addEventListener('mousedown', onDown);
+  resizer.addEventListener('touchstart', onDown, { passive: false });
+})();
 let _mtlSyncingCrosshair = false;
 let _mtlSyncingRange     = false;
 let _mtlBarsExtended     = false;   // true once 5y sector/industry data is fully loaded
