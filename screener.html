@@ -2825,6 +2825,20 @@
   }
   .tweekly-cam-btn:hover    { background: var(--green-dim); border-color: var(--accent); color: var(--accent); }
   .tweekly-cam-btn:disabled { opacity: 0.5; cursor: default; }
+  .tweekly-tb-input {
+    width: 118px;
+    height: 26px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    padding: 0 8px;
+    border: 1px solid var(--border2);
+    border-radius: 5px;
+    background: var(--bg3);
+    color: var(--text);
+    flex-shrink: 0;
+  }
+  .tweekly-tb-input::placeholder { color: var(--text3); }
+  .tweekly-tb-input:focus { outline: none; border-color: var(--accent); }
   .tweekly-body {
     flex: 1;
     overflow-y: auto;
@@ -4101,6 +4115,10 @@
         <div class="tweekly-updated" id="tweekly-updated">Not loaded</div>
       </div>
       <div class="tweekly-toolbar-right">
+        <input type="text" id="tweekly-add-input" class="tweekly-tb-input" placeholder="+ Add ticker"
+               onkeydown="if(event.key==='Enter')addTweeklyYTDTicker()" title="Add ticker to YTD/1-Month tracking list" />
+        <input type="text" id="tweekly-remove-input" class="tweekly-tb-input" placeholder="− Remove ticker"
+               onkeydown="if(event.key==='Enter')removeTweeklyYTDTicker()" title="Remove ticker from YTD/1-Month tracking list" />
         <button class="tweekly-cam-btn" id="tweekly-cam-btn" onclick="screenshotTweekly()" title="Screenshot to clipboard">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
@@ -12031,7 +12049,7 @@ function refreshActiveTweeklyTab() {
 
 // ── YTD & 1-Month Performance ───────────────────────────────────────────────
 
-const YTD_PERF_TICKERS = [
+const YTD_PERF_TICKERS_DEFAULT = [
   { label: 'XLK',    yf: 'XLK'    },
   { label: 'XLF',    yf: 'XLF'    },
   { label: 'XLE',    yf: 'XLE'    },
@@ -12065,6 +12083,21 @@ const YTD_PERF_TICKERS = [
   { label: 'VNM',    yf: 'VNM'    },
   { label: 'IWM',    yf: 'IWM'    },
 ];
+
+function loadTweeklyYTDTickerList() {
+  try {
+    const raw = localStorage.getItem('cts_tweekly_ytd_tickers');
+    const parsed = raw && JSON.parse(raw);
+    if (Array.isArray(parsed) && parsed.length) return parsed;
+  } catch {}
+  return YTD_PERF_TICKERS_DEFAULT.map(t => ({ ...t }));
+}
+
+function saveTweeklyYTDTickerList() {
+  try { localStorage.setItem('cts_tweekly_ytd_tickers', JSON.stringify(YTD_PERF_TICKERS)); } catch {}
+}
+
+let YTD_PERF_TICKERS = loadTweeklyYTDTickerList();
 
 const YTD_COLORS = [
   '#1565c0', '#c62828', '#2e7d32', '#e65100', '#6a1b9a',
@@ -12169,6 +12202,30 @@ async function loadTweeklyYTD(force) {
   renderTweeklyYTD(seriesData);
   updated.textContent = 'Updated ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   btn.disabled = false;
+}
+
+function addTweeklyYTDTicker() {
+  const input = document.getElementById('tweekly-add-input');
+  const raw = input.value.trim().toUpperCase();
+  input.value = '';
+  if (!raw || !/^[A-Z0-9.\-^=]{1,10}$/.test(raw)) return;
+  if (YTD_PERF_TICKERS.some(t => t.label === raw)) return;
+  YTD_PERF_TICKERS.push({ label: raw, yf: raw });
+  saveTweeklyYTDTickerList();
+  loadTweeklyYTD(true);
+}
+
+function removeTweeklyYTDTicker() {
+  const input = document.getElementById('tweekly-remove-input');
+  const raw = input.value.trim().toUpperCase();
+  input.value = '';
+  if (!raw) return;
+  const before = YTD_PERF_TICKERS.length;
+  YTD_PERF_TICKERS = YTD_PERF_TICKERS.filter(t => t.label !== raw);
+  if (YTD_PERF_TICKERS.length !== before) {
+    saveTweeklyYTDTickerList();
+    loadTweeklyYTD(true);
+  }
 }
 
 // Place a floating ticker label at the last visible point of each line series.
