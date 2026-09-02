@@ -4117,8 +4117,8 @@
       <div class="tweekly-toolbar-right">
         <input type="text" id="tweekly-add-input" class="tweekly-tb-input" placeholder="+ Add ticker(s)"
                onkeydown="if(event.key==='Enter')addTweeklyYTDTicker()" title="Add ticker(s) to YTD/1-Month tracking list — separate multiple with space or comma" />
-        <input type="text" id="tweekly-remove-input" class="tweekly-tb-input" placeholder="− Remove ticker"
-               onkeydown="if(event.key==='Enter')removeTweeklyYTDTicker()" title="Remove ticker from YTD/1-Month tracking list" />
+        <input type="text" id="tweekly-remove-input" class="tweekly-tb-input" placeholder="− Remove ticker(s)"
+               onkeydown="if(event.key==='Enter')removeTweeklyYTDTicker()" title="Remove ticker(s) from YTD/1-Month tracking list — separate multiple with space or comma" />
         <button class="tweekly-cam-btn" id="tweekly-cam-btn" onclick="screenshotTweekly()" title="Screenshot to clipboard">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
@@ -12227,8 +12227,9 @@ function removeTweeklyYTDTicker() {
   const raw = input.value.trim().toUpperCase();
   input.value = '';
   if (!raw) return;
+  const toRemove = new Set(raw.split(/[\s,]+/).filter(Boolean));
   const before = YTD_PERF_TICKERS.length;
-  YTD_PERF_TICKERS = YTD_PERF_TICKERS.filter(t => t.label !== raw);
+  YTD_PERF_TICKERS = YTD_PERF_TICKERS.filter(t => !toRemove.has(t.label));
   if (YTD_PERF_TICKERS.length !== before) {
     saveTweeklyYTDTickerList();
     loadTweeklyYTD(true);
