@@ -3594,7 +3594,6 @@
   .mtl-breadth-key  { font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: var(--text3); }
   .mtl-breadth-val  { font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; font-weight: 700; }
   .mtl-news-block { border-top: 1px solid var(--border); padding-top: 5px; margin-top: 2px; }
-  .mtl-news-list  { margin-bottom: 6px; }
   .mtl-news-item {
     display: block;
     padding: 4px 0;
@@ -4383,8 +4382,16 @@
                 <span id="mtl-breadth-snapshot" style="font-size:9px;color:var(--text3);font-family:'Inter',sans-serif">Run breadth scan in Sector tab first</span>
               </div>
               <div class="mtl-news-block">
-                <div class="mtl-hover-section-title">Daily News <span style="color:var(--text3);font-size:7px;font-weight:400">▶ click a headline for the full report</span></div>
-                <div id="mtl-news-section"><div class="mtl-no-data">Hover a day to load news</div></div>
+                <div class="mtl-hover-si-grid">
+                  <div class="mtl-hover-section">
+                    <div class="mtl-hover-section-title">Macro News <span style="color:var(--text3);font-size:7px;font-weight:400">▶ click for full report</span></div>
+                    <div id="mtl-news-macro"><div class="mtl-no-data">Hover a day to load news</div></div>
+                  </div>
+                  <div class="mtl-hover-section">
+                    <div class="mtl-hover-section-title">Company News</div>
+                    <div id="mtl-news-company"><div class="mtl-no-data">Hover a day to load news</div></div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -14964,14 +14971,6 @@ function _mtlRenderNewsList(items, reportUrl) {
   }).join('');
 }
 
-function _mtlRenderNews(report) {
-  return (
-    `<div class="mtl-hover-section-title" style="margin-bottom:3px">Macro News</div>` +
-    `<div class="mtl-news-list">${_mtlRenderNewsList(report.macroNews, report.reportUrl)}</div>` +
-    `<div class="mtl-hover-section-title" style="margin-bottom:3px">Company News</div>` +
-    `<div class="mtl-news-list">${_mtlRenderNewsList(report.companyNews, report.reportUrl)}</div>`
-  );
-}
 
 function _mtlPopulateHover(timeSec) {
   _mtlActiveHoverSec = timeSec;
@@ -15076,18 +15075,20 @@ function _mtlPopulateHover(timeSec) {
   }
 
   // ── DAILY NEWS (Golden Hotpot HQ report) ─────────────────────────────────
-  const newsEl = document.getElementById('mtl-news-section');
-  if (newsEl) {
+  const macroEl   = document.getElementById('mtl-news-macro');
+  const companyEl = document.getElementById('mtl-news-company');
+  if (macroEl && companyEl) {
     const cached = _mtlNewsCache[dateStr];
-    if (!cached) {
-      _mtlLoadNewsForDate(dateStr);
-      newsEl.innerHTML = '<div class="mtl-no-data">Loading news…</div>';
-    } else if (cached.loading) {
-      newsEl.innerHTML = '<div class="mtl-no-data">Loading news…</div>';
+    if (!cached || cached.loading) {
+      if (!cached) _mtlLoadNewsForDate(dateStr);
+      macroEl.innerHTML   = '<div class="mtl-no-data">Loading news…</div>';
+      companyEl.innerHTML = '<div class="mtl-no-data">Loading news…</div>';
     } else if (!cached.found) {
-      newsEl.innerHTML = '<div class="mtl-no-data">No report for this date</div>';
+      macroEl.innerHTML   = '<div class="mtl-no-data">No report for this date</div>';
+      companyEl.innerHTML = '<div class="mtl-no-data">No report for this date</div>';
     } else {
-      newsEl.innerHTML = _mtlRenderNews(cached);
+      macroEl.innerHTML   = _mtlRenderNewsList(cached.macroNews, cached.reportUrl);
+      companyEl.innerHTML = _mtlRenderNewsList(cached.companyNews, cached.reportUrl);
     }
   }
 }
