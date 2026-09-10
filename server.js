@@ -885,7 +885,7 @@ const server = http.createServer(async (req, res) => {
       return res.end(JSON.stringify({ error: 'type must be sector or industry' }));
     }
 
-    const FINVIZ_AUTH = 'aef22707-59f4-492a-be23-ed3f64945fcb';
+    const FINVIZ_AUTH = 'f865b0bd-966b-4df5-a03b-f686ce527abf';
     const CACHE_TTL   = 15 * 60 * 1000;
 
     if (!server._finvizCache) server._finvizCache = new Map();
@@ -970,7 +970,7 @@ const server = http.createServer(async (req, res) => {
       return res.end(JSON.stringify({ error: 'industry is required' }));
     }
 
-    const FINVIZ_AUTH = 'aef22707-59f4-492a-be23-ed3f64945fcb';
+    const FINVIZ_AUTH = 'f865b0bd-966b-4df5-a03b-f686ce527abf';
     const CACHE_TTL   = 15 * 60 * 1000;
 
     if (!server._finvizIndustryCache) server._finvizIndustryCache = new Map();
