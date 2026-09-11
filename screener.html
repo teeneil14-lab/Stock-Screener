@@ -1822,6 +1822,15 @@
   .picks-view-btn.danger:hover { background:var(--red-dim); border-color:var(--red); }
   .picks-view-btn:disabled { opacity:0.4; cursor:not-allowed; }
   .picks-view-btn:disabled:hover { background:transparent; }
+  .picks-pagination { display:flex; align-items:center; justify-content:center; gap:8px; padding:16px 0; border-top:1px solid var(--border); margin-top:12px; }
+  .picks-page-btn {
+    font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:600; letter-spacing:0.06em;
+    background:transparent; color:var(--text2); border:1px solid var(--border); border-radius:4px;
+    padding:5px 10px; cursor:pointer; transition:background 0.15s,color 0.15s;
+  }
+  .picks-page-btn:hover:not(:disabled) { background:var(--bg3); }
+  .picks-page-btn:disabled { opacity:0.35; cursor:not-allowed; }
+  .picks-page-info { font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--text3); padding:0 6px; }
   .picks-card-select { margin-right:8px; cursor:pointer; width:14px; height:14px; }
   .picks-list-select-col { width:28px; text-align:center !important; }
   .picks-list-wrap { width:100%; }
@@ -4066,6 +4075,7 @@
     </div>
     <div class="picks-body">
       <div class="picks-grid" id="picks-grid"></div>
+      <div class="picks-pagination" id="picks-pagination" style="display:none"></div>
       <div class="picks-analytics-wrap" id="picks-analytics" style="display:none">
         <!-- Controls: period + MA length -->
         <div class="pa-controls">
@@ -8479,6 +8489,9 @@ let picksGlobalTF        = 'W';
 let _switchGen           = 0;   // incremented on each switchAllPicksCharts call to cancel stale batches
 let picksViewMode        = 'grid'; // 'grid' | 'list' | 'analytics' | 'calendar'
 let calendarCurrentDate  = new Date();
+let picksPage            = 0;
+const PICKS_PAGE_SIZE    = 200; // cap on charts rendered at once in grid view
+let _picksPageEntries    = [];  // tickers actually rendered on the current page
 let calendarShowPicks    = false;
 
 // ── Multi-select for bulk delete (grid + list view only) ─────────────────────
@@ -8693,7 +8706,7 @@ async function switchAllPicksCharts(tf) {
     if (btn) btn.classList.toggle('active', t === tf);
   });
   const gen     = ++_switchGen;
-  const entries = loadLiked(currentSetup);
+  const entries = _picksPageEntries; // only tickers actually mounted on the current page
   const BATCH   = 4; // max concurrent API fetches — keeps Yahoo Finance happy and UI responsive
   for (let i = 0; i < entries.length; i += BATCH) {
     if (gen !== _switchGen) return; // user switched TF again — abort stale run
@@ -8713,13 +8726,24 @@ function renderStarredCharts() {
 
   if (!liked.length) { renderPicksEmpty(); return; }
 
-  const sub = document.getElementById('picks-subtitle');
-  if (sub) sub.textContent = `${liked.length} pick${liked.length === 1 ? '' : 's'} — charts frozen at the moment you starred them`;
-
   // Newest first
   const sorted = [...liked].sort((a, b) => b.starredAt - a.starredAt);
 
-  sorted.forEach(entry => {
+  const totalPages = Math.max(1, Math.ceil(sorted.length / PICKS_PAGE_SIZE));
+  if (picksPage >= totalPages) picksPage = totalPages - 1;
+  if (picksPage < 0) picksPage = 0;
+  const pageStart = picksPage * PICKS_PAGE_SIZE;
+  const pageItems = sorted.slice(pageStart, pageStart + PICKS_PAGE_SIZE);
+  _picksPageEntries = pageItems;
+
+  const sub = document.getElementById('picks-subtitle');
+  if (sub) {
+    sub.textContent = sorted.length > PICKS_PAGE_SIZE
+      ? `Showing ${pageStart + 1}–${pageStart + pageItems.length} of ${liked.length} picks — charts frozen at the moment you starred them`
+      : `${liked.length} pick${liked.length === 1 ? '' : 's'} — charts frozen at the moment you starred them`;
+  }
+
+  pageItems.forEach(entry => {
     const dateStr = new Date(entry.starredAt).toLocaleDateString('en-US', { day:'numeric', month:'short', year:'numeric' });
     const card    = document.createElement('div');
     card.className   = 'picks-card';
@@ -8767,8 +8791,40 @@ function renderStarredCharts() {
     grid.appendChild(card);
   });
 
+  renderPicksPagination(totalPages);
+
   // Render all charts after DOM is laid out — batches API fetches to 4 at a time
   requestAnimationFrame(() => switchAllPicksCharts(picksGlobalTF));
+}
+
+function renderPicksPagination(totalPages) {
+  const bar = document.getElementById('picks-pagination');
+  if (!bar) return;
+
+  if (totalPages <= 1) {
+    bar.style.display = 'none';
+    bar.innerHTML = '';
+    return;
+  }
+
+  bar.style.display = 'flex';
+  bar.innerHTML = `
+    <button class="picks-page-btn" onclick="goToPicksPage('first')" ${picksPage === 0 ? 'disabled' : ''}>« FIRST</button>
+    <button class="picks-page-btn" onclick="goToPicksPage('prev')" ${picksPage === 0 ? 'disabled' : ''}>‹ PREV</button>
+    <span class="picks-page-info">Page ${picksPage + 1} of ${totalPages}</span>
+    <button class="picks-page-btn" onclick="goToPicksPage('next')" ${picksPage >= totalPages - 1 ? 'disabled' : ''}>NEXT ›</button>
+    <button class="picks-page-btn" onclick="goToPicksPage('last')" ${picksPage >= totalPages - 1 ? 'disabled' : ''}>LAST »</button>
+  `;
+}
+
+function goToPicksPage(target) {
+  const liked      = loadLiked(currentSetup);
+  const totalPages = Math.max(1, Math.ceil(liked.length / PICKS_PAGE_SIZE));
+  if (target === 'first') picksPage = 0;
+  else if (target === 'prev') picksPage = Math.max(0, picksPage - 1);
+  else if (target === 'next') picksPage = Math.min(totalPages - 1, picksPage + 1);
+  else if (target === 'last') picksPage = totalPages - 1;
+  renderStarredCharts();
 }
 
 // Tracks loaded perf values for the summary row: { ticker: { '5d': val|null, ... } }
