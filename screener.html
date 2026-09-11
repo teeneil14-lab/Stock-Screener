@@ -8825,6 +8825,8 @@ function goToPicksPage(target) {
   else if (target === 'next') picksPage = Math.min(totalPages - 1, picksPage + 1);
   else if (target === 'last') picksPage = totalPages - 1;
   renderStarredCharts();
+  const body = document.querySelector('.picks-body');
+  if (body) body.scrollTop = 0;
 }
 
 // Tracks loaded perf values for the summary row: { ticker: { '5d': val|null, ... } }
