@@ -2138,9 +2138,14 @@
     font-size: 10.5px; font-weight: 600; letter-spacing: 0.04em; color: var(--text3);
     border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--bg2); z-index: 1;
   }
-  .refine-table-header > div { cursor: pointer; user-select: none; text-align: right; }
-  .refine-table-header > div:first-child { text-align: left; }
-  .refine-table-header > div:hover { color: var(--accent); }
+  /* First 3 columns (TICKER/SECTOR/INDUSTRY) hold left-aligned text below them
+     (ticker symbols, tag chips), so their headers left-align to match; the 4
+     numeric columns hold right-aligned numbers, so their headers right-align. */
+  .refine-table-header > div { text-align: right; }
+  .refine-table-header > div:nth-child(-n+3) { text-align: left; }
+  .refine-table-header > div > span { cursor: pointer; user-select: none; }
+  .refine-table-header > div > span:hover { color: var(--accent); }
+  .refine-check { vertical-align: middle; margin-right: 4px; cursor: pointer; accent-color: var(--accent); }
   .refine-sector-row {
     background: var(--bg3); font-weight: 700; font-size: 14px; color: var(--text);
     border-top: 2px solid var(--border2); margin-top: 8px;
@@ -10679,6 +10684,7 @@ function _loadRefineFile(file) {
     _refineSectorSortDir   = 'desc';
     _refineTableSortKey    = 'sector';
     _refineTableSortDir    = 'asc';
+    _refineVisibleLevels   = { ticker: true, sector: true, industry: true };
     saveRefineWatchlistToStorage();
     renderRefineView();
   };
@@ -10705,6 +10711,7 @@ function clearRefineWatchlist() {
   _refineSectorSortDir   = 'desc';
   _refineTableSortKey    = 'sector';
   _refineTableSortDir    = 'asc';
+  _refineVisibleLevels   = { ticker: true, sector: true, industry: true };
   saveRefineWatchlistToStorage();
   _renderRefineSlot();
   const body  = document.getElementById('listqa-refine-body');
@@ -11065,14 +11072,20 @@ function _renderRefineSectorDrill(sectorName, tickersInSector) {
 // same four numbers across the tickers underneath it.
 
 const REFINE_TABLE_COLUMNS = [
-  { key: 'ticker',   label: 'TICKER',       numeric: false },
-  { key: 'sector',   label: 'SECTOR',       numeric: false },
-  { key: 'industry', label: 'INDUSTRY',     numeric: false },
-  { key: 'rev',      label: 'REV GROWTH',   numeric: true  },
-  { key: 'earn',     label: 'EARN GROWTH',  numeric: true  },
-  { key: 'perf1w',   label: '1 WK %',       numeric: true  },
-  { key: 'perf1y',   label: '1 YR %',       numeric: true  },
+  { key: 'ticker',   label: 'TICKER',       numeric: false, checkable: true  },
+  { key: 'sector',   label: 'SECTOR',       numeric: false, checkable: true  },
+  { key: 'industry', label: 'INDUSTRY',     numeric: false, checkable: true  },
+  { key: 'rev',      label: 'REV GROWTH',   numeric: true,  checkable: false },
+  { key: 'earn',     label: 'EARN GROWTH',  numeric: true,  checkable: false },
+  { key: 'perf1w',   label: '1 WK %',       numeric: true,  checkable: false },
+  { key: 'perf1y',   label: '1 YR %',       numeric: true,  checkable: false },
 ];
+
+// Which of the 3 checkable levels are currently shown. Unchecking a level
+// hides its rows; grouping only happens by whichever of sector/industry are
+// still checked (in that order), so e.g. industry-only shows one flat list
+// of every industry in the watchlist, not nested under sector.
+let _refineVisibleLevels = { ticker: true, sector: true, industry: true };
 
 function _refineBuildTickerRows() {
   return refineWatchlist.tickers.map(t => {
@@ -11091,29 +11104,13 @@ function _refineBuildTickerRows() {
   });
 }
 
-// Groups rows into { sectorName: { avg, rows, industries: { industryName: { avg, rows } } } }.
-function _refineGroupRows(rows) {
-  const sectors = {};
-  rows.forEach(row => {
-    if (!sectors[row.sector]) sectors[row.sector] = { rows: [], industries: {} };
-    sectors[row.sector].rows.push(row);
-    const industries = sectors[row.sector].industries;
-    if (!industries[row.industry]) industries[row.industry] = { rows: [] };
-    industries[row.industry].rows.push(row);
-  });
-  const avgOf = (rowList) => ({
+function _refineAvgOf(rowList) {
+  return {
     rev:    _listQaAvg(rowList.map(r => r.rev)),
     earn:   _listQaAvg(rowList.map(r => r.earn)),
     perf1w: _listQaAvg(rowList.map(r => r.perf1w)),
     perf1y: _listQaAvg(rowList.map(r => r.perf1y)),
-  });
-  Object.entries(sectors).forEach(([sectorName, sector]) => {
-    sector.avg = avgOf(sector.rows);
-    Object.entries(sector.industries).forEach(([, industry]) => {
-      industry.avg = avgOf(industry.rows);
-    });
-  });
-  return sectors;
+  };
 }
 
 // One value-getter drives sorting at every level. For a ticker row (leaf),
@@ -11148,10 +11145,70 @@ function _setRefineTableSort(key) {
   renderRefineIndustryTable();
 }
 
+// Unchecking a level hides it; at least one level must always stay checked
+// (otherwise there'd be nothing to show), so the last one refuses to uncheck.
+function _toggleRefineLevel(level) {
+  const checkedCount = Object.values(_refineVisibleLevels).filter(Boolean).length;
+  if (_refineVisibleLevels[level] && checkedCount <= 1) {
+    renderRefineIndustryTable(); // snap the checkbox back to checked
+    return;
+  }
+  _refineVisibleLevels[level] = !_refineVisibleLevels[level];
+  renderRefineIndustryTable();
+}
+
 function _refineFmtPct(val) {
   if (val === null || val === undefined || isNaN(val)) return '—';
   const cls = val > 0 ? 'perf-pos' : val < 0 ? 'perf-neg' : '';
   return `<span class="refine-num ${cls}">${val > 0 ? '+' : ''}${val.toFixed(1)}%</span>`;
+}
+
+function _refineTickerRowHtml(r) {
+  return `
+    <div class="refine-ticker-row">
+      <div class="refine-ticker-symbol">${r.ticker}</div>
+      <div><span class="refine-tag">${r.sector}</span></div>
+      <div><span class="refine-tag">${r.industry}</span></div>
+      <div>${_refineFmtPct(r.rev)}</div>
+      <div>${_refineFmtPct(r.earn)}</div>
+      <div>${_refineFmtPct(r.perf1w)}</div>
+      <div>${_refineFmtPct(r.perf1y)}</div>
+    </div>`;
+}
+
+function _refineGroupHeaderHtml(level, name, avg) {
+  const cls  = level === 'sector' ? 'refine-sector-row'  : 'refine-industry-row';
+  const nameCls = level === 'sector' ? 'refine-sector-name' : 'refine-industry-name';
+  return `
+    <div class="${cls}">
+      <div class="${nameCls}" title="${name}">${name}</div>
+      <div>${_refineFmtPct(avg.rev)}</div>
+      <div>${_refineFmtPct(avg.earn)}</div>
+      <div>${_refineFmtPct(avg.perf1w)}</div>
+      <div>${_refineFmtPct(avg.perf1y)}</div>
+    </div>`;
+}
+
+// Recursively groups `rows` by whichever grouping levels remain (a subset of
+// ['sector','industry'], in that order — the levels the user left checked),
+// rendering a header + averages per group, then recursing into the rest.
+// Once no grouping levels remain, renders the individual ticker rows if the
+// TICKER checkbox is on (or nothing, if even that's unchecked).
+function _refineRenderLevel(rows, remainingLevels) {
+  if (!remainingLevels.length) {
+    if (!_refineVisibleLevels.ticker) return '';
+    const sorted = _refineSortEntries(rows.map(r => [r.ticker, r]), _refineTableSortKey, _refineTableSortDir, true);
+    return sorted.map(([, r]) => _refineTickerRowHtml(r)).join('');
+  }
+  const [level, ...rest] = remainingLevels;
+  const groups = {};
+  rows.forEach(r => { (groups[r[level]] = groups[r[level]] || []).push(r); });
+  const withAvg = {};
+  Object.entries(groups).forEach(([name, rs]) => { withAvg[name] = { rows: rs, avg: _refineAvgOf(rs) }; });
+  const sortedEntries = _refineSortEntries(Object.entries(withAvg), _refineTableSortKey, _refineTableSortDir, false);
+  return sortedEntries.map(([name, g]) =>
+    _refineGroupHeaderHtml(level, name, g.avg) + _refineRenderLevel(g.rows, rest)
+  ).join('');
 }
 
 function renderRefineIndustryTable() {
@@ -11159,58 +11216,25 @@ function renderRefineIndustryTable() {
   if (!card) return;
   if (!_refineLastReturnsMap) return; // nothing fetched yet
 
-  const rows = _refineBuildTickerRows();
-  const allSectors = _refineGroupRows(rows);
+  let rows = _refineBuildTickerRows();
+  if (refineActiveSector) rows = rows.filter(r => r.sector === refineActiveSector);
+
   const key = _refineTableSortKey, dir = _refineTableSortDir;
-
-  let sectorEntries = Object.entries(allSectors);
-  if (refineActiveSector) sectorEntries = sectorEntries.filter(([name]) => name === refineActiveSector);
-  sectorEntries = _refineSortEntries(sectorEntries, key, dir, false);
-
   const arrow = k => k === key ? (dir === 'asc' ? ' ▲' : ' ▼') : '';
   const header = `
     <div class="refine-table-header">
-      ${REFINE_TABLE_COLUMNS.map(c => `<div onclick="_setRefineTableSort('${c.key}')" title="Click to sort">${c.label}${arrow(c.key)}</div>`).join('')}
+      ${REFINE_TABLE_COLUMNS.map(c => `<div>
+        ${c.checkable ? `<input type="checkbox" class="refine-check" ${_refineVisibleLevels[c.key] ? 'checked' : ''} onclick="event.stopPropagation()" onchange="_toggleRefineLevel('${c.key}')" title="Show/hide ${c.label.toLowerCase()} rows">` : ''}
+        <span onclick="_setRefineTableSort('${c.key}')" title="Click to sort">${c.label}${arrow(c.key)}</span>
+      </div>`).join('')}
     </div>`;
 
   const filterNote = refineActiveSector
     ? `<div class="listqa-hist-filter-hint" style="padding:4px 0 8px;">Filtered to ${refineActiveSector} — click the sector again to clear</div>`
     : '';
 
-  const body = sectorEntries.map(([sectorName, sector]) => {
-    let industryEntries = _refineSortEntries(Object.entries(sector.industries), key, dir, false);
-    const industriesHtml = industryEntries.map(([industryName, industry]) => {
-      const tickerEntries = _refineSortEntries(industry.rows.map(r => [r.ticker, r]), key, dir, true);
-      const tickerRowsHtml = tickerEntries.map(([, r]) => `
-        <div class="refine-ticker-row">
-          <div class="refine-ticker-symbol">${r.ticker}</div>
-          <div><span class="refine-tag">${r.sector}</span></div>
-          <div><span class="refine-tag">${r.industry}</span></div>
-          <div>${_refineFmtPct(r.rev)}</div>
-          <div>${_refineFmtPct(r.earn)}</div>
-          <div>${_refineFmtPct(r.perf1w)}</div>
-          <div>${_refineFmtPct(r.perf1y)}</div>
-        </div>`).join('');
-      return `
-        <div class="refine-industry-row">
-          <div class="refine-industry-name" title="${industryName}">${industryName}</div>
-          <div>${_refineFmtPct(industry.avg.rev)}</div>
-          <div>${_refineFmtPct(industry.avg.earn)}</div>
-          <div>${_refineFmtPct(industry.avg.perf1w)}</div>
-          <div>${_refineFmtPct(industry.avg.perf1y)}</div>
-        </div>
-        ${tickerRowsHtml}`;
-    }).join('');
-    return `
-      <div class="refine-sector-row">
-        <div class="refine-sector-name" title="${sectorName}">${sectorName}</div>
-        <div>${_refineFmtPct(sector.avg.rev)}</div>
-        <div>${_refineFmtPct(sector.avg.earn)}</div>
-        <div>${_refineFmtPct(sector.avg.perf1w)}</div>
-        <div>${_refineFmtPct(sector.avg.perf1y)}</div>
-      </div>
-      ${industriesHtml}`;
-  }).join('');
+  const groupLevels = ['sector', 'industry'].filter(l => _refineVisibleLevels[l]);
+  const body = _refineRenderLevel(rows, groupLevels);
 
   card.innerHTML = `${filterNote}<div class="refine-table">${header}${body}</div>`;
 }
