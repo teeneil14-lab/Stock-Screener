@@ -2129,13 +2129,13 @@
      shares the same 7-column grid so numbers line up straight down the page;
      hierarchy is shown via indenting the label text, not the grid itself,
      so column boundaries never shift between sector/industry/ticker rows. */
-  .refine-table { font-family: 'IBM Plex Mono', monospace; font-size: 13px; }
+  .refine-table { font-family: 'Inter', sans-serif; font-size: 12px; }
   .refine-table-header, .refine-sector-row, .refine-industry-row, .refine-ticker-row {
     display: grid; grid-template-columns: 100px 160px 1fr 95px 95px 78px 78px;
     gap: 8px; align-items: center; padding: 7px 10px;
   }
   .refine-table-header {
-    font-size: 10.5px; font-weight: 600; letter-spacing: 0.04em; color: var(--text3);
+    font-family: 'IBM Plex Mono', monospace; font-size: 8px; font-weight: 600; letter-spacing: 0.04em; color: var(--text3);
     border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--bg2); z-index: 1;
   }
   /* First 3 columns (TICKER/SECTOR/INDUSTRY) hold left-aligned text below them
@@ -2147,13 +2147,13 @@
   .refine-table-header > div > span:hover { color: var(--accent); }
   .refine-check { vertical-align: middle; margin-right: 4px; cursor: pointer; accent-color: var(--accent); }
   .refine-sector-row {
-    background: var(--bg3); font-weight: 700; font-size: 14px; color: var(--text);
+    background: var(--bg3); font-weight: 700; font-size: 12px; color: var(--text);
     border-top: 2px solid var(--border2); margin-top: 8px; cursor: pointer;
   }
   .refine-sector-row:first-child { margin-top: 0; }
   .refine-sector-row:hover { background: var(--hover); }
   .refine-industry-row {
-    background: var(--bg2); font-weight: 600; font-size: 12.5px; color: var(--text2);
+    background: var(--bg2); font-weight: 600; font-size: 12px; color: var(--text2);
     border-top: 1px solid var(--border); cursor: pointer;
   }
   .refine-industry-row:hover { background: var(--hover); }
@@ -2173,7 +2173,10 @@
     color: var(--text3); background: var(--bg3); border-radius: 3px; padding: 2px 7px;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
   }
-  .refine-num { text-align: right; display: block; color: var(--text3); }
+  .refine-num {
+    font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600;
+    text-align: right; display: block; color: var(--text3);
+  }
   .refine-num.perf-pos { color: var(--green); }
   .refine-num.perf-neg { color: var(--red); }
 
