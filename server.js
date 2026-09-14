@@ -1071,22 +1071,25 @@ const server = http.createServer(async (req, res) => {
       return cells;
     }
 
-    // Parses a v=111 screener export and returns { TICKER: "Sector Name" },
-    // same shape /api/yf-quote returns, so the client can swap sources directly.
+    // Parses a v=111 screener export and returns { TICKER: { sector, industry } } —
+    // both columns sit right next to each other in the same CSV row, so this is
+    // one call for the Refine sector pie AND the sector/industry table.
     function parseTickerSectorCSV(csv) {
       const lines = csv.trim().split(/\r?\n/).filter(Boolean);
       if (lines.length < 2) return {};
-      const headers   = parseCSVLine(lines[0]);
-      const tickerIdx = headers.findIndex(h => /^ticker$/i.test(h));
-      const sectorIdx = headers.findIndex(h => /^sector$/i.test(h));
+      const headers    = parseCSVLine(lines[0]);
+      const tickerIdx  = headers.findIndex(h => /^ticker$/i.test(h));
+      const sectorIdx  = headers.findIndex(h => /^sector$/i.test(h));
+      const industryIdx = headers.findIndex(h => /^industry$/i.test(h));
       if (tickerIdx < 0 || sectorIdx < 0) return {};
       const out = {};
       for (let i = 1; i < lines.length; i++) {
         const cells = parseCSVLine(lines[i]);
-        if (cells.length <= Math.max(tickerIdx, sectorIdx)) continue;
-        const ticker = cells[tickerIdx];
-        const sector = cells[sectorIdx];
-        if (ticker && sector) out[ticker] = sector;
+        if (cells.length <= Math.max(tickerIdx, sectorIdx, industryIdx)) continue;
+        const ticker   = cells[tickerIdx];
+        const sector   = cells[sectorIdx];
+        const industry = industryIdx >= 0 ? cells[industryIdx] : null;
+        if (ticker && sector) out[ticker] = { sector, industry: industry || null };
       }
       return out;
     }

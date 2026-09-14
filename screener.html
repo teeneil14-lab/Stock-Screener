@@ -2093,10 +2093,6 @@
      font below); anything beyond that gets a short scrollbar rather than a
      tall list being squeezed into a tiny scrollable box. */
   .listqa-outlier-col-body { max-height: 700px; overflow-y: auto; }
-  /* Refine's card is more compact (narrower right column, ad-hoc watchlists) —
-     shows ~10 rows before scrolling instead of Overview's ~15. The full list
-     is still rendered underneath; nothing is discarded. */
-  #refine-stats-card .listqa-outlier-col-body { max-height: 460px; }
   .listqa-outlier-row {
     border-left: 3px solid var(--red); background: var(--bg2);
     padding: 6px 9px; margin-bottom: 5px; border-radius: 0 4px 4px 0;
@@ -2128,6 +2124,51 @@
     font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 700; color: var(--text);
     background: var(--bg2); border: 1px solid var(--border); border-radius: 4px; padding: 4px 8px;
   }
+
+  /* Sector -> Industry -> Ticker table (Refine's right side). Every row type
+     shares the same 7-column grid so numbers line up straight down the page;
+     hierarchy is shown via indenting the label text, not the grid itself,
+     so column boundaries never shift between sector/industry/ticker rows. */
+  .refine-table { font-family: 'IBM Plex Mono', monospace; font-size: 11px; }
+  .refine-table-header, .refine-sector-row, .refine-industry-row, .refine-ticker-row {
+    display: grid; grid-template-columns: 90px 150px 1fr 90px 90px 70px 70px;
+    gap: 8px; align-items: center; padding: 6px 10px;
+  }
+  .refine-table-header {
+    font-size: 9px; font-weight: 600; letter-spacing: 0.04em; color: var(--text3);
+    border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--bg2); z-index: 1;
+  }
+  .refine-table-header > div { cursor: pointer; user-select: none; text-align: right; }
+  .refine-table-header > div:first-child { text-align: left; }
+  .refine-table-header > div:hover { color: var(--accent); }
+  .refine-sector-row {
+    background: var(--bg3); font-weight: 700; font-size: 12px; color: var(--text);
+    border-top: 2px solid var(--border2); margin-top: 8px;
+  }
+  .refine-sector-row:first-child { margin-top: 0; }
+  .refine-industry-row {
+    background: var(--bg2); font-weight: 600; font-size: 10.5px; color: var(--text2);
+    border-top: 1px solid var(--border);
+  }
+  .refine-industry-name { padding-left: 16px; }
+  .refine-ticker-row { border-bottom: 1px solid var(--border); }
+  .refine-ticker-row:hover { background: var(--hover); }
+  .refine-ticker-symbol { padding-left: 32px; font-weight: 700; color: var(--text); }
+  /* Sector/industry names sit in the same first grid cell as TICKER on ticker
+     rows, but need far more room than that 64px column — span into the
+     SECTOR/INDUSTRY columns' space too, since those are blank on these rows. */
+  .refine-sector-name, .refine-industry-name { grid-column: 1 / span 3; }
+  .refine-sector-name, .refine-industry-name, .refine-ticker-symbol {
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .refine-tag {
+    display: inline-block; font-family: 'IBM Plex Sans', sans-serif; font-size: 9px;
+    color: var(--text3); background: var(--bg3); border-radius: 3px; padding: 1px 6px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+  }
+  .refine-num { text-align: right; display: block; color: var(--text3); }
+  .refine-num.perf-pos { color: var(--green); }
+  .refine-num.perf-neg { color: var(--red); }
 
   /* ── Calendar View ──────────────────────────────────────────── */
   .picks-calendar-wrap { padding:16px 20px 24px; width:100%; box-sizing:border-box; }
@@ -10163,8 +10204,7 @@ let _listQaActiveBucket = {};
 function _listQaToggleBucket(slot, binIndex) {
   if (_listQaActiveBucket[slot] === binIndex) delete _listQaActiveBucket[slot];
   else _listQaActiveBucket[slot] = binIndex;
-  if (slot === 'refine') _renderListqaRefineStatsCard(_refineStatsForActiveSector());
-  else renderListQaScorecards(_listQaLastStats);
+  renderListQaScorecards(_listQaLastStats);
 }
 
 async function loadListQA(force) {
@@ -10262,20 +10302,21 @@ async function fetchListQaReturns(tickerList, progress, onProgress) {
         // per ticker (fetchDailyOnly) — reusing that cache key means if you've just
         // run a scan, this tab loads these bars from cache instead of refetching.
         const { bars } = await fetchYF(yTicker, '1y', '1d');
-        if (!bars || bars.length < 2) return { ticker, ytdPct: null, ret1y: null };
+        if (!bars || bars.length < 2) return { ticker, ytdPct: null, ret1y: null, ret1w: null };
         const ytdPct = calcStockYtd(bars);
+        const ret1w  = calcStockRet1w(bars);
         const ref = bars[bars.length - 1].c;
         // Use the oldest bar in the ~1y window as the "1 year ago" reference rather
         // than a strict 252-trading-day offset — '1y' doesn't always return a full
         // 252+ bars, so a strict offset would intermittently show "—" for no reason.
         const ret1y = bars.length > 20 ? (ref / bars[0].c - 1) * 100 : null;
-        return { ticker, ytdPct, ret1y };
+        return { ticker, ytdPct, ret1y, ret1w };
       } catch (e) {
-        return { ticker, ytdPct: null, ret1y: null };
+        return { ticker, ytdPct: null, ret1y: null, ret1w: null };
       }
     }));
     results.forEach(r => {
-      const entry = { ytdPct: r.ytdPct, ret1y: r.ret1y, ts: now };
+      const entry = { ytdPct: r.ytdPct, ret1y: r.ret1y, ret1w: r.ret1w, ts: now };
       _listQaReturnsCache.set(r.ticker, entry);
       out[r.ticker] = entry;
     });
@@ -10583,17 +10624,19 @@ function _listQaOutlierSectionHtml(l, cap = LISTQA_OUTLIER_DISPLAY_CAP) {
 // ============================================================
 const REFINE_WL_STORE_KEY = 'cts_refine_wl';
 
-let refineWatchlist    = null; // {name, tickers: [{ticker, exchange}]} or null
-let _refineLastSectorMap  = null; // ticker -> Finviz sector name, from the last fetch
-let _refineLastSectorPerf = null; // Finviz sector name -> 1-week % change, from the last fetch
-let _refineLastReturnsMap = null; // ticker -> {ytdPct, ret1y}, from the last fetch — kept so a sector click can recompute stats for just that sector without refetching
-let _refineLastFundMap    = null; // ticker -> {revenueGrowth, earningsGrowth}, from the last fetch
-let _refineLastStats      = null; // computeListQaStats() output for the whole list (unfiltered)
-let refineActiveSector    = null;
-let _refineSectorSlices   = [];
-let _refineSectorColors   = {}; // sector name -> color, assigned in a stable (alphabetical) order so colors don't reshuffle when the sort changes
-let _refineSectorSortKey  = 'count'; // 'name' | 'count' | 'pct' | 'perf'
-let _refineSectorSortDir  = 'desc';  // 'asc' | 'desc'
+let refineWatchlist     = null; // {name, tickers: [{ticker, exchange}]} or null
+let _refineLastSectorMap   = null; // ticker -> Finviz sector name, from the last fetch
+let _refineLastIndustryMap = null; // ticker -> Finviz industry name, from the last fetch
+let _refineLastSectorPerf  = null; // Finviz sector name -> 1-week % change, from the last fetch
+let _refineLastReturnsMap  = null; // ticker -> {ytdPct, ret1y, ret1w}, from the last fetch
+let _refineLastFundMap     = null; // ticker -> {revenueGrowth, earningsGrowth}, from the last fetch
+let refineActiveSector     = null;
+let _refineSectorSlices    = [];
+let _refineSectorColors    = {}; // sector name -> color, assigned in a stable (alphabetical) order so colors don't reshuffle when the sort changes
+let _refineSectorSortKey   = 'count'; // 'name' | 'count' | 'pct' | 'perf'
+let _refineSectorSortDir   = 'desc';  // 'asc' | 'desc'
+let _refineTableSortKey    = 'sector'; // 'ticker' | 'sector' | 'industry' | 'rev' | 'earn' | 'perf1w' | 'perf1y'
+let _refineTableSortDir    = 'asc';
 
 function loadRefineWatchlistFromStorage() {
   try {
@@ -10621,16 +10664,18 @@ function _loadRefineFile(file) {
   const reader = new FileReader();
   reader.onload = (ev) => {
     const parsed = parseTradingViewTxt(ev.target.result);
-    refineWatchlist       = { name: file.name, tickers: parsed };
-    _refineLastSectorMap  = null;
-    _refineLastSectorPerf = null;
-    _refineLastReturnsMap = null;
-    _refineLastFundMap    = null;
-    _refineLastStats      = null;
-    refineActiveSector    = null;
-    _refineSectorColors   = {};
-    _refineSectorSortKey  = 'count';
-    _refineSectorSortDir  = 'desc';
+    refineWatchlist        = { name: file.name, tickers: parsed };
+    _refineLastSectorMap   = null;
+    _refineLastIndustryMap = null;
+    _refineLastSectorPerf  = null;
+    _refineLastReturnsMap  = null;
+    _refineLastFundMap     = null;
+    refineActiveSector     = null;
+    _refineSectorColors    = {};
+    _refineSectorSortKey   = 'count';
+    _refineSectorSortDir   = 'desc';
+    _refineTableSortKey    = 'sector';
+    _refineTableSortDir    = 'asc';
     saveRefineWatchlistToStorage();
     renderRefineView();
   };
@@ -10645,16 +10690,18 @@ function handleRefineFile(e) {
 }
 
 function clearRefineWatchlist() {
-  refineWatchlist       = null;
-  _refineLastSectorMap  = null;
-  _refineLastSectorPerf = null;
-  _refineLastReturnsMap = null;
-  _refineLastFundMap    = null;
-  _refineLastStats      = null;
-  refineActiveSector    = null;
-  _refineSectorColors   = {};
-  _refineSectorSortKey  = 'count';
-  _refineSectorSortDir  = 'desc';
+  refineWatchlist        = null;
+  _refineLastSectorMap   = null;
+  _refineLastIndustryMap = null;
+  _refineLastSectorPerf  = null;
+  _refineLastReturnsMap  = null;
+  _refineLastFundMap     = null;
+  refineActiveSector     = null;
+  _refineSectorColors    = {};
+  _refineSectorSortKey   = 'count';
+  _refineSectorSortDir   = 'desc';
+  _refineTableSortKey    = 'sector';
+  _refineTableSortDir    = 'asc';
   saveRefineWatchlistToStorage();
   _renderRefineSlot();
   const body  = document.getElementById('listqa-refine-body');
@@ -10713,12 +10760,13 @@ function renderRefineView() {
   if (empty) empty.style.display = 'none';
   body.style.display = '';
   if (_refineLastSectorMap) renderRefineSectorPie(_refineLastSectorMap);
-  if (_refineLastStats)     _renderListqaRefineStatsCard(_refineStatsForActiveSector());
-  if (!_refineLastSectorMap || !_refineLastStats) loadListqaRefine(false);
+  if (_refineLastReturnsMap) renderRefineIndustryTable();
+  if (!_refineLastSectorMap || !_refineLastReturnsMap) loadListqaRefine(false);
 }
 
-// Ticker -> Finviz sector name (matches the taxonomy/names the Tweekly tab
-// shows), via the batch lookup added at server.js /api/finviz-ticker-sectors.
+// Ticker -> { sector, industry } (Finviz's own taxonomy/names — matches both
+// the Tweekly tab's sector list and the Industry Map tab's industry list),
+// via the batch lookup added at server.js /api/finviz-ticker-sectors.
 async function fetchFinvizTickerSectors(tickerList) {
   if (!tickerList.length) return {};
   try {
@@ -10769,24 +10817,29 @@ async function loadListqaRefine(force) {
   updateProgress();
 
   try {
-    const [sectorMap, sectorPerf, returnsMap, fundMap] = await Promise.all([
+    const [tickerFinvizMap, sectorPerf, returnsMap, fundMap] = await Promise.all([
       fetchFinvizTickerSectors(tickerList),
       fetchFinvizSectorPerf(),
       fetchListQaReturns(tickerList, progress, updateProgress),
       fetchListQaFundamentalsBulk(tickerList, progress, updateProgress),
     ]);
 
-    _refineLastSectorMap  = sectorMap;
-    _refineLastSectorPerf = sectorPerf;
-    _refineLastReturnsMap = returnsMap;
-    _refineLastFundMap    = fundMap;
-    _refineLastStats = computeListQaStats(
-      { slot: 'refine', name: refineWatchlist.name, tickers: tickerList },
-      returnsMap, fundMap
-    );
+    // Split the combined {ticker: {sector, industry}} lookup into the two
+    // plain ticker->name maps the pie chart and the industry table each want.
+    const sectorMap = {}, industryMap = {};
+    Object.entries(tickerFinvizMap).forEach(([t, v]) => {
+      if (v && v.sector) sectorMap[t] = v.sector;
+      if (v && v.industry) industryMap[t] = v.industry;
+    });
+
+    _refineLastSectorMap   = sectorMap;
+    _refineLastIndustryMap = industryMap;
+    _refineLastSectorPerf  = sectorPerf;
+    _refineLastReturnsMap  = returnsMap;
+    _refineLastFundMap     = fundMap;
 
     renderRefineSectorPie(sectorMap);
-    _renderListqaRefineStatsCard(_refineStatsForActiveSector());
+    renderRefineIndustryTable();
     document.getElementById('listqa-updated').textContent = `Updated ${new Date().toLocaleTimeString()}`;
   } catch (e) {
     document.getElementById('refine-stats-card').innerHTML = `<div class="listqa-empty">Failed to load: ${e.message}</div>`;
@@ -10976,23 +11029,6 @@ function _buildRefineSectorLegend(sectors, total) {
   legend.innerHTML = header + rows;
 }
 
-// Recomputes the stats/outlier card for just the tickers in refineActiveSector
-// (using the returns/fundamentals already fetched for the whole list — no
-// refetch needed), or falls back to the full-list stats when no sector is
-// selected.
-function _refineStatsForActiveSector() {
-  if (!refineActiveSector || !_refineLastSectorMap || !_refineLastReturnsMap || !_refineLastFundMap) {
-    return _refineLastStats;
-  }
-  const tickerList = refineWatchlist.tickers
-    .map(t => t.ticker)
-    .filter(t => (_refineLastSectorMap[t] || 'Other') === refineActiveSector);
-  return computeListQaStats(
-    { slot: 'refine', name: refineWatchlist.name, tickers: tickerList },
-    _refineLastReturnsMap, _refineLastFundMap
-  );
-}
-
 function _selectRefineSector(name) {
   refineActiveSector = refineActiveSector === name ? null : name;
   const groups  = _refineBuildSectorGroups(_refineLastSectorMap);
@@ -11002,11 +11038,7 @@ function _selectRefineSector(name) {
   _buildRefineSectorLegend(sectors, total);
   const group = sectors.find(([n]) => n === refineActiveSector);
   _renderRefineSectorDrill(refineActiveSector, group ? group[1] : []);
-  // Clicking a sector re-scopes the histogram bucket filter to whatever's now
-  // shown — a bucket picked while looking at the full list can otherwise end
-  // up filtering a sector that has none of its own tickers in that bucket.
-  delete _listQaActiveBucket['refine'];
-  _renderListqaRefineStatsCard(_refineStatsForActiveSector());
+  renderRefineIndustryTable();
 }
 
 function _renderRefineSectorDrill(sectorName, tickersInSector) {
@@ -11023,62 +11055,161 @@ function _renderRefineSectorDrill(sectorName, tickersInSector) {
     </div>`;
 }
 
-// ── Stats/outlier card, single-list version of renderListQaScorecards() ──
-// When refineActiveSector is set, `l` is already scoped to just that sector's
-// tickers (see _refineStatsForActiveSector) — this just adds the visible hint.
-function _renderListqaRefineStatsCard(l) {
-  const sectorNote = refineActiveSector
-    ? ` <span class="listqa-hist-filter-hint">— filtered to ${refineActiveSector} (click the sector again to clear)</span>`
+// ── Sector → Industry → Ticker table ────────────────────────────────────
+// Replaces the old single stats/outlier card. Every ticker row shows its own
+// sector/industry tags plus quarterly revenue/earnings growth and 1wk/1yr
+// price performance; every sector/industry header shows the average of those
+// same four numbers across the tickers underneath it.
+
+const REFINE_TABLE_COLUMNS = [
+  { key: 'ticker',   label: 'TICKER',       numeric: false },
+  { key: 'sector',   label: 'SECTOR',       numeric: false },
+  { key: 'industry', label: 'INDUSTRY',     numeric: false },
+  { key: 'rev',      label: 'REV GROWTH',   numeric: true  },
+  { key: 'earn',     label: 'EARN GROWTH',  numeric: true  },
+  { key: 'perf1w',   label: '1 WK %',       numeric: true  },
+  { key: 'perf1y',   label: '1 YR %',       numeric: true  },
+];
+
+function _refineBuildTickerRows() {
+  return refineWatchlist.tickers.map(t => {
+    const ticker = t.ticker;
+    const ret    = (_refineLastReturnsMap && _refineLastReturnsMap[ticker]) || {};
+    const fund   = (_refineLastFundMap    && _refineLastFundMap[ticker])    || {};
+    return {
+      ticker,
+      sector:   (_refineLastSectorMap   && _refineLastSectorMap[ticker])   || 'Other',
+      industry: (_refineLastIndustryMap && _refineLastIndustryMap[ticker]) || 'Unclassified',
+      rev:      typeof fund.revenueGrowth  === 'number' ? fund.revenueGrowth  * 100 : null,
+      earn:     typeof fund.earningsGrowth === 'number' ? fund.earningsGrowth * 100 : null,
+      perf1w:   typeof ret.ret1w === 'number' ? ret.ret1w : null,
+      perf1y:   typeof ret.ret1y === 'number' ? ret.ret1y : null,
+    };
+  });
+}
+
+// Groups rows into { sectorName: { avg, rows, industries: { industryName: { avg, rows } } } }.
+function _refineGroupRows(rows) {
+  const sectors = {};
+  rows.forEach(row => {
+    if (!sectors[row.sector]) sectors[row.sector] = { rows: [], industries: {} };
+    sectors[row.sector].rows.push(row);
+    const industries = sectors[row.sector].industries;
+    if (!industries[row.industry]) industries[row.industry] = { rows: [] };
+    industries[row.industry].rows.push(row);
+  });
+  const avgOf = (rowList) => ({
+    rev:    _listQaAvg(rowList.map(r => r.rev)),
+    earn:   _listQaAvg(rowList.map(r => r.earn)),
+    perf1w: _listQaAvg(rowList.map(r => r.perf1w)),
+    perf1y: _listQaAvg(rowList.map(r => r.perf1y)),
+  });
+  Object.entries(sectors).forEach(([sectorName, sector]) => {
+    sector.avg = avgOf(sector.rows);
+    Object.entries(sector.industries).forEach(([, industry]) => {
+      industry.avg = avgOf(industry.rows);
+    });
+  });
+  return sectors;
+}
+
+// One value-getter drives sorting at every level. For a ticker row (leaf),
+// every key resolves to that row's own field. For a sector/industry node,
+// 'ticker'/'sector'/'industry' all resolve to the node's own name (its only
+// identity), and the numeric keys resolve to its own average.
+function _refineSortValue(key, name, node, isLeaf) {
+  if (isLeaf) return node[key];
+  if (key === 'ticker' || key === 'sector' || key === 'industry') return name;
+  return node[key];
+}
+
+function _refineSortEntries(entries, key, dir, isLeaf) {
+  const mult = dir === 'asc' ? 1 : -1;
+  return entries.slice().sort((a, b) => {
+    const va = _refineSortValue(key, a[0], isLeaf ? a[1] : a[1].avg, isLeaf);
+    const vb = _refineSortValue(key, b[0], isLeaf ? b[1] : b[1].avg, isLeaf);
+    if (va === null || va === undefined) return 1;
+    if (vb === null || vb === undefined) return -1;
+    if (typeof va === 'string') return mult * va.localeCompare(vb);
+    return mult * (va - vb);
+  });
+}
+
+function _setRefineTableSort(key) {
+  if (_refineTableSortKey === key) {
+    _refineTableSortDir = _refineTableSortDir === 'asc' ? 'desc' : 'asc';
+  } else {
+    _refineTableSortKey = key;
+    _refineTableSortDir = REFINE_TABLE_COLUMNS.find(c => c.key === key)?.numeric ? 'desc' : 'asc';
+  }
+  renderRefineIndustryTable();
+}
+
+function _refineFmtPct(val) {
+  if (val === null || val === undefined || isNaN(val)) return '—';
+  const cls = val > 0 ? 'perf-pos' : val < 0 ? 'perf-neg' : '';
+  return `<span class="refine-num ${cls}">${val > 0 ? '+' : ''}${val.toFixed(1)}%</span>`;
+}
+
+function renderRefineIndustryTable() {
+  const card = document.getElementById('refine-stats-card');
+  if (!card) return;
+  if (!_refineLastReturnsMap) return; // nothing fetched yet
+
+  const rows = _refineBuildTickerRows();
+  const allSectors = _refineGroupRows(rows);
+  const key = _refineTableSortKey, dir = _refineTableSortDir;
+
+  let sectorEntries = Object.entries(allSectors);
+  if (refineActiveSector) sectorEntries = sectorEntries.filter(([name]) => name === refineActiveSector);
+  sectorEntries = _refineSortEntries(sectorEntries, key, dir, false);
+
+  const arrow = k => k === key ? (dir === 'asc' ? ' ▲' : ' ▼') : '';
+  const header = `
+    <div class="refine-table-header">
+      ${REFINE_TABLE_COLUMNS.map(c => `<div onclick="_setRefineTableSort('${c.key}')" title="Click to sort">${c.label}${arrow(c.key)}</div>`).join('')}
+    </div>`;
+
+  const filterNote = refineActiveSector
+    ? `<div class="listqa-hist-filter-hint" style="padding:4px 0 8px;">Filtered to ${refineActiveSector} — click the sector again to clear</div>`
     : '';
-  const html = `
-    <div class="listqa-list-col">
-      <div class="listqa-list-name" title="${l.name}">${l.name}</div>
-      <div class="listqa-list-count">${l.count} tickers${l.scoredCount ? ` · ${l.scoredCount} scanned` : ' · not scanned yet'}${l.filteredCount ? ` · ${l.filteredCount} failed hard filter` : ''}${sectorNote}</div>
-      <div class="listqa-stat-grid">
-        <div>
-          <div class="listqa-stat-label">AVG YTD RETURN</div>
-          <div class="listqa-stat-val ${_listQaPctClass(l.avgYtd)}">${_listQaFmtPct(l.avgYtd)}</div>
+
+  const body = sectorEntries.map(([sectorName, sector]) => {
+    let industryEntries = _refineSortEntries(Object.entries(sector.industries), key, dir, false);
+    const industriesHtml = industryEntries.map(([industryName, industry]) => {
+      const tickerEntries = _refineSortEntries(industry.rows.map(r => [r.ticker, r]), key, dir, true);
+      const tickerRowsHtml = tickerEntries.map(([, r]) => `
+        <div class="refine-ticker-row">
+          <div class="refine-ticker-symbol">${r.ticker}</div>
+          <div><span class="refine-tag">${r.sector}</span></div>
+          <div><span class="refine-tag">${r.industry}</span></div>
+          <div>${_refineFmtPct(r.rev)}</div>
+          <div>${_refineFmtPct(r.earn)}</div>
+          <div>${_refineFmtPct(r.perf1w)}</div>
+          <div>${_refineFmtPct(r.perf1y)}</div>
+        </div>`).join('');
+      return `
+        <div class="refine-industry-row">
+          <div class="refine-industry-name" title="${industryName}">${industryName}</div>
+          <div>${_refineFmtPct(industry.avg.rev)}</div>
+          <div>${_refineFmtPct(industry.avg.earn)}</div>
+          <div>${_refineFmtPct(industry.avg.perf1w)}</div>
+          <div>${_refineFmtPct(industry.avg.perf1y)}</div>
         </div>
-        <div>
-          <div class="listqa-stat-label">AVG 1YR RETURN</div>
-          <div class="listqa-stat-val ${_listQaPctClass(l.avgRet1y)}">${_listQaFmtPct(l.avgRet1y)}</div>
-        </div>
-        <div>
-          <div class="listqa-stat-label">AVG REVENUE GROWTH</div>
-          <div class="listqa-stat-val ${_listQaPctClass(l.avgRev)}">${_listQaFmtPct(l.avgRev)}</div>
-        </div>
-        <div>
-          <div class="listqa-stat-label">AVG EARNINGS GROWTH</div>
-          <div class="listqa-stat-val ${_listQaPctClass(l.avgEarn)}">${_listQaFmtPct(l.avgEarn)}</div>
-        </div>
-        <div>
-          <div class="listqa-stat-label">AVG SCREENER SCORE</div>
-          <div class="listqa-stat-val">${l.avgScore !== null ? Math.round(l.avgScore) : '—'}</div>
-        </div>
-        <div>
-          <div class="listqa-stat-label">OUTLIERS FLAGGED</div>
-          <div class="listqa-stat-val">${l.outlierCount}</div>
-        </div>
+        ${tickerRowsHtml}`;
+    }).join('');
+    return `
+      <div class="refine-sector-row">
+        <div class="refine-sector-name" title="${sectorName}">${sectorName}</div>
+        <div>${_refineFmtPct(sector.avg.rev)}</div>
+        <div>${_refineFmtPct(sector.avg.earn)}</div>
+        <div>${_refineFmtPct(sector.avg.perf1w)}</div>
+        <div>${_refineFmtPct(sector.avg.perf1y)}</div>
       </div>
-      <div class="listqa-winlose-row">
-        <div class="listqa-winlose-col">
-          <div class="listqa-stat-label">AVG WINNER (${l.winnerCount})</div>
-          <div class="listqa-stat-val ${_listQaPctClass(l.avgWinner)}">${_listQaFmtPct(l.avgWinner)}</div>
-        </div>
-        <div class="listqa-winlose-col">
-          <div class="listqa-stat-label">AVG LOSER (${l.loserCount})</div>
-          <div class="listqa-stat-val ${_listQaPctClass(l.avgLoser)}">${_listQaFmtPct(l.avgLoser)}</div>
-        </div>
-        <div class="listqa-winlose-col">
-          <div class="listqa-stat-label">WIN RATE</div>
-          <div class="listqa-stat-val">${l.winRate !== null ? l.winRate + '%' : '—'}</div>
-        </div>
-      </div>
-      ${_listQaHistogramHtml(l)}
-      ${_listQaOutlierSectionHtml(l, Infinity)}
-    </div>
-  `;
-  document.getElementById('refine-stats-card').innerHTML = `<div class="listqa-lists-grid">${html}</div>`;
+      ${industriesHtml}`;
+  }).join('');
+
+  card.innerHTML = `${filterNote}<div class="refine-table">${header}${body}</div>`;
 }
 
 // ============================================================
@@ -11242,6 +11373,16 @@ function calcStockYtd(dailyBars) {
   const ytdBar    = dailyBars.find(b => b.t >= yearStart);
   if (!ytdBar || ytdBar.c === 0) return null;
   return Math.round(((current - ytdBar.c) / ytdBar.c) * 1000) / 10;
+}
+
+// 1-week price return, using the bar 5 trading days back as "a week ago"
+// (dailyBars is oldest-first, same ordering calcStockYtd relies on).
+function calcStockRet1w(dailyBars) {
+  if (!dailyBars || dailyBars.length < 6) return null;
+  const current = dailyBars[dailyBars.length - 1].c;
+  const weekAgo = dailyBars[dailyBars.length - 6].c;
+  if (!weekAgo) return null;
+  return Math.round(((current - weekAgo) / weekAgo) * 1000) / 10;
 }
 
 function pctCell(val) {
