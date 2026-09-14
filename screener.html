@@ -138,6 +138,37 @@
   .picks-tab-dropdown-item:hover { background: var(--bg3); }
   .picks-tab-dropdown-item.active { background: var(--accent); color: #fff; }
 
+  .listqa-tab-wrap { position: relative; display: flex; align-items: stretch; }
+  .listqa-tab-dropdown {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: 2px;
+    min-width: 150px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+    z-index: 200;
+    padding: 4px;
+  }
+  .listqa-tab-dropdown.open { display: block; }
+  .listqa-tab-dropdown-item {
+    font-family: 'Inter', sans-serif;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text2);
+    padding: 8px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: background 0.12s, color 0.12s;
+  }
+  .listqa-tab-dropdown-item:hover { background: var(--bg3); }
+  .listqa-tab-dropdown-item.active { background: var(--accent); color: #fff; }
+
   /* TICKER SEARCH (tab bar) */
   .tab-search-wrap {
     display: flex;
@@ -2078,6 +2109,15 @@
     text-align: center; padding: 20px;
   }
 
+  /* ── Watchlist Check: Refine sub-view ──────────────────────── */
+  .listqa-refine-slot-wrap { padding: 20px 20px 0; }
+  .listqa-refine-slot-wrap .wl-slot { max-width: 480px; margin: 0 auto; padding: 14px 18px; }
+  .listqa-refine-drill-tickers { display: flex; flex-wrap: wrap; gap: 6px; padding: 12px 16px; }
+  .listqa-refine-drill-ticker {
+    font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 700; color: var(--text);
+    background: var(--bg2); border: 1px solid var(--border); border-radius: 4px; padding: 4px 8px;
+  }
+
   /* ── Calendar View ──────────────────────────────────────────── */
   .picks-calendar-wrap { padding:16px 20px 24px; width:100%; box-sizing:border-box; }
   .cal-nav-row { display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; flex-wrap:wrap; gap:8px; }
@@ -3724,7 +3764,13 @@
   </div>
   <button class="tab-btn" id="tab-btn-tweekly" onclick="switchTab('tweekly')">Tweekly</button>
   <button class="tab-btn" id="tab-btn-timeline" onclick="switchTab('timeline')">Market Timeline</button>
-  <button class="tab-btn" id="tab-btn-listqa" onclick="switchTab('listqa')">Watchlist Check</button>
+  <div class="listqa-tab-wrap" id="listqa-tab-wrap">
+    <button class="tab-btn" id="tab-btn-listqa" onclick="handleListqaTabClick()" ondblclick="handleListqaTabDblClick()" title="Click: choose a view · Double-click: open Watchlist Check">Watchlist Check</button>
+    <div class="listqa-tab-dropdown" id="listqa-tab-dropdown">
+      <div class="listqa-tab-dropdown-item" data-listqa-view="overview" onclick="selectListqaView('overview')">Overview</div>
+      <div class="listqa-tab-dropdown-item" data-listqa-view="refine" onclick="selectListqaView('refine')">Refine</div>
+    </div>
+  </div>
   <button class="tab-btn" id="tab-btn-psedaily" onclick="switchTab('psedaily')" style="display:none">PSE Daily</button>
   <button class="tab-btn" id="tab-btn-marketperf" onclick="switchTab('marketperf')" style="display:none">Market Performance</button>
   <button class="tab-btn" id="tab-btn-prioritylist" onclick="switchTab('prioritylist')" style="display:none">Priority List</button>
@@ -4442,19 +4488,46 @@
   <div class="sectors-page">
     <div class="sectors-toolbar">
       <div class="sectors-toolbar-left">
-        <div class="sectors-title">WATCHLIST CHECK</div>
+        <div class="sectors-title" id="listqa-title">WATCHLIST CHECK — OVERVIEW</div>
         <div class="sectors-updated" id="listqa-updated">Not loaded</div>
       </div>
       <div class="sectors-toolbar-right">
-        <button class="sectors-refresh-btn" id="listqa-refresh-btn" onclick="loadListQA(true)">↻ REFRESH</button>
+        <button class="sectors-refresh-btn" id="listqa-refresh-btn" onclick="refreshListqaTab()">↻ REFRESH</button>
       </div>
     </div>
     <div class="sectors-body" id="listqa-body">
-      <div class="sectors-loading" id="listqa-loading" style="display:none">
-        <div class="sectors-spinner"></div>
-        <div id="listqa-loading-text">Loading watchlist data…</div>
+      <div id="listqa-overview-pane">
+        <div class="sectors-loading" id="listqa-loading" style="display:none">
+          <div class="sectors-spinner"></div>
+          <div id="listqa-loading-text">Loading watchlist data…</div>
+        </div>
+        <div id="listqa-content"></div>
       </div>
-      <div id="listqa-content"></div>
+      <div id="listqa-refine-pane" style="display:none">
+        <div class="listqa-refine-slot-wrap">
+          <div class="wl-slot" id="listqa-refine-slot" onclick="triggerRefineFileLoad()">
+            <input type="file" accept=".txt" id="refine-file-input" style="display:none" onchange="handleRefineFile(event)">
+            <span class="wl-slot-name empty" id="listqa-refine-slot-name">empty — click or drop a .txt watchlist here</span>
+            <span class="wl-slot-count" id="listqa-refine-slot-count"></span>
+            <button class="wl-slot-clear" id="listqa-refine-slot-clear" style="display:none" title="Clear" onclick="event.stopPropagation(); clearRefineWatchlist()">✕</button>
+          </div>
+        </div>
+        <div id="listqa-refine-body" style="display:none">
+          <div class="sector-chart-area" id="refine-sector-chart-area">
+            <div>
+              <canvas id="refine-sector-pie-canvas" width="300" height="300" style="cursor:pointer;display:block"></canvas>
+              <div class="sector-click-hint">Click a slice or legend row to drill down</div>
+            </div>
+            <div class="sector-legend" id="refine-sector-legend"></div>
+          </div>
+          <div class="sector-drill" id="refine-sector-drill"></div>
+          <div class="sectors-loading" id="refine-loading" style="display:none">
+            <div class="sectors-spinner"></div>
+            <div id="refine-loading-text">Loading watchlist data…</div>
+          </div>
+          <div id="refine-stats-card"></div>
+        </div>
+      </div>
     </div>
   </div>
 </div><!-- /tab-listqa -->
@@ -4742,6 +4815,8 @@ window.addEventListener('DOMContentLoaded', () => {
   startClock();
   setupDragDrop();
   loadSavedWatchlists();
+  setupRefineDragDrop();
+  loadRefineWatchlistFromStorage();
   applyPaneState();
   renderPortfolioList();
   _syncImapModeUI();
@@ -9799,7 +9874,6 @@ function switchTab(tab) {
   if (tab === 'imap'      && !imapLoaded      && marketMode !== 'PH') loadIndustryMap(false);
   if (tab === 'tweekly'   && !tweeklyLoaded   && marketMode !== 'PH') loadTweekly(false);
   if (tab === 'timeline'  && !mtlLoaded       && marketMode !== 'PH') loadMarketTimeline(false);
-  if (tab === 'listqa'    && !listQaLoaded    && marketMode !== 'PH') loadListQA(false);
   if (tab === 'psedaily'   && Date.now() - pseDailyLoadedAt   > TAB_REFRESH_MS) runPSEScan();
   if (tab === 'marketperf' && marketMode === 'PH' && Date.now() - marketPerfLoadedAt > TAB_REFRESH_MS) loadMarketPerformance();
   if (tab === 'prioritylist') {
@@ -9819,6 +9893,23 @@ function switchTab(tab) {
     else if (picksViewMode === 'list') renderPicksList();
     else if (picksViewMode === 'calendar') renderPicksCalendar();
     else renderStarredCharts();
+  }
+  if (tab === 'listqa') {
+    _syncListqaTabDropdown();
+    const overviewPane = document.getElementById('listqa-overview-pane');
+    const refinePane   = document.getElementById('listqa-refine-pane');
+    const title        = document.getElementById('listqa-title');
+    if (listqaViewMode === 'refine') {
+      overviewPane.style.display = 'none';
+      refinePane.style.display   = '';
+      if (title) title.textContent = 'WATCHLIST CHECK — REFINE';
+      renderRefineView();
+    } else {
+      overviewPane.style.display = '';
+      refinePane.style.display   = 'none';
+      if (title) title.textContent = 'WATCHLIST CHECK — OVERVIEW';
+      if (!listQaLoaded && marketMode !== 'PH') loadListQA(false);
+    }
   }
 }
 
@@ -9908,6 +9999,57 @@ function switchMarket(mode) {
   _restoreMarketState(mode);
 }
 
+// ── Watchlist Check tab button: single click opens a view-picker dropdown
+// (Overview/Refine); double click bypasses it and jumps straight into
+// whichever view was last showing — same pattern as the My Picks tab.
+let listqaViewMode = 'overview'; // 'overview' | 'refine'
+let _listqaTabClickTimer = null;
+
+function handleListqaTabClick() {
+  if (_listqaTabClickTimer) return; // already waiting on a pending single click
+  _listqaTabClickTimer = setTimeout(() => {
+    _listqaTabClickTimer = null;
+    toggleListqaTabDropdown();
+  }, 220);
+}
+
+function handleListqaTabDblClick() {
+  if (_listqaTabClickTimer) { clearTimeout(_listqaTabClickTimer); _listqaTabClickTimer = null; }
+  closeListqaTabDropdown();
+  switchTab('listqa');
+}
+
+function toggleListqaTabDropdown() {
+  document.getElementById('listqa-tab-dropdown')?.classList.toggle('open');
+}
+
+function closeListqaTabDropdown() {
+  document.getElementById('listqa-tab-dropdown')?.classList.remove('open');
+}
+
+function selectListqaView(mode) {
+  listqaViewMode = mode;
+  closeListqaTabDropdown();
+  switchTab('listqa');
+}
+
+function _syncListqaTabDropdown() {
+  document.querySelectorAll('.listqa-tab-dropdown-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.listqaView === listqaViewMode);
+  });
+}
+
+document.addEventListener('click', (e) => {
+  const wrap = document.getElementById('listqa-tab-wrap');
+  if (wrap && !wrap.contains(e.target)) closeListqaTabDropdown();
+});
+
+// Toolbar REFRESH button re-fetches data for whichever sub-view is active.
+function refreshListqaTab() {
+  if (listqaViewMode === 'refine') loadListqaRefine(true);
+  else loadListQA(true);
+}
+
 // ============================================================
 //  WATCHLIST CHECK — compare the 3 saved watchlists' performance
 //  and fundamentals against each other, and flag tickers that look
@@ -9973,7 +10115,8 @@ let _listQaActiveBucket = {};
 function _listQaToggleBucket(slot, binIndex) {
   if (_listQaActiveBucket[slot] === binIndex) delete _listQaActiveBucket[slot];
   else _listQaActiveBucket[slot] = binIndex;
-  renderListQaScorecards(_listQaLastStats);
+  if (slot === 'refine') _renderListqaRefineStatsCard(_refineLastStats);
+  else renderListQaScorecards(_listQaLastStats);
 }
 
 async function loadListQA(force) {
@@ -10340,9 +10483,9 @@ function renderListQaScorecards(listsWithStats) {
   document.getElementById('listqa-content').innerHTML = `<div class="listqa-lists-grid" id="listqa-scorecards">${html}</div>`;
 }
 
-function _listQaOutlierRowsHtml(items, cls) {
+function _listQaOutlierRowsHtml(items, cls, cap = LISTQA_OUTLIER_DISPLAY_CAP) {
   if (!items.length) return '<div class="listqa-empty">None</div>';
-  return items.slice(0, LISTQA_OUTLIER_DISPLAY_CAP).map(o => `
+  return items.slice(0, cap).map(o => `
     <div class="listqa-outlier-row ${cls}">
       <div class="listqa-outlier-ticker">${o.ticker}</div>
       <div class="listqa-outlier-reason">${o.reasons.join(' · ')}</div>
@@ -10355,7 +10498,8 @@ function _listQaOutlierRowsHtml(items, cls) {
 // rather than pulling outliers out into a separate full-width area.
 // If a histogram bar is currently active for this list, both columns are
 // filtered down to just the tickers whose YTD return falls in that bucket.
-function _listQaOutlierSectionHtml(l) {
+// `cap` defaults to the Overview cap (25); the Refine sub-view passes 10.
+function _listQaOutlierSectionHtml(l, cap = LISTQA_OUTLIER_DISPLAY_CAP) {
   const activeBin = _listQaActiveBucket[l.slot];
   let posItems = l.positiveOutliers, negItems = l.negativeOutliers, filterNote = '';
   if (activeBin !== undefined) {
@@ -10371,15 +10515,385 @@ function _listQaOutlierSectionHtml(l) {
     <div class="listqa-hist-title">GROWTH OUTLIERS${filterNote}</div>
     <div class="listqa-outlier-cols">
       <div>
-        <div class="listqa-outlier-col-title pos">HIGHER GROWTH (${posCount}${posCount > LISTQA_OUTLIER_DISPLAY_CAP ? `, top ${LISTQA_OUTLIER_DISPLAY_CAP}` : ''})</div>
-        <div class="listqa-outlier-col-body">${_listQaOutlierRowsHtml(posItems, 'pos')}</div>
+        <div class="listqa-outlier-col-title pos">HIGHER GROWTH (${posCount}${posCount > cap ? `, top ${cap}` : ''})</div>
+        <div class="listqa-outlier-col-body">${_listQaOutlierRowsHtml(posItems, 'pos', cap)}</div>
       </div>
       <div>
-        <div class="listqa-outlier-col-title neg">LOWER GROWTH (${negCount}${negCount > LISTQA_OUTLIER_DISPLAY_CAP ? `, top ${LISTQA_OUTLIER_DISPLAY_CAP}` : ''})</div>
-        <div class="listqa-outlier-col-body">${_listQaOutlierRowsHtml(negItems, 'neg')}</div>
+        <div class="listqa-outlier-col-title neg">LOWER GROWTH (${negCount}${negCount > cap ? `, top ${cap}` : ''})</div>
+        <div class="listqa-outlier-col-body">${_listQaOutlierRowsHtml(negItems, 'neg', cap)}</div>
       </div>
     </div>
   `;
+}
+
+// ============================================================
+//  WATCHLIST CHECK — REFINE
+//  A single ad-hoc .txt watchlist (separate from the 3 saved sidebar
+//  slots) gets its own sector pie chart plus the same kind of stats/
+//  outlier breakdown as Overview, capped to 10 tickers per column
+//  since this is meant for quick one-off checks.
+// ============================================================
+const REFINE_WL_STORE_KEY = 'cts_refine_wl';
+const REFINE_OUTLIER_DISPLAY_CAP = 10;
+
+let refineWatchlist    = null; // {name, tickers: [{ticker, exchange}]} or null
+let _refineLastSectorMap = null; // ticker -> sectorName, from the last fetch
+let _refineLastStats     = null; // computeListQaStats() output for the current list
+let refineActiveSector   = null;
+let _refineSectorSlices  = [];
+
+function loadRefineWatchlistFromStorage() {
+  try {
+    const raw = localStorage.getItem(REFINE_WL_STORE_KEY);
+    if (!raw) return;
+    const str = LZString.decompressFromBase64(raw) || raw;
+    refineWatchlist = JSON.parse(str);
+  } catch (e) {}
+  _renderRefineSlot();
+}
+
+function saveRefineWatchlistToStorage() {
+  if (refineWatchlist) {
+    localStorage.setItem(REFINE_WL_STORE_KEY, LZString.compressToBase64(JSON.stringify(refineWatchlist)));
+  } else {
+    localStorage.removeItem(REFINE_WL_STORE_KEY);
+  }
+}
+
+function triggerRefineFileLoad() {
+  document.getElementById('refine-file-input').click();
+}
+
+function _loadRefineFile(file) {
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    const parsed = parseTradingViewTxt(ev.target.result);
+    refineWatchlist      = { name: file.name, tickers: parsed };
+    _refineLastSectorMap = null;
+    _refineLastStats     = null;
+    refineActiveSector   = null;
+    saveRefineWatchlistToStorage();
+    renderRefineView();
+  };
+  reader.readAsText(file);
+}
+
+function handleRefineFile(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  _loadRefineFile(file);
+  e.target.value = '';
+}
+
+function clearRefineWatchlist() {
+  refineWatchlist       = null;
+  _refineLastSectorMap  = null;
+  _refineLastStats      = null;
+  refineActiveSector    = null;
+  saveRefineWatchlistToStorage();
+  _renderRefineSlot();
+  const body = document.getElementById('listqa-refine-body');
+  if (body) body.style.display = 'none';
+}
+
+function setupRefineDragDrop() {
+  const slotEl = document.getElementById('listqa-refine-slot');
+  if (!slotEl) return;
+  slotEl.addEventListener('dragover', e => { e.preventDefault(); slotEl.classList.add('drag-over'); });
+  slotEl.addEventListener('dragleave', () => slotEl.classList.remove('drag-over'));
+  slotEl.addEventListener('drop', e => {
+    e.preventDefault();
+    slotEl.classList.remove('drag-over');
+    const files = Array.from(e.dataTransfer.files).filter(f => f.name.endsWith('.txt'));
+    if (!files.length) return;
+    _loadRefineFile(files[0]);
+  });
+}
+
+function _renderRefineSlot() {
+  const nameEl   = document.getElementById('listqa-refine-slot-name');
+  const countEl  = document.getElementById('listqa-refine-slot-count');
+  const clearBtn = document.getElementById('listqa-refine-slot-clear');
+  const slotEl   = document.getElementById('listqa-refine-slot');
+  if (!nameEl) return;
+  if (refineWatchlist) {
+    nameEl.textContent = refineWatchlist.name.replace(/\.txt$/i, '');
+    nameEl.classList.remove('empty');
+    countEl.textContent = refineWatchlist.tickers.length;
+    clearBtn.style.display = '';
+    slotEl.classList.add('has-data');
+  } else {
+    nameEl.textContent = 'empty — click or drop a .txt watchlist here';
+    nameEl.classList.add('empty');
+    countEl.textContent = '';
+    clearBtn.style.display = 'none';
+    slotEl.classList.remove('has-data');
+  }
+}
+
+// Shows whatever's already been fetched (from cache/prior fetch) instantly,
+// and only kicks off a network fetch if this list hasn't been loaded yet —
+// same "only fetch once until refreshed" idea as Overview's listQaLoaded flag.
+function renderRefineView() {
+  _renderRefineSlot();
+  const body = document.getElementById('listqa-refine-body');
+  if (!refineWatchlist || !refineWatchlist.tickers.length) {
+    if (body) body.style.display = 'none';
+    return;
+  }
+  body.style.display = '';
+  if (_refineLastSectorMap) renderRefineSectorPie(_refineLastSectorMap);
+  if (_refineLastStats)     _renderListqaRefineStatsCard(_refineLastStats);
+  if (!_refineLastSectorMap || !_refineLastStats) loadListqaRefine(false);
+}
+
+async function loadListqaRefine(force) {
+  if (!refineWatchlist || !refineWatchlist.tickers.length) return;
+  _listQaEnsureCachesHydrated();
+  const tickerList = refineWatchlist.tickers.map(t => t.ticker);
+
+  // Only bust the cache entries for tickers in *this* list — the returns/
+  // fundamentals caches are shared with Overview, so a full clear() here
+  // would force Overview to refetch everything too.
+  if (force) {
+    tickerList.forEach(t => { _listQaReturnsCache.delete(t); delete _listQaFundCache[t]; });
+    _listQaPersistReturns();
+    _listQaPersistFund();
+  }
+
+  const loading     = document.getElementById('refine-loading');
+  const loadingText = document.getElementById('refine-loading-text');
+  const progress = { returnsDone: 0, returnsTotal: 0, fundDone: 0, fundTotal: 0 };
+  const updateProgress = () => {
+    const bits = [];
+    if (progress.returnsTotal) bits.push(`${progress.returnsDone}/${progress.returnsTotal} prices`);
+    if (progress.fundTotal)    bits.push(`${progress.fundDone}/${progress.fundTotal} fundamentals`);
+    if (loadingText) loadingText.textContent = `Fetching ${tickerList.length} stocks… ${bits.join(' · ')}`;
+  };
+  if (loading) loading.style.display = 'flex';
+  updateProgress();
+
+  try {
+    const [sectorMap, returnsMap, fundMap] = await Promise.all([
+      fetchAllTickerSectors(tickerList),
+      fetchListQaReturns(tickerList, progress, updateProgress),
+      fetchListQaFundamentalsBulk(tickerList, progress, updateProgress),
+    ]);
+
+    _refineLastSectorMap = sectorMap;
+    _refineLastStats = computeListQaStats(
+      { slot: 'refine', name: refineWatchlist.name, tickers: tickerList },
+      returnsMap, fundMap
+    );
+
+    renderRefineSectorPie(sectorMap);
+    _renderListqaRefineStatsCard(_refineLastStats);
+    document.getElementById('listqa-updated').textContent = `Updated ${new Date().toLocaleTimeString()}`;
+  } catch (e) {
+    document.getElementById('refine-stats-card').innerHTML = `<div class="listqa-empty">Failed to load: ${e.message}</div>`;
+  } finally {
+    if (loading) loading.style.display = 'none';
+  }
+}
+
+// ── Sector pie chart, scoped to the Refine list only ────────────────────
+// Same donut+legend+click-to-drill visual as the main Sector tab
+// (renderSectorView/_drawSectorPie/_buildSectorLegend/_selectSector), but
+// against an unscored ad-hoc ticker list — so there's no avg-score badge
+// or ranked-row drill-down, just ticker chips.
+function renderRefineSectorPie(tickerSectorMap) {
+  if (!refineWatchlist || !refineWatchlist.tickers.length) return;
+
+  const groups = {};
+  refineWatchlist.tickers.forEach(t => {
+    const s = tickerSectorMap[t.ticker] || 'Other';
+    if (!groups[s]) groups[s] = [];
+    groups[s].push(t.ticker);
+  });
+  const sectors = Object.entries(groups).sort((a, b) => b[1].length - a[1].length);
+  const total   = refineWatchlist.tickers.length;
+
+  let angle = -Math.PI / 2;
+  _refineSectorSlices = sectors.map(([name, tks], i) => {
+    const span = (tks.length / total) * 2 * Math.PI;
+    const s = { name, tickers: tks, startAngle: angle, endAngle: angle + span, color: SECTOR_COLORS[i % SECTOR_COLORS.length] };
+    angle += span;
+    return s;
+  });
+
+  _drawRefineSectorPie(total);
+  _buildRefineSectorLegend(sectors, total);
+
+  const canvas = document.getElementById('refine-sector-pie-canvas');
+  if (canvas && !canvas._refineClickBound) {
+    canvas._refineClickBound = true;
+    canvas.addEventListener('click', function(e) {
+      const rect = this.getBoundingClientRect();
+      const scaleX = 300 / rect.width;
+      const scaleY = 300 / rect.height;
+      const x = (e.clientX - rect.left) * scaleX - 150;
+      const y = (e.clientY - rect.top)  * scaleY - 150;
+      const dist = Math.sqrt(x * x + y * y);
+      if (dist < 42 || dist > 132) return;
+      let a = Math.atan2(y, x);
+      if (a < -Math.PI / 2) a += 2 * Math.PI;
+      const hit = _refineSectorSlices.find(s => a >= s.startAngle && a < s.endAngle);
+      if (hit) _selectRefineSector(hit.name);
+    });
+  }
+
+  if (refineActiveSector && groups[refineActiveSector]) _renderRefineSectorDrill(refineActiveSector, groups[refineActiveSector]);
+  else document.getElementById('refine-sector-drill').innerHTML = '';
+}
+
+function _drawRefineSectorPie(total) {
+  const canvas = document.getElementById('refine-sector-pie-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const cx = 150, cy = 150, r = 116, innerR = 42;
+
+  ctx.clearRect(0, 0, 300, 300);
+
+  _refineSectorSlices.forEach(s => {
+    const isActive = s.name === refineActiveSector;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, isActive ? r + 10 : r, s.startAngle, s.endAngle);
+    ctx.closePath();
+    ctx.fillStyle = s.color;
+    ctx.globalAlpha = isActive ? 1.0 : (refineActiveSector ? 0.55 : 0.88);
+    ctx.fill();
+    ctx.globalAlpha = 1.0;
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = isActive ? 2.5 : 1.5;
+    ctx.stroke();
+  });
+
+  ctx.beginPath();
+  ctx.arc(cx, cy, innerR, 0, 2 * Math.PI);
+  ctx.fillStyle = '#f5f6f8';
+  ctx.fill();
+  ctx.strokeStyle = '#fff';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  if (refineActiveSector) {
+    const sl = _refineSectorSlices.find(s => s.name === refineActiveSector);
+    ctx.fillStyle = sl ? sl.color : '#374151';
+    ctx.font = "bold 18px 'IBM Plex Mono', monospace";
+    ctx.fillText(sl ? sl.tickers.length : '', cx, cy - 7);
+    ctx.font = "9px 'IBM Plex Sans', sans-serif";
+    ctx.fillStyle = '#6b7280';
+    ctx.fillText('stocks', cx, cy + 9);
+  } else {
+    ctx.fillStyle = '#374151';
+    ctx.font = "bold 18px 'IBM Plex Mono', monospace";
+    ctx.fillText(total, cx, cy - 7);
+    ctx.font = "9px 'IBM Plex Sans', sans-serif";
+    ctx.fillStyle = '#6b7280';
+    ctx.fillText('total', cx, cy + 9);
+  }
+}
+
+function _buildRefineSectorLegend(sectors, total) {
+  const legend = document.getElementById('refine-sector-legend');
+  if (!legend) return;
+  legend.innerHTML = sectors.map(([name, tks], i) => {
+    const pct   = Math.round(tks.length / total * 100);
+    const color = SECTOR_COLORS[i % SECTOR_COLORS.length];
+    const isSelected = name === refineActiveSector;
+    return `<div class="sector-legend-item${isSelected ? ' selected' : ''}" onclick="_selectRefineSector('${name.replace(/'/g,"\\'")}')">
+      <div class="sector-legend-dot" style="background:${color}"></div>
+      <div class="sector-legend-name">${name}</div>
+      <div class="sector-legend-count">${tks.length}</div>
+      <div class="sector-legend-pct">${pct}%</div>
+    </div>`;
+  }).join('');
+}
+
+function _selectRefineSector(name) {
+  refineActiveSector = refineActiveSector === name ? null : name;
+  const groups = {};
+  refineWatchlist.tickers.forEach(t => {
+    const s = (_refineLastSectorMap && _refineLastSectorMap[t.ticker]) || 'Other';
+    if (!groups[s]) groups[s] = [];
+    groups[s].push(t.ticker);
+  });
+  const sectors = Object.entries(groups).sort((a, b) => b[1].length - a[1].length);
+  const total   = refineWatchlist.tickers.length;
+  _drawRefineSectorPie(total);
+  _buildRefineSectorLegend(sectors, total);
+  const group = sectors.find(([n]) => n === refineActiveSector);
+  _renderRefineSectorDrill(refineActiveSector, group ? group[1] : []);
+}
+
+function _renderRefineSectorDrill(sectorName, tickersInSector) {
+  const drill = document.getElementById('refine-sector-drill');
+  if (!drill) return;
+  if (!sectorName || !tickersInSector || !tickersInSector.length) { drill.innerHTML = ''; return; }
+  drill.innerHTML = `
+    <div class="sector-drill-header">
+      <span class="sector-drill-title">${sectorName.toUpperCase()}</span>
+      <span>${tickersInSector.length} stock${tickersInSector.length !== 1 ? 's' : ''}</span>
+    </div>
+    <div class="listqa-refine-drill-tickers">
+      ${tickersInSector.map(t => `<span class="listqa-refine-drill-ticker">${t}</span>`).join('')}
+    </div>`;
+}
+
+// ── Stats/outlier card, single-list version of renderListQaScorecards() ──
+function _renderListqaRefineStatsCard(l) {
+  const html = `
+    <div class="listqa-list-col">
+      <div class="listqa-list-name" title="${l.name}">${l.name}</div>
+      <div class="listqa-list-count">${l.count} tickers${l.scoredCount ? ` · ${l.scoredCount} scanned` : ' · not scanned yet'}${l.filteredCount ? ` · ${l.filteredCount} failed hard filter` : ''}</div>
+      <div class="listqa-stat-grid">
+        <div>
+          <div class="listqa-stat-label">AVG YTD RETURN</div>
+          <div class="listqa-stat-val ${_listQaPctClass(l.avgYtd)}">${_listQaFmtPct(l.avgYtd)}</div>
+        </div>
+        <div>
+          <div class="listqa-stat-label">AVG 1YR RETURN</div>
+          <div class="listqa-stat-val ${_listQaPctClass(l.avgRet1y)}">${_listQaFmtPct(l.avgRet1y)}</div>
+        </div>
+        <div>
+          <div class="listqa-stat-label">AVG REVENUE GROWTH</div>
+          <div class="listqa-stat-val ${_listQaPctClass(l.avgRev)}">${_listQaFmtPct(l.avgRev)}</div>
+        </div>
+        <div>
+          <div class="listqa-stat-label">AVG EARNINGS GROWTH</div>
+          <div class="listqa-stat-val ${_listQaPctClass(l.avgEarn)}">${_listQaFmtPct(l.avgEarn)}</div>
+        </div>
+        <div>
+          <div class="listqa-stat-label">AVG SCREENER SCORE</div>
+          <div class="listqa-stat-val">${l.avgScore !== null ? Math.round(l.avgScore) : '—'}</div>
+        </div>
+        <div>
+          <div class="listqa-stat-label">OUTLIERS FLAGGED</div>
+          <div class="listqa-stat-val">${l.outlierCount}</div>
+        </div>
+      </div>
+      <div class="listqa-winlose-row">
+        <div class="listqa-winlose-col">
+          <div class="listqa-stat-label">AVG WINNER (${l.winnerCount})</div>
+          <div class="listqa-stat-val ${_listQaPctClass(l.avgWinner)}">${_listQaFmtPct(l.avgWinner)}</div>
+        </div>
+        <div class="listqa-winlose-col">
+          <div class="listqa-stat-label">AVG LOSER (${l.loserCount})</div>
+          <div class="listqa-stat-val ${_listQaPctClass(l.avgLoser)}">${_listQaFmtPct(l.avgLoser)}</div>
+        </div>
+        <div class="listqa-winlose-col">
+          <div class="listqa-stat-label">WIN RATE</div>
+          <div class="listqa-stat-val">${l.winRate !== null ? l.winRate + '%' : '—'}</div>
+        </div>
+      </div>
+      ${_listQaHistogramHtml(l)}
+      ${_listQaOutlierSectionHtml(l, REFINE_OUTLIER_DISPLAY_CAP)}
+    </div>
+  `;
+  document.getElementById('refine-stats-card').innerHTML = `<div class="listqa-lists-grid">${html}</div>`;
 }
 
 // ============================================================
