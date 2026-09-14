@@ -2148,13 +2148,15 @@
   .refine-check { vertical-align: middle; margin-right: 4px; cursor: pointer; accent-color: var(--accent); }
   .refine-sector-row {
     background: var(--bg3); font-weight: 700; font-size: 14px; color: var(--text);
-    border-top: 2px solid var(--border2); margin-top: 8px;
+    border-top: 2px solid var(--border2); margin-top: 8px; cursor: pointer;
   }
   .refine-sector-row:first-child { margin-top: 0; }
+  .refine-sector-row:hover { background: var(--hover); }
   .refine-industry-row {
     background: var(--bg2); font-weight: 600; font-size: 12.5px; color: var(--text2);
-    border-top: 1px solid var(--border);
+    border-top: 1px solid var(--border); cursor: pointer;
   }
+  .refine-industry-row:hover { background: var(--hover); }
   .refine-industry-name { padding-left: 16px; }
   .refine-ticker-row { border-bottom: 1px solid var(--border); }
   .refine-ticker-row:hover { background: var(--hover); }
@@ -10685,6 +10687,7 @@ function _loadRefineFile(file) {
     _refineTableSortKey    = 'sector';
     _refineTableSortDir    = 'asc';
     _refineVisibleLevels   = { ticker: true, sector: true, industry: true };
+    _refineCollapsedGroups = new Set();
     saveRefineWatchlistToStorage();
     renderRefineView();
   };
@@ -10712,6 +10715,7 @@ function clearRefineWatchlist() {
   _refineTableSortKey    = 'sector';
   _refineTableSortDir    = 'asc';
   _refineVisibleLevels   = { ticker: true, sector: true, industry: true };
+  _refineCollapsedGroups = new Set();
   saveRefineWatchlistToStorage();
   _renderRefineSlot();
   const body  = document.getElementById('listqa-refine-body');
@@ -11087,6 +11091,19 @@ const REFINE_TABLE_COLUMNS = [
 // of every industry in the watchlist, not nested under sector.
 let _refineVisibleLevels = { ticker: true, sector: true, industry: true };
 
+// Individually-collapsed sector/industry rows (clicked closed by hand), keyed
+// 'sector:Name' / 'industry:Name'. Collapsing a sector hides its industries
+// AND tickers; collapsing an industry hides just its tickers. Independent of
+// _refineVisibleLevels, which hides a whole category everywhere at once.
+let _refineCollapsedGroups = new Set();
+
+function _toggleRefineGroupCollapse(level, name) {
+  const key = `${level}:${name}`;
+  if (_refineCollapsedGroups.has(key)) _refineCollapsedGroups.delete(key);
+  else _refineCollapsedGroups.add(key);
+  renderRefineIndustryTable();
+}
+
 function _refineBuildTickerRows() {
   return refineWatchlist.tickers.map(t => {
     const ticker = t.ticker;
@@ -11176,12 +11193,14 @@ function _refineTickerRowHtml(r) {
     </div>`;
 }
 
-function _refineGroupHeaderHtml(level, name, avg) {
-  const cls  = level === 'sector' ? 'refine-sector-row'  : 'refine-industry-row';
+function _refineGroupHeaderHtml(level, name, avg, collapsed) {
+  const cls     = level === 'sector' ? 'refine-sector-row'  : 'refine-industry-row';
   const nameCls = level === 'sector' ? 'refine-sector-name' : 'refine-industry-name';
+  const arrow   = collapsed ? '▸' : '▾';
+  const nameEsc = name.replace(/'/g, "\\'");
   return `
-    <div class="${cls}">
-      <div class="${nameCls}" title="${name}">${name}</div>
+    <div class="${cls}" onclick="_toggleRefineGroupCollapse('${level}', '${nameEsc}')" title="Click to ${collapsed ? 'expand' : 'collapse'}">
+      <div class="${nameCls}" title="${name}">${arrow} ${name}</div>
       <div>${_refineFmtPct(avg.rev)}</div>
       <div>${_refineFmtPct(avg.earn)}</div>
       <div>${_refineFmtPct(avg.perf1w)}</div>
@@ -11193,7 +11212,10 @@ function _refineGroupHeaderHtml(level, name, avg) {
 // ['sector','industry'], in that order — the levels the user left checked),
 // rendering a header + averages per group, then recursing into the rest.
 // Once no grouping levels remain, renders the individual ticker rows if the
-// TICKER checkbox is on (or nothing, if even that's unchecked).
+// TICKER checkbox is on (or nothing, if even that's unchecked). A group the
+// user clicked collapsed skips rendering everything beneath its header —
+// collapsing a sector hides its industries AND tickers; collapsing an
+// industry hides just its tickers.
 function _refineRenderLevel(rows, remainingLevels) {
   if (!remainingLevels.length) {
     if (!_refineVisibleLevels.ticker) return '';
@@ -11206,9 +11228,10 @@ function _refineRenderLevel(rows, remainingLevels) {
   const withAvg = {};
   Object.entries(groups).forEach(([name, rs]) => { withAvg[name] = { rows: rs, avg: _refineAvgOf(rs) }; });
   const sortedEntries = _refineSortEntries(Object.entries(withAvg), _refineTableSortKey, _refineTableSortDir, false);
-  return sortedEntries.map(([name, g]) =>
-    _refineGroupHeaderHtml(level, name, g.avg) + _refineRenderLevel(g.rows, rest)
-  ).join('');
+  return sortedEntries.map(([name, g]) => {
+    const collapsed = _refineCollapsedGroups.has(`${level}:${name}`);
+    return _refineGroupHeaderHtml(level, name, g.avg, collapsed) + (collapsed ? '' : _refineRenderLevel(g.rows, rest));
+  }).join('');
 }
 
 function renderRefineIndustryTable() {
