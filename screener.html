@@ -10132,7 +10132,7 @@ let _listQaActiveBucket = {};
 function _listQaToggleBucket(slot, binIndex) {
   if (_listQaActiveBucket[slot] === binIndex) delete _listQaActiveBucket[slot];
   else _listQaActiveBucket[slot] = binIndex;
-  if (slot === 'refine') _renderListqaRefineStatsCard(_refineLastStats);
+  if (slot === 'refine') _renderListqaRefineStatsCard(_refineStatsForActiveSector());
   else renderListQaScorecards(_listQaLastStats);
 }
 
@@ -10430,7 +10430,7 @@ function _listQaHistogramHtml(l) {
     <div class="listqa-hist-wrap">
       <div class="listqa-hist-bars">
         ${LISTQA_HIST_BINS.map((bin, i) => `
-          <div class="listqa-hist-bar-col ${activeBin === i ? 'active' : ''}" onclick="_listQaToggleBucket(${l.slot}, ${i})" title="${counts[i]} ticker${counts[i] === 1 ? '' : 's'} in this range — click to filter outliers">
+          <div class="listqa-hist-bar-col ${activeBin === i ? 'active' : ''}" onclick="_listQaToggleBucket('${l.slot}', ${i})" title="${counts[i]} ticker${counts[i] === 1 ? '' : 's'} in this range — click to filter outliers">
             <div class="listqa-hist-count">${counts[i] || ''}</div>
             <div class="listqa-hist-bar ${bin.max <= 0 ? 'neg' : 'pos'}" style="height:${Math.round((counts[i] / maxCount) * 100)}%"></div>
           </div>
@@ -10554,10 +10554,12 @@ const REFINE_WL_STORE_KEY = 'cts_refine_wl';
 const REFINE_OUTLIER_DISPLAY_CAP = 10;
 
 let refineWatchlist    = null; // {name, tickers: [{ticker, exchange}]} or null
-let _refineLastSectorMap = null; // ticker -> sectorName, from the last fetch
-let _refineLastStats     = null; // computeListQaStats() output for the current list
-let refineActiveSector   = null;
-let _refineSectorSlices  = [];
+let _refineLastSectorMap  = null; // ticker -> sectorName, from the last fetch
+let _refineLastReturnsMap = null; // ticker -> {ytdPct, ret1y}, from the last fetch — kept so a sector click can recompute stats for just that sector without refetching
+let _refineLastFundMap    = null; // ticker -> {revenueGrowth, earningsGrowth}, from the last fetch
+let _refineLastStats      = null; // computeListQaStats() output for the whole list (unfiltered)
+let refineActiveSector    = null;
+let _refineSectorSlices   = [];
 
 function loadRefineWatchlistFromStorage() {
   try {
@@ -10585,10 +10587,12 @@ function _loadRefineFile(file) {
   const reader = new FileReader();
   reader.onload = (ev) => {
     const parsed = parseTradingViewTxt(ev.target.result);
-    refineWatchlist      = { name: file.name, tickers: parsed };
-    _refineLastSectorMap = null;
-    _refineLastStats     = null;
-    refineActiveSector   = null;
+    refineWatchlist       = { name: file.name, tickers: parsed };
+    _refineLastSectorMap  = null;
+    _refineLastReturnsMap = null;
+    _refineLastFundMap    = null;
+    _refineLastStats      = null;
+    refineActiveSector    = null;
     saveRefineWatchlistToStorage();
     renderRefineView();
   };
@@ -10605,6 +10609,8 @@ function handleRefineFile(e) {
 function clearRefineWatchlist() {
   refineWatchlist       = null;
   _refineLastSectorMap  = null;
+  _refineLastReturnsMap = null;
+  _refineLastFundMap    = null;
   _refineLastStats      = null;
   refineActiveSector    = null;
   saveRefineWatchlistToStorage();
@@ -10665,7 +10671,7 @@ function renderRefineView() {
   if (empty) empty.style.display = 'none';
   body.style.display = '';
   if (_refineLastSectorMap) renderRefineSectorPie(_refineLastSectorMap);
-  if (_refineLastStats)     _renderListqaRefineStatsCard(_refineLastStats);
+  if (_refineLastStats)     _renderListqaRefineStatsCard(_refineStatsForActiveSector());
   if (!_refineLastSectorMap || !_refineLastStats) loadListqaRefine(false);
 }
 
@@ -10702,14 +10708,16 @@ async function loadListqaRefine(force) {
       fetchListQaFundamentalsBulk(tickerList, progress, updateProgress),
     ]);
 
-    _refineLastSectorMap = sectorMap;
+    _refineLastSectorMap  = sectorMap;
+    _refineLastReturnsMap = returnsMap;
+    _refineLastFundMap    = fundMap;
     _refineLastStats = computeListQaStats(
       { slot: 'refine', name: refineWatchlist.name, tickers: tickerList },
       returnsMap, fundMap
     );
 
     renderRefineSectorPie(sectorMap);
-    _renderListqaRefineStatsCard(_refineLastStats);
+    _renderListqaRefineStatsCard(_refineStatsForActiveSector());
     document.getElementById('listqa-updated').textContent = `Updated ${new Date().toLocaleTimeString()}`;
   } catch (e) {
     document.getElementById('refine-stats-card').innerHTML = `<div class="listqa-empty">Failed to load: ${e.message}</div>`;
@@ -10835,6 +10843,23 @@ function _buildRefineSectorLegend(sectors, total) {
   }).join('');
 }
 
+// Recomputes the stats/outlier card for just the tickers in refineActiveSector
+// (using the returns/fundamentals already fetched for the whole list — no
+// refetch needed), or falls back to the full-list stats when no sector is
+// selected.
+function _refineStatsForActiveSector() {
+  if (!refineActiveSector || !_refineLastSectorMap || !_refineLastReturnsMap || !_refineLastFundMap) {
+    return _refineLastStats;
+  }
+  const tickerList = refineWatchlist.tickers
+    .map(t => t.ticker)
+    .filter(t => (_refineLastSectorMap[t] || 'Other') === refineActiveSector);
+  return computeListQaStats(
+    { slot: 'refine', name: refineWatchlist.name, tickers: tickerList },
+    _refineLastReturnsMap, _refineLastFundMap
+  );
+}
+
 function _selectRefineSector(name) {
   refineActiveSector = refineActiveSector === name ? null : name;
   const groups = {};
@@ -10849,6 +10874,11 @@ function _selectRefineSector(name) {
   _buildRefineSectorLegend(sectors, total);
   const group = sectors.find(([n]) => n === refineActiveSector);
   _renderRefineSectorDrill(refineActiveSector, group ? group[1] : []);
+  // Clicking a sector re-scopes the histogram bucket filter to whatever's now
+  // shown — a bucket picked while looking at the full list can otherwise end
+  // up filtering a sector that has none of its own tickers in that bucket.
+  delete _listQaActiveBucket['refine'];
+  _renderListqaRefineStatsCard(_refineStatsForActiveSector());
 }
 
 function _renderRefineSectorDrill(sectorName, tickersInSector) {
@@ -10866,11 +10896,16 @@ function _renderRefineSectorDrill(sectorName, tickersInSector) {
 }
 
 // ── Stats/outlier card, single-list version of renderListQaScorecards() ──
+// When refineActiveSector is set, `l` is already scoped to just that sector's
+// tickers (see _refineStatsForActiveSector) — this just adds the visible hint.
 function _renderListqaRefineStatsCard(l) {
+  const sectorNote = refineActiveSector
+    ? ` <span class="listqa-hist-filter-hint">— filtered to ${refineActiveSector} (click the sector again to clear)</span>`
+    : '';
   const html = `
     <div class="listqa-list-col">
       <div class="listqa-list-name" title="${l.name}">${l.name}</div>
-      <div class="listqa-list-count">${l.count} tickers${l.scoredCount ? ` · ${l.scoredCount} scanned` : ' · not scanned yet'}${l.filteredCount ? ` · ${l.filteredCount} failed hard filter` : ''}</div>
+      <div class="listqa-list-count">${l.count} tickers${l.scoredCount ? ` · ${l.scoredCount} scanned` : ' · not scanned yet'}${l.filteredCount ? ` · ${l.filteredCount} failed hard filter` : ''}${sectorNote}</div>
       <div class="listqa-stat-grid">
         <div>
           <div class="listqa-stat-label">AVG YTD RETURN</div>
