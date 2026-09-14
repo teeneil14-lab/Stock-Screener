@@ -1047,6 +1047,72 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // ── Finviz Elite ticker → sector lookup (batch, arbitrary ticker list) ──────
+  // Used by the Watchlist Check "Refine" sector pie so it groups by the same
+  // sector taxonomy/names the Tweekly tab shows, instead of Yahoo's.
+  if (reqUrl.pathname === '/api/finviz-ticker-sectors') {
+    const tickersParam = reqUrl.searchParams.get('tickers');
+    if (!tickersParam) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: 'tickers is required' }));
+    }
+
+    const FINVIZ_AUTH = 'f865b0bd-966b-4df5-a03b-f686ce527abf';
+
+    function parseCSVLine(line) {
+      const cells = [];
+      let cur = '', inQ = false;
+      for (let i = 0; i < line.length; i++) {
+        if (line[i] === '"') { inQ = !inQ; }
+        else if (line[i] === ',' && !inQ) { cells.push(cur.trim()); cur = ''; }
+        else { cur += line[i]; }
+      }
+      cells.push(cur.trim());
+      return cells;
+    }
+
+    // Parses a v=111 screener export and returns { TICKER: "Sector Name" },
+    // same shape /api/yf-quote returns, so the client can swap sources directly.
+    function parseTickerSectorCSV(csv) {
+      const lines = csv.trim().split(/\r?\n/).filter(Boolean);
+      if (lines.length < 2) return {};
+      const headers   = parseCSVLine(lines[0]);
+      const tickerIdx = headers.findIndex(h => /^ticker$/i.test(h));
+      const sectorIdx = headers.findIndex(h => /^sector$/i.test(h));
+      if (tickerIdx < 0 || sectorIdx < 0) return {};
+      const out = {};
+      for (let i = 1; i < lines.length; i++) {
+        const cells = parseCSVLine(lines[i]);
+        if (cells.length <= Math.max(tickerIdx, sectorIdx)) continue;
+        const ticker = cells[tickerIdx];
+        const sector = cells[sectorIdx];
+        if (ticker && sector) out[ticker] = sector;
+      }
+      return out;
+    }
+
+    const symbols = tickersParam.split(',').map(s => s.trim()).filter(Boolean);
+    const BATCH   = 75; // comfortably under any URL-length concern; tested 50 in one call live
+    const sectorMap = {};
+
+    try {
+      for (let i = 0; i < symbols.length; i += BATCH) {
+        const batch = symbols.slice(i, i + BATCH);
+        const path  = `/export?v=111&t=${encodeURIComponent(batch.join(','))}&auth=${FINVIZ_AUTH}`;
+        const raw   = await rawHttpsGet({ hostname: 'elite.finviz.com', path, headers: {} });
+        if (raw.status === 200) Object.assign(sectorMap, parseTickerSectorCSV(raw.body));
+        if (i + BATCH < symbols.length) await new Promise(r => setTimeout(r, 150));
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(sectorMap));
+    } catch (e) {
+      console.error(`[finviz-ticker-sectors] ${e.message}`);
+      res.writeHead(502, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return;
+  }
+
   // ── PSE bars: historical OHLCV from pse_history (daily / weekly / monthly) ───
   if (reqUrl.pathname === '/api/pse/bars') {
     const symbol   = (reqUrl.searchParams.get('symbol') || '').toUpperCase();

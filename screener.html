@@ -2116,7 +2116,7 @@
     min-height: 0; width: 240px; padding: 5px 10px; gap: 6px; border-radius: 3px;
   }
   .listqa-refine-slot-wrap .wl-slot-name { font-size: 9px; }
-  .listqa-refine-columns { display: grid; grid-template-columns: minmax(380px, 460px) 1fr; gap: 24px; align-items: start; }
+  .listqa-refine-columns { display: grid; grid-template-columns: minmax(380px, 540px) 1fr; gap: 24px; align-items: start; }
   .listqa-refine-col-left { min-width: 0; }
   .listqa-refine-col-right { min-width: 0; }
   .listqa-refine-drill-tickers { display: flex; flex-wrap: wrap; gap: 6px; padding: 12px 16px; }
@@ -2657,6 +2657,33 @@
   .sector-legend-avg.avg-green { color: var(--green); }
   .sector-legend-avg.avg-amber { color: var(--amber); }
   .sector-legend-avg.avg-red  { color: var(--red); }
+
+  /* Refine's legend gets its own (wider) width and a sortable header row —
+     scoped by id so the main Sector tab's legend is unaffected. */
+  #refine-sector-legend { min-width: 280px; max-width: 360px; }
+  .sector-legend-header {
+    display: flex; align-items: center; gap: 8px;
+    padding: 2px 8px 6px; margin-bottom: 4px; border-bottom: 1px solid var(--border);
+  }
+  .sector-legend-header-spacer { width: 10px; flex-shrink: 0; }
+  .sector-legend-header-name, .sector-legend-header-count,
+  .sector-legend-header-pct, .sector-legend-header-perf {
+    font-family: 'IBM Plex Mono', monospace; font-size: 8px; font-weight: 600;
+    letter-spacing: 0.04em; color: var(--text3); cursor: pointer; user-select: none;
+    white-space: nowrap;
+  }
+  .sector-legend-header-name:hover, .sector-legend-header-count:hover,
+  .sector-legend-header-pct:hover, .sector-legend-header-perf:hover { color: var(--accent); }
+  .sector-legend-header-name  { flex: 1; }
+  .sector-legend-header-count { min-width: 24px; text-align: right; }
+  .sector-legend-header-pct   { min-width: 38px; text-align: right; }
+  .sector-legend-header-perf  { min-width: 64px; text-align: right; padding-left: 6px; }
+  .sector-legend-perf {
+    font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600;
+    min-width: 64px; text-align: right; padding-left: 6px; color: var(--text3);
+  }
+  .sector-legend-perf.perf-pos { color: var(--green); }
+  .sector-legend-perf.perf-neg { color: var(--red); }
   .sector-drill { border-top: 1px solid var(--border); }
   .sector-drill-header {
     font-family: 'Inter', sans-serif; font-size: 10px; letter-spacing: 0.08em;
@@ -10554,12 +10581,16 @@ const REFINE_WL_STORE_KEY = 'cts_refine_wl';
 const REFINE_OUTLIER_DISPLAY_CAP = 10;
 
 let refineWatchlist    = null; // {name, tickers: [{ticker, exchange}]} or null
-let _refineLastSectorMap  = null; // ticker -> sectorName, from the last fetch
+let _refineLastSectorMap  = null; // ticker -> Finviz sector name, from the last fetch
+let _refineLastSectorPerf = null; // Finviz sector name -> 1-week % change, from the last fetch
 let _refineLastReturnsMap = null; // ticker -> {ytdPct, ret1y}, from the last fetch — kept so a sector click can recompute stats for just that sector without refetching
 let _refineLastFundMap    = null; // ticker -> {revenueGrowth, earningsGrowth}, from the last fetch
 let _refineLastStats      = null; // computeListQaStats() output for the whole list (unfiltered)
 let refineActiveSector    = null;
 let _refineSectorSlices   = [];
+let _refineSectorColors   = {}; // sector name -> color, assigned in a stable (alphabetical) order so colors don't reshuffle when the sort changes
+let _refineSectorSortKey  = 'count'; // 'name' | 'count' | 'pct' | 'perf'
+let _refineSectorSortDir  = 'desc';  // 'asc' | 'desc'
 
 function loadRefineWatchlistFromStorage() {
   try {
@@ -10589,10 +10620,14 @@ function _loadRefineFile(file) {
     const parsed = parseTradingViewTxt(ev.target.result);
     refineWatchlist       = { name: file.name, tickers: parsed };
     _refineLastSectorMap  = null;
+    _refineLastSectorPerf = null;
     _refineLastReturnsMap = null;
     _refineLastFundMap    = null;
     _refineLastStats      = null;
     refineActiveSector    = null;
+    _refineSectorColors   = {};
+    _refineSectorSortKey  = 'count';
+    _refineSectorSortDir  = 'desc';
     saveRefineWatchlistToStorage();
     renderRefineView();
   };
@@ -10609,10 +10644,14 @@ function handleRefineFile(e) {
 function clearRefineWatchlist() {
   refineWatchlist       = null;
   _refineLastSectorMap  = null;
+  _refineLastSectorPerf = null;
   _refineLastReturnsMap = null;
   _refineLastFundMap    = null;
   _refineLastStats      = null;
   refineActiveSector    = null;
+  _refineSectorColors   = {};
+  _refineSectorSortKey  = 'count';
+  _refineSectorSortDir  = 'desc';
   saveRefineWatchlistToStorage();
   _renderRefineSlot();
   const body  = document.getElementById('listqa-refine-body');
@@ -10675,6 +10714,31 @@ function renderRefineView() {
   if (!_refineLastSectorMap || !_refineLastStats) loadListqaRefine(false);
 }
 
+// Ticker -> Finviz sector name (matches the taxonomy/names the Tweekly tab
+// shows), via the batch lookup added at server.js /api/finviz-ticker-sectors.
+async function fetchFinvizTickerSectors(tickerList) {
+  if (!tickerList.length) return {};
+  try {
+    const res = await fetch(`/api/finviz-ticker-sectors?tickers=${encodeURIComponent(tickerList.join(','))}`);
+    if (!res.ok) return {};
+    return await res.json();
+  } catch { return {}; }
+}
+
+// Finviz sector name -> 1-week % change — the same data/endpoint the Tweekly
+// tab uses (screener.html loadTweekly, /api/finviz-groups?type=sector).
+async function fetchFinvizSectorPerf() {
+  try {
+    const res = await fetch('/api/finviz-groups?type=sector');
+    if (!res.ok) return {};
+    const rows = await res.json();
+    if (!Array.isArray(rows)) return {};
+    const out = {};
+    rows.forEach(r => { out[r.name] = r.perf1w; });
+    return out;
+  } catch { return {}; }
+}
+
 async function loadListqaRefine(force) {
   if (!refineWatchlist || !refineWatchlist.tickers.length) return;
   _listQaEnsureCachesHydrated();
@@ -10702,13 +10766,15 @@ async function loadListqaRefine(force) {
   updateProgress();
 
   try {
-    const [sectorMap, returnsMap, fundMap] = await Promise.all([
-      fetchAllTickerSectors(tickerList),
+    const [sectorMap, sectorPerf, returnsMap, fundMap] = await Promise.all([
+      fetchFinvizTickerSectors(tickerList),
+      fetchFinvizSectorPerf(),
       fetchListQaReturns(tickerList, progress, updateProgress),
       fetchListQaFundamentalsBulk(tickerList, progress, updateProgress),
     ]);
 
     _refineLastSectorMap  = sectorMap;
+    _refineLastSectorPerf = sectorPerf;
     _refineLastReturnsMap = returnsMap;
     _refineLastFundMap    = fundMap;
     _refineLastStats = computeListQaStats(
@@ -10731,22 +10797,69 @@ async function loadListqaRefine(force) {
 // (renderSectorView/_drawSectorPie/_buildSectorLegend/_selectSector), but
 // against an unscored ad-hoc ticker list — so there's no avg-score badge
 // or ranked-row drill-down, just ticker chips.
-function renderRefineSectorPie(tickerSectorMap) {
-  if (!refineWatchlist || !refineWatchlist.tickers.length) return;
-
+function _refineBuildSectorGroups(tickerSectorMap) {
   const groups = {};
   refineWatchlist.tickers.forEach(t => {
-    const s = tickerSectorMap[t.ticker] || 'Other';
+    const s = (tickerSectorMap && tickerSectorMap[t.ticker]) || 'Other';
     if (!groups[s]) groups[s] = [];
     groups[s].push(t.ticker);
   });
-  const sectors = Object.entries(groups).sort((a, b) => b[1].length - a[1].length);
+  return groups;
+}
+
+// Colors are assigned in a fixed alphabetical order (not by current sort
+// position), so a given sector keeps the same color no matter which column
+// the list is currently sorted by.
+function _refineAssignSectorColors(groups) {
+  const names = Object.keys(groups).sort((a, b) => a.localeCompare(b));
+  _refineSectorColors = {};
+  names.forEach((name, i) => { _refineSectorColors[name] = SECTOR_COLORS[i % SECTOR_COLORS.length]; });
+}
+
+// Sorts sector groups per the current _refineSectorSortKey/_refineSectorSortDir.
+// 'pct' sorts identically to 'count' — % of list is a fixed function of count.
+// Sectors with no Finviz performance data (an 'Other' bucket, or a sector
+// Finviz's group list doesn't cover) always sort to the end of a 'perf' sort.
+function _refineSortedSectorEntries(groups) {
+  const entries = Object.entries(groups);
+  const dir = _refineSectorSortDir === 'asc' ? 1 : -1;
+  const perfOf = name => (_refineLastSectorPerf && typeof _refineLastSectorPerf[name] === 'number') ? _refineLastSectorPerf[name] : null;
+  entries.sort((a, b) => {
+    if (_refineSectorSortKey === 'name') return dir * a[0].localeCompare(b[0]);
+    if (_refineSectorSortKey === 'perf') {
+      const pa = perfOf(a[0]), pb = perfOf(b[0]);
+      if (pa === null && pb === null) return 0;
+      if (pa === null) return 1;
+      if (pb === null) return -1;
+      return dir * (pa - pb);
+    }
+    return dir * (a[1].length - b[1].length);
+  });
+  return entries;
+}
+
+function _setRefineSectorSort(key) {
+  if (_refineSectorSortKey === key) {
+    _refineSectorSortDir = _refineSectorSortDir === 'asc' ? 'desc' : 'asc';
+  } else {
+    _refineSectorSortKey = key;
+    _refineSectorSortDir = key === 'name' ? 'asc' : 'desc';
+  }
+  if (_refineLastSectorMap) renderRefineSectorPie(_refineLastSectorMap);
+}
+
+function renderRefineSectorPie(tickerSectorMap) {
+  if (!refineWatchlist || !refineWatchlist.tickers.length) return;
+
+  const groups = _refineBuildSectorGroups(tickerSectorMap);
+  _refineAssignSectorColors(groups);
+  const sectors = _refineSortedSectorEntries(groups);
   const total   = refineWatchlist.tickers.length;
 
   let angle = -Math.PI / 2;
-  _refineSectorSlices = sectors.map(([name, tks], i) => {
+  _refineSectorSlices = sectors.map(([name, tks]) => {
     const span = (tks.length / total) * 2 * Math.PI;
-    const s = { name, tickers: tks, startAngle: angle, endAngle: angle + span, color: SECTOR_COLORS[i % SECTOR_COLORS.length] };
+    const s = { name, tickers: tks, startAngle: angle, endAngle: angle + span, color: _refineSectorColors[name] };
     angle += span;
     return s;
   });
@@ -10830,17 +10943,34 @@ function _drawRefineSectorPie(total) {
 function _buildRefineSectorLegend(sectors, total) {
   const legend = document.getElementById('refine-sector-legend');
   if (!legend) return;
-  legend.innerHTML = sectors.map(([name, tks], i) => {
+
+  const arrow = key => _refineSectorSortKey === key ? (_refineSectorSortDir === 'asc' ? ' ▲' : ' ▼') : '';
+  const header = `
+    <div class="sector-legend-header">
+      <div class="sector-legend-header-spacer"></div>
+      <div class="sector-legend-header-name" onclick="_setRefineSectorSort('name')" title="Click to sort">SECTOR${arrow('name')}</div>
+      <div class="sector-legend-header-count" onclick="_setRefineSectorSort('count')" title="Click to sort"># TICKERS${arrow('count')}</div>
+      <div class="sector-legend-header-pct" onclick="_setRefineSectorSort('pct')" title="Click to sort">% LIST${arrow('pct')}</div>
+      <div class="sector-legend-header-perf" onclick="_setRefineSectorSort('perf')" title="Click to sort">1 WK % CHG${arrow('perf')}</div>
+    </div>`;
+
+  const rows = sectors.map(([name, tks]) => {
     const pct   = Math.round(tks.length / total * 100);
-    const color = SECTOR_COLORS[i % SECTOR_COLORS.length];
+    const color = _refineSectorColors[name] || '#6b7280';
     const isSelected = name === refineActiveSector;
+    const perf    = (_refineLastSectorPerf && typeof _refineLastSectorPerf[name] === 'number') ? _refineLastSectorPerf[name] : null;
+    const perfCls = perf === null ? '' : (perf >= 0 ? 'perf-pos' : 'perf-neg');
+    const perfTxt = perf === null ? '—' : `${perf > 0 ? '+' : ''}${perf.toFixed(2)}%`;
     return `<div class="sector-legend-item${isSelected ? ' selected' : ''}" onclick="_selectRefineSector('${name.replace(/'/g,"\\'")}')">
       <div class="sector-legend-dot" style="background:${color}"></div>
       <div class="sector-legend-name">${name}</div>
       <div class="sector-legend-count">${tks.length}</div>
       <div class="sector-legend-pct">${pct}%</div>
+      <div class="sector-legend-perf ${perfCls}">${perfTxt}</div>
     </div>`;
   }).join('');
+
+  legend.innerHTML = header + rows;
 }
 
 // Recomputes the stats/outlier card for just the tickers in refineActiveSector
@@ -10862,13 +10992,8 @@ function _refineStatsForActiveSector() {
 
 function _selectRefineSector(name) {
   refineActiveSector = refineActiveSector === name ? null : name;
-  const groups = {};
-  refineWatchlist.tickers.forEach(t => {
-    const s = (_refineLastSectorMap && _refineLastSectorMap[t.ticker]) || 'Other';
-    if (!groups[s]) groups[s] = [];
-    groups[s].push(t.ticker);
-  });
-  const sectors = Object.entries(groups).sort((a, b) => b[1].length - a[1].length);
+  const groups  = _refineBuildSectorGroups(_refineLastSectorMap);
+  const sectors = _refineSortedSectorEntries(groups);
   const total   = refineWatchlist.tickers.length;
   _drawRefineSectorPie(total);
   _buildRefineSectorLegend(sectors, total);
