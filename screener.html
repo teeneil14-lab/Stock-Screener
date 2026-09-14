@@ -2110,8 +2110,15 @@
   }
 
   /* ── Watchlist Check: Refine sub-view ──────────────────────── */
-  .listqa-refine-slot-wrap { padding: 20px 20px 0; }
-  .listqa-refine-slot-wrap .wl-slot { max-width: 480px; margin: 0 auto; padding: 14px 18px; }
+  /* Lives inline in the toolbar next to REFRESH, so it's sized to match
+     (no min-height / centered-block styling like the sidebar's own slots). */
+  .listqa-refine-slot-wrap .wl-slot {
+    min-height: 0; width: 240px; padding: 5px 10px; gap: 6px; border-radius: 3px;
+  }
+  .listqa-refine-slot-wrap .wl-slot-name { font-size: 9px; }
+  .listqa-refine-columns { display: grid; grid-template-columns: minmax(380px, 460px) 1fr; gap: 24px; align-items: start; }
+  .listqa-refine-col-left { min-width: 0; }
+  .listqa-refine-col-right { min-width: 0; }
   .listqa-refine-drill-tickers { display: flex; flex-wrap: wrap; gap: 6px; padding: 12px 16px; }
   .listqa-refine-drill-ticker {
     font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 700; color: var(--text);
@@ -4492,6 +4499,14 @@
         <div class="sectors-updated" id="listqa-updated">Not loaded</div>
       </div>
       <div class="sectors-toolbar-right">
+        <div class="listqa-refine-slot-wrap" id="listqa-refine-slot-wrap" style="display:none">
+          <div class="wl-slot" id="listqa-refine-slot" onclick="triggerRefineFileLoad()">
+            <input type="file" accept=".txt" id="refine-file-input" style="display:none" onchange="handleRefineFile(event)">
+            <span class="wl-slot-name empty" id="listqa-refine-slot-name">empty — click or drop a .txt watchlist here</span>
+            <span class="wl-slot-count" id="listqa-refine-slot-count"></span>
+            <button class="wl-slot-clear" id="listqa-refine-slot-clear" style="display:none" title="Clear" onclick="event.stopPropagation(); clearRefineWatchlist()">✕</button>
+          </div>
+        </div>
         <button class="sectors-refresh-btn" id="listqa-refresh-btn" onclick="refreshListqaTab()">↻ REFRESH</button>
       </div>
     </div>
@@ -4504,28 +4519,27 @@
         <div id="listqa-content"></div>
       </div>
       <div id="listqa-refine-pane" style="display:none">
-        <div class="listqa-refine-slot-wrap">
-          <div class="wl-slot" id="listqa-refine-slot" onclick="triggerRefineFileLoad()">
-            <input type="file" accept=".txt" id="refine-file-input" style="display:none" onchange="handleRefineFile(event)">
-            <span class="wl-slot-name empty" id="listqa-refine-slot-name">empty — click or drop a .txt watchlist here</span>
-            <span class="wl-slot-count" id="listqa-refine-slot-count"></span>
-            <button class="wl-slot-clear" id="listqa-refine-slot-clear" style="display:none" title="Clear" onclick="event.stopPropagation(); clearRefineWatchlist()">✕</button>
-          </div>
-        </div>
+        <div class="listqa-empty" id="listqa-refine-empty">Drop a .txt watchlist into the box in the top-right, or click it to browse — its sector breakdown and stats will appear here.</div>
         <div id="listqa-refine-body" style="display:none">
-          <div class="sector-chart-area" id="refine-sector-chart-area">
-            <div>
-              <canvas id="refine-sector-pie-canvas" width="300" height="300" style="cursor:pointer;display:block"></canvas>
-              <div class="sector-click-hint">Click a slice or legend row to drill down</div>
+          <div class="listqa-refine-columns">
+            <div class="listqa-refine-col-left">
+              <div class="sector-chart-area" id="refine-sector-chart-area">
+                <div>
+                  <canvas id="refine-sector-pie-canvas" width="300" height="300" style="cursor:pointer;display:block"></canvas>
+                  <div class="sector-click-hint">Click a slice or legend row to drill down</div>
+                </div>
+                <div class="sector-legend" id="refine-sector-legend"></div>
+              </div>
+              <div class="sector-drill" id="refine-sector-drill"></div>
             </div>
-            <div class="sector-legend" id="refine-sector-legend"></div>
+            <div class="listqa-refine-col-right">
+              <div class="sectors-loading" id="refine-loading" style="display:none">
+                <div class="sectors-spinner"></div>
+                <div id="refine-loading-text">Loading watchlist data…</div>
+              </div>
+              <div id="refine-stats-card"></div>
+            </div>
           </div>
-          <div class="sector-drill" id="refine-sector-drill"></div>
-          <div class="sectors-loading" id="refine-loading" style="display:none">
-            <div class="sectors-spinner"></div>
-            <div id="refine-loading-text">Loading watchlist data…</div>
-          </div>
-          <div id="refine-stats-card"></div>
         </div>
       </div>
     </div>
@@ -9898,15 +9912,18 @@ function switchTab(tab) {
     _syncListqaTabDropdown();
     const overviewPane = document.getElementById('listqa-overview-pane');
     const refinePane   = document.getElementById('listqa-refine-pane');
+    const slotWrap     = document.getElementById('listqa-refine-slot-wrap');
     const title        = document.getElementById('listqa-title');
     if (listqaViewMode === 'refine') {
       overviewPane.style.display = 'none';
       refinePane.style.display   = '';
+      if (slotWrap) slotWrap.style.display = '';
       if (title) title.textContent = 'WATCHLIST CHECK — REFINE';
       renderRefineView();
     } else {
       overviewPane.style.display = '';
       refinePane.style.display   = 'none';
+      if (slotWrap) slotWrap.style.display = 'none';
       if (title) title.textContent = 'WATCHLIST CHECK — OVERVIEW';
       if (!listQaLoaded && marketMode !== 'PH') loadListQA(false);
     }
@@ -10592,8 +10609,10 @@ function clearRefineWatchlist() {
   refineActiveSector    = null;
   saveRefineWatchlistToStorage();
   _renderRefineSlot();
-  const body = document.getElementById('listqa-refine-body');
+  const body  = document.getElementById('listqa-refine-body');
+  const empty = document.getElementById('listqa-refine-empty');
   if (body) body.style.display = 'none';
+  if (empty) empty.style.display = '';
 }
 
 function setupRefineDragDrop() {
@@ -10636,11 +10655,14 @@ function _renderRefineSlot() {
 // same "only fetch once until refreshed" idea as Overview's listQaLoaded flag.
 function renderRefineView() {
   _renderRefineSlot();
-  const body = document.getElementById('listqa-refine-body');
+  const body  = document.getElementById('listqa-refine-body');
+  const empty = document.getElementById('listqa-refine-empty');
   if (!refineWatchlist || !refineWatchlist.tickers.length) {
     if (body) body.style.display = 'none';
+    if (empty) empty.style.display = '';
     return;
   }
+  if (empty) empty.style.display = 'none';
   body.style.display = '';
   if (_refineLastSectorMap) renderRefineSectorPie(_refineLastSectorMap);
   if (_refineLastStats)     _renderListqaRefineStatsCard(_refineLastStats);
