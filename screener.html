@@ -2093,6 +2093,10 @@
      font below); anything beyond that gets a short scrollbar rather than a
      tall list being squeezed into a tiny scrollable box. */
   .listqa-outlier-col-body { max-height: 700px; overflow-y: auto; }
+  /* Refine's card is more compact (narrower right column, ad-hoc watchlists) —
+     shows ~10 rows before scrolling instead of Overview's ~15. The full list
+     is still rendered underneath; nothing is discarded. */
+  #refine-stats-card .listqa-outlier-col-body { max-height: 460px; }
   .listqa-outlier-row {
     border-left: 3px solid var(--red); background: var(--bg2);
     padding: 6px 9px; margin-bottom: 5px; border-radius: 0 4px 4px 0;
@@ -10578,7 +10582,6 @@ function _listQaOutlierSectionHtml(l, cap = LISTQA_OUTLIER_DISPLAY_CAP) {
 //  since this is meant for quick one-off checks.
 // ============================================================
 const REFINE_WL_STORE_KEY = 'cts_refine_wl';
-const REFINE_OUTLIER_DISPLAY_CAP = 10;
 
 let refineWatchlist    = null; // {name, tickers: [{ticker, exchange}]} or null
 let _refineLastSectorMap  = null; // ticker -> Finviz sector name, from the last fetch
@@ -11072,7 +11075,7 @@ function _renderListqaRefineStatsCard(l) {
         </div>
       </div>
       ${_listQaHistogramHtml(l)}
-      ${_listQaOutlierSectionHtml(l, REFINE_OUTLIER_DISPLAY_CAP)}
+      ${_listQaOutlierSectionHtml(l, Infinity)}
     </div>
   `;
   document.getElementById('refine-stats-card').innerHTML = `<div class="listqa-lists-grid">${html}</div>`;
