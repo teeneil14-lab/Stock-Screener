@@ -2112,10 +2112,19 @@
   /* ── Watchlist Check: Refine sub-view ──────────────────────── */
   /* Lives inline in the toolbar next to REFRESH, so it's sized to match
      (no min-height / centered-block styling like the sidebar's own slots). */
+  .listqa-refine-slot-wrap { display: flex; align-items: center; gap: 8px; }
   .listqa-refine-slot-wrap .wl-slot {
     min-height: 0; width: 240px; padding: 5px 10px; gap: 6px; border-radius: 3px;
   }
   .listqa-refine-slot-wrap .wl-slot-name { font-size: 9px; }
+  .refine-search-input {
+    font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: var(--text);
+    background: var(--bg2); border: 1px solid var(--border2); border-radius: 3px;
+    padding: 6px 9px; width: 110px; outline: none; transition: border-color 0.15s;
+  }
+  .refine-search-input::placeholder { color: var(--text3); font-style: italic; }
+  .refine-search-input:focus { border-color: var(--accent); }
+  .refine-search-input.not-found { border-color: var(--red); }
   .listqa-refine-columns { display: grid; grid-template-columns: minmax(380px, 540px) 1fr; gap: 24px; align-items: start; }
   .listqa-refine-col-left { min-width: 0; }
   .listqa-refine-col-right { min-width: 0; }
@@ -2160,6 +2169,11 @@
   .refine-industry-name { padding-left: 16px; }
   .refine-ticker-row { border-bottom: 1px solid var(--border); }
   .refine-ticker-row:hover { background: var(--hover); }
+  .refine-ticker-row.refine-row-flash { animation: refineRowFlash 1.4s ease; }
+  @keyframes refineRowFlash {
+    0% { background: var(--green-dim); }
+    100% { background: transparent; }
+  }
   .refine-ticker-symbol { padding-left: 32px; font-weight: 700; color: var(--text); }
   /* Sector/industry names sit in the same first grid cell as TICKER on ticker
      rows, but need far more room than that narrow column — span into the
@@ -4588,6 +4602,7 @@
             <span class="wl-slot-count" id="listqa-refine-slot-count"></span>
             <button class="wl-slot-clear" id="listqa-refine-slot-clear" style="display:none" title="Clear" onclick="event.stopPropagation(); clearRefineWatchlist()">✕</button>
           </div>
+          <input type="text" id="refine-search-input" class="refine-search-input" placeholder="Search ticker…" onkeydown="if(event.key==='Enter') searchRefineTicker()">
         </div>
         <button class="sectors-refresh-btn" id="listqa-refresh-btn" onclick="refreshListqaTab()">↻ REFRESH</button>
       </div>
@@ -10691,6 +10706,8 @@ function _loadRefineFile(file) {
     _refineTableSortDir    = 'asc';
     _refineVisibleLevels   = { ticker: true, sector: true, industry: true };
     _refineCollapsedGroups = new Set();
+    const searchInput = document.getElementById('refine-search-input');
+    if (searchInput) { searchInput.value = ''; searchInput.classList.remove('not-found'); }
     saveRefineWatchlistToStorage();
     renderRefineView();
   };
@@ -10719,12 +10736,40 @@ function clearRefineWatchlist() {
   _refineTableSortDir    = 'asc';
   _refineVisibleLevels   = { ticker: true, sector: true, industry: true };
   _refineCollapsedGroups = new Set();
+  const searchInput = document.getElementById('refine-search-input');
+  if (searchInput) { searchInput.value = ''; searchInput.classList.remove('not-found'); }
   saveRefineWatchlistToStorage();
   _renderRefineSlot();
   const body  = document.getElementById('listqa-refine-body');
   const empty = document.getElementById('listqa-refine-empty');
   if (body) body.style.display = 'none';
   if (empty) empty.style.display = '';
+}
+
+function searchRefineTicker() {
+  const input = document.getElementById('refine-search-input');
+  if (!input || !refineWatchlist) return;
+  const query = input.value.trim().toUpperCase();
+  input.classList.remove('not-found');
+  if (!query) return;
+  const match = _refineBuildTickerRows().find(r => r.ticker.toUpperCase() === query);
+  if (!match) {
+    input.classList.add('not-found');
+    setTimeout(() => input.classList.remove('not-found'), 1200);
+    return;
+  }
+  if (refineActiveSector && refineActiveSector !== match.sector) refineActiveSector = null;
+  _refineVisibleLevels.ticker = true;
+  _refineCollapsedGroups.delete(`sector:${match.sector}`);
+  _refineCollapsedGroups.delete(`industry:${match.industry}`);
+  renderRefineIndustryTable();
+  requestAnimationFrame(() => {
+    const row = document.querySelector(`.refine-ticker-row[data-ticker="${CSS.escape(match.ticker)}"]`);
+    if (!row) return;
+    row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    row.classList.add('refine-row-flash');
+    setTimeout(() => row.classList.remove('refine-row-flash'), 1400);
+  });
 }
 
 function setupRefineDragDrop() {
@@ -11185,7 +11230,7 @@ function _refineFmtPct(val) {
 
 function _refineTickerRowHtml(r) {
   return `
-    <div class="refine-ticker-row">
+    <div class="refine-ticker-row" data-ticker="${r.ticker}">
       <div class="refine-ticker-symbol">${r.ticker}</div>
       <div><span class="refine-tag">${r.sector}</span></div>
       <div><span class="refine-tag">${r.industry}</span></div>
@@ -11219,21 +11264,38 @@ function _refineGroupHeaderHtml(level, name, avg, collapsed) {
 // user clicked collapsed skips rendering everything beneath its header —
 // collapsing a sector hides its industries AND tickers; collapsing an
 // industry hides just its tickers.
+function _refineRenderTickerRows(rows) {
+  const sorted = _refineSortEntries(rows.map(r => [r.ticker, r]), _refineTableSortKey, _refineTableSortDir, true);
+  return sorted.map(([, r]) => _refineTickerRowHtml(r)).join('');
+}
+
 function _refineRenderLevel(rows, remainingLevels) {
   if (!remainingLevels.length) {
+    // No grouping level is active at all (TICKER-only mode) -- there's no
+    // group header left to click, so the global checkbox is the only say.
     if (!_refineVisibleLevels.ticker) return '';
-    const sorted = _refineSortEntries(rows.map(r => [r.ticker, r]), _refineTableSortKey, _refineTableSortDir, true);
-    return sorted.map(([, r]) => _refineTickerRowHtml(r)).join('');
+    return _refineRenderTickerRows(rows);
   }
   const [level, ...rest] = remainingLevels;
+  const isLeafParent = rest.length === 0; // this group's children are ticker rows directly
   const groups = {};
   rows.forEach(r => { (groups[r[level]] = groups[r[level]] || []).push(r); });
   const withAvg = {};
   Object.entries(groups).forEach(([name, rs]) => { withAvg[name] = { rows: rs, avg: _refineAvgOf(rs) }; });
   const sortedEntries = _refineSortEntries(Object.entries(withAvg), _refineTableSortKey, _refineTableSortDir, false);
   return sortedEntries.map(([name, g]) => {
-    const collapsed = _refineCollapsedGroups.has(`${level}:${name}`);
-    return _refineGroupHeaderHtml(level, name, g.avg, collapsed) + (collapsed ? '' : _refineRenderLevel(g.rows, rest));
+    const toggled = _refineCollapsedGroups.has(`${level}:${name}`);
+    // A group whose children are ticker rows directly (an industry, or a
+    // sector when INDUSTRY is unchecked) flips whatever the global TICKER
+    // checkbox would otherwise show -- so with TICKER unchecked, clicking
+    // one industry reveals just that industry's tickers, and clicking it
+    // again hides them again, without touching any other group. A group
+    // with another grouping level still beneath it (a sector, when
+    // INDUSTRY is checked) keeps the plain collapse/expand it always had:
+    // collapsing it hides its industries and tickers unconditionally.
+    const expanded = isLeafParent ? (_refineVisibleLevels.ticker !== toggled) : !toggled;
+    const body = !expanded ? '' : (isLeafParent ? _refineRenderTickerRows(g.rows) : _refineRenderLevel(g.rows, rest));
+    return _refineGroupHeaderHtml(level, name, g.avg, !expanded) + body;
   }).join('');
 }
 
