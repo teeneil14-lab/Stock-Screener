@@ -2453,6 +2453,39 @@
   .refine-news-badge.pos { color: var(--green); background: var(--green-dim); }
   .refine-news-badge.neg { color: var(--red); background: var(--red-dim); }
 
+  /* Finviz's own AI "why is this moving" blurb -- shown only when Finviz has
+     flagged one for the ticker today; the whole block is hidden otherwise. */
+  .refine-modal-why {
+    padding: 12px 14px; margin-bottom: 16px; border-radius: 5px;
+    border: 1px solid var(--border); background: var(--bg3);
+  }
+  .refine-why-label-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .refine-why-label {
+    font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600;
+    letter-spacing: 0.06em; color: var(--text3);
+  }
+  .refine-why-source-tag {
+    font-family: 'Inter', sans-serif; font-size: 9px; color: var(--text3);
+    background: var(--bg2); border: 1px solid var(--border); border-radius: 3px; padding: 1px 6px;
+  }
+  .refine-why-catalyst-tag {
+    font-family: 'IBM Plex Mono', monospace; font-size: 9px; font-weight: 700;
+    color: var(--accent); background: var(--green-dim); border-radius: 3px; padding: 1px 6px;
+    letter-spacing: 0.04em;
+  }
+  .refine-why-headline {
+    font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 600; margin-bottom: 4px;
+  }
+  .refine-why-headline.good { color: var(--green); }
+  .refine-why-headline.bad  { color: var(--red); }
+  .refine-why-time { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--text3); margin-bottom: 8px; }
+  .refine-why-summary {
+    font-family: 'Inter', sans-serif; font-size: 12px; line-height: 1.6; color: var(--text2);
+  }
+  .refine-why-summary ul { margin: 0; padding-left: 18px; }
+  .refine-why-summary li { margin-bottom: 4px; }
+  .refine-why-summary strong { color: var(--text); }
+
   /* FILTERED-OUT LIST PANEL */
   .flist-overlay {
     display: none;
@@ -4708,6 +4741,7 @@
     </div>
     <div class="modal-body">
       <div id="refine-modal-chart" class="refine-modal-chart"></div>
+      <div id="refine-modal-why" class="refine-modal-why" style="display:none"></div>
       <div class="refine-modal-section-label">COMPANY DESCRIPTION</div>
       <div id="refine-modal-desc" class="refine-modal-desc">Loading…</div>
       <div class="refine-modal-section-label">RECENT NEWS</div>
@@ -10840,6 +10874,7 @@ function openRefineTickerModal(ticker) {
     row ? `${row.sector} · ${row.industry}` : '';
   document.getElementById('refine-modal-desc').textContent = 'Loading…';
   document.getElementById('refine-modal-news').textContent = 'Loading…';
+  document.getElementById('refine-modal-why').style.display = 'none';
   document.getElementById('refine-ticker-modal').classList.add('open');
 
   const chartEl = document.getElementById('refine-modal-chart');
@@ -10877,12 +10912,56 @@ function openRefineTickerModal(ticker) {
       if (reqId !== _refineModalReqId) return; // modal moved on to a different ticker
       document.getElementById('refine-modal-desc').textContent = data.description || 'No description available.';
       document.getElementById('refine-modal-news').innerHTML = _refineNewsHtml(data.news || []);
+      _refineRenderWhyMoving(data.whyMoving || null);
     })
     .catch(() => {
       if (reqId !== _refineModalReqId) return;
       document.getElementById('refine-modal-desc').textContent = 'Could not load Finviz data.';
       document.getElementById('refine-modal-news').innerHTML = '';
+      document.getElementById('refine-modal-why').style.display = 'none';
     });
+}
+
+// Turns just the two markdown patterns Finviz's summary actually uses
+// (**bold** and "- " bullet lines) into HTML -- not a general markdown parser.
+function _refineWhyMarkdownToHtml(text) {
+  const lines = String(text || '').split('\n').map(l => l.trim()).filter(Boolean);
+  const escBold = s => _refineEscHtml(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  const isBullet = l => l.startsWith('- ');
+  let html = '', inList = false;
+  lines.forEach(line => {
+    if (isBullet(line)) {
+      if (!inList) { html += '<ul>'; inList = true; }
+      html += `<li>${escBold(line.slice(2))}</li>`;
+    } else {
+      if (inList) { html += '</ul>'; inList = false; }
+      html += `<p>${escBold(line)}</p>`;
+    }
+  });
+  if (inList) html += '</ul>';
+  return html;
+}
+
+function _refineRenderWhyMoving(whyMoving) {
+  const el = document.getElementById('refine-modal-why');
+  if (!whyMoving || !whyMoving.summary) { el.style.display = 'none'; el.innerHTML = ''; return; }
+
+  const sentimentCls = whyMoving.sentiment === 'good' ? 'good' : whyMoving.sentiment === 'bad' ? 'bad' : '';
+  const catalystTag  = whyMoving.catalyst ? '<span class="refine-why-catalyst-tag">CATALYST</span>' : '';
+  const timeStr = whyMoving.dateTime
+    ? new Date(whyMoving.dateTime).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+    : '';
+
+  el.innerHTML = `
+    <div class="refine-why-label-row">
+      <div class="refine-why-label">WHY IT'S MOVING</div>
+      <div class="refine-why-source-tag">Finviz AI</div>
+      ${catalystTag}
+    </div>
+    ${whyMoving.headline ? `<div class="refine-why-headline ${sentimentCls}">${_refineEscHtml(whyMoving.headline)}</div>` : ''}
+    ${timeStr ? `<div class="refine-why-time">${_refineEscHtml(timeStr)}</div>` : ''}
+    <div class="refine-why-summary">${_refineWhyMarkdownToHtml(whyMoving.summary)}</div>`;
+  el.style.display = '';
 }
 
 function closeRefineTickerModal() {

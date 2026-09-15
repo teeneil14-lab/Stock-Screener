@@ -1157,7 +1157,27 @@ const server = http.createServer(async (req, res) => {
           positive:    priceMatch ? priceMatch[1] === 'is-positive' : null,
         });
       }
-      return { description, news };
+      // Finviz's own AI-generated "why is this moving" blurb, when it has one
+      // for this ticker today -- embedded as a JSON blob right in the page.
+      let whyMoving = null;
+      const whyMatch = html.match(/<script id="why-stock-moving-init-data-0" type="application\/json">([\s\S]*?)<\/script>/);
+      if (whyMatch) {
+        try {
+          const parsed = JSON.parse(whyMatch[1]);
+          if (parsed && parsed.whyMoving) {
+            const w = parsed.whyMoving;
+            whyMoving = {
+              headline: w.headline || null,
+              dateTime: w.dateTime || null,
+              summary:  w.summary  || null,
+              sentiment: w.sentiment || null,
+              catalyst: !!w.catalyst,
+            };
+          }
+        } catch (e) { /* malformed/absent -- leave whyMoving as null */ }
+      }
+
+      return { description, news, whyMoving };
     }
 
     try {
