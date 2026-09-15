@@ -2393,6 +2393,8 @@
     color: var(--text);
     letter-spacing: 0.06em;
   }
+  #refine-modal-ticker a { color: inherit; text-decoration: none; cursor: pointer; }
+  #refine-modal-ticker a:hover { color: var(--accent); text-decoration: underline; }
   .modal-name {
     font-size: 12px;
     color: var(--text3);
@@ -10832,7 +10834,8 @@ let _refineModalReqId = 0; // guards against a slow fetch landing after the moda
 
 function openRefineTickerModal(ticker) {
   const row = _refineBuildTickerRows().find(r => r.ticker === ticker);
-  document.getElementById('refine-modal-ticker').textContent = ticker;
+  document.getElementById('refine-modal-ticker').innerHTML =
+    `<a href="https://finviz.com/quote.ashx?t=${_refineEscHtml(ticker)}" target="_blank" rel="noopener">${_refineEscHtml(ticker)}</a>`;
   document.getElementById('refine-modal-name').textContent =
     row ? `${row.sector} · ${row.industry}` : '';
   document.getElementById('refine-modal-desc').textContent = 'Loading…';
