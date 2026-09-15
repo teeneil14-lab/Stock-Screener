@@ -1116,6 +1116,67 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // ── Finviz per-ticker quote page: company description + recent news ──────
+  // (used by Refine's ticker-detail popup). Finviz's own domain, not the
+  // elite.finviz.com host used elsewhere, since elite.finviz.com/quote.ashx
+  // 301-redirects (3 hops) to finviz.com/stock?t=X&auth=TOKEN -- the auth
+  // token unlocks the elite page there directly, so we call that URL straight.
+  if (reqUrl.pathname === '/api/finviz-quote') {
+    const ticker = (reqUrl.searchParams.get('ticker') || '').trim().toUpperCase();
+    if (!ticker) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      return res.end(JSON.stringify({ error: 'ticker is required' }));
+    }
+
+    const FINVIZ_AUTH = 'f865b0bd-966b-4df5-a03b-f686ce527abf';
+
+    // Some headlines carry a small colored badge showing the day's price
+    // change for the story's own ticker (Finviz's way of flagging news tied
+    // to a significant move) -- e.g. <span class="fv-label ... is-negative-200">
+    // -5.25%</span>. Most headlines have no badge at all.
+    function parseFinvizQuotePage(html) {
+      const descMatch = html.match(/<div class="quote_profile-bio">([\s\S]*?)<\/div>/);
+      const description = descMatch ? descMatch[1].replace(/\s+/g, ' ').trim() : null;
+
+      const rowRe = /<tr class="cursor-pointer has-label" onclick="trackAndOpenNews\(event, '[^']*', '([^']*)'\);">([\s\S]*?)<\/tr>/g;
+      const news = [];
+      let m;
+      while ((m = rowRe.exec(html)) && news.length < 30) {
+        const [, url, body] = m;
+        const timeMatch  = body.match(/<td[^>]*align="right"[^>]*>\s*([\s\S]*?)\s*<\/td>/);
+        const headMatch  = body.match(/<a class="tab-link-news"[^>]*>\s*([\s\S]*?)\s*<\/a>/);
+        const srcMatch   = body.match(/<span>\(([^)]*)\)<\/span>/);
+        const priceMatch = body.match(/<span class="fv-label[^"]*(is-positive|is-negative)[^"]*"[^>]*>\s*([+-]?[\d.,]+%)\s*<\/span>/);
+        if (!headMatch) continue;
+        news.push({
+          time:        timeMatch ? timeMatch[1].replace(/\s+/g, ' ').trim() : null,
+          headline:    headMatch[1].replace(/\s+/g, ' ').trim(),
+          url,
+          source:      srcMatch ? srcMatch[1].trim() : null,
+          priceChange: priceMatch ? priceMatch[2].trim() : null,
+          positive:    priceMatch ? priceMatch[1] === 'is-positive' : null,
+        });
+      }
+      return { description, news };
+    }
+
+    try {
+      const raw = await rawHttpsGet({
+        hostname: 'finviz.com',
+        path: `/stock?t=${encodeURIComponent(ticker)}&auth=${FINVIZ_AUTH}`,
+        headers: { 'User-Agent': 'Mozilla/5.0' },
+      });
+      if (raw.status !== 200) throw new Error(`status ${raw.status}`);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(parseFinvizQuotePage(raw.body)));
+    } catch (e) {
+      console.error(`[finviz-quote] ${ticker}: ${e.message}`);
+      res.writeHead(502, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: e.message }));
+    }
+    return;
+  }
+
   // ── PSE bars: historical OHLCV from pse_history (daily / weekly / monthly) ───
   if (reqUrl.pathname === '/api/pse/bars') {
     const symbol   = (reqUrl.searchParams.get('symbol') || '').toUpperCase();

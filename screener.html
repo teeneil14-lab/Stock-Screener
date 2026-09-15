@@ -2167,7 +2167,7 @@
   }
   .refine-industry-row:hover { background: var(--hover); }
   .refine-industry-name { padding-left: 16px; }
-  .refine-ticker-row { border-bottom: 1px solid var(--border); }
+  .refine-ticker-row { border-bottom: 1px solid var(--border); cursor: pointer; }
   .refine-ticker-row:hover { background: var(--hover); }
   .refine-ticker-row.refine-row-flash { animation: refineRowFlash 1.4s ease; }
   @keyframes refineRowFlash {
@@ -2414,6 +2414,42 @@
     overflow-y: auto;
     flex: 1;
   }
+
+  /* Refine's ticker-detail popup: 1yr chart + Finviz description + news */
+  .refine-ticker-modal-box { max-width: 920px; }
+  .refine-modal-chart {
+    width: 100%; height: 420px; margin-bottom: 18px;
+    border: 1px solid var(--border); border-radius: 4px; overflow: hidden;
+  }
+  .refine-modal-section-label {
+    font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 600;
+    letter-spacing: 0.06em; color: var(--text3); margin-bottom: 8px;
+  }
+  .refine-modal-desc {
+    font-family: 'Inter', sans-serif; font-size: 12px; line-height: 1.6; color: var(--text2);
+    padding-bottom: 16px; margin-bottom: 16px; border-bottom: 1px solid var(--border);
+  }
+  .refine-news-item {
+    display: flex; align-items: baseline; gap: 10px; padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .refine-news-item:last-child { border-bottom: none; }
+  .refine-news-time {
+    font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--text3);
+    min-width: 78px; flex-shrink: 0;
+  }
+  .refine-news-body { flex: 1; min-width: 0; }
+  .refine-news-headline a {
+    font-family: 'Inter', sans-serif; font-size: 12px; color: var(--text2); text-decoration: none;
+  }
+  .refine-news-headline a:hover { color: var(--accent); text-decoration: underline; }
+  .refine-news-source { font-family: 'Inter', sans-serif; font-size: 10px; color: var(--text3); margin-left: 6px; }
+  .refine-news-badge {
+    font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 700;
+    padding: 2px 7px; border-radius: 3px; flex-shrink: 0; white-space: nowrap;
+  }
+  .refine-news-badge.pos { color: var(--green); background: var(--green-dim); }
+  .refine-news-badge.neg { color: var(--red); background: var(--red-dim); }
 
   /* FILTERED-OUT LIST PANEL */
   .flist-overlay {
@@ -4656,6 +4692,25 @@
       <button class="modal-close" onclick="closeModal()">✕ CLOSE</button>
     </div>
     <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="refine-ticker-modal" onclick="if(event.target===this)closeRefineTickerModal()">
+  <div class="modal refine-ticker-modal-box">
+    <div class="modal-header">
+      <div>
+        <div class="modal-ticker" id="refine-modal-ticker">—</div>
+        <div class="modal-name" id="refine-modal-name">—</div>
+      </div>
+      <button class="modal-close" onclick="closeRefineTickerModal()">✕ CLOSE</button>
+    </div>
+    <div class="modal-body">
+      <div id="refine-modal-chart" class="refine-modal-chart"></div>
+      <div class="refine-modal-section-label">COMPANY DESCRIPTION</div>
+      <div id="refine-modal-desc" class="refine-modal-desc">Loading…</div>
+      <div class="refine-modal-section-label">RECENT NEWS</div>
+      <div id="refine-modal-news" class="refine-modal-news">Loading…</div>
+    </div>
   </div>
 </div>
 
@@ -10772,6 +10827,95 @@ function searchRefineTicker() {
   });
 }
 
+// ── Refine ticker-detail popup: 1yr chart + Finviz description/news ──────
+let _refineModalReqId = 0; // guards against a slow fetch landing after the modal moved on to another ticker
+
+function openRefineTickerModal(ticker) {
+  const row = _refineBuildTickerRows().find(r => r.ticker === ticker);
+  document.getElementById('refine-modal-ticker').textContent = ticker;
+  document.getElementById('refine-modal-name').textContent =
+    row ? `${row.sector} · ${row.industry}` : '';
+  document.getElementById('refine-modal-desc').textContent = 'Loading…';
+  document.getElementById('refine-modal-news').textContent = 'Loading…';
+  document.getElementById('refine-ticker-modal').classList.add('open');
+
+  const chartEl = document.getElementById('refine-modal-chart');
+  chartEl.innerHTML = `
+    <div class="tradingview-widget-container" style="width:100%;height:100%">
+      <div class="tradingview-widget-container__widget" style="height:100%;width:100%"></div>
+    </div>`;
+  const script = document.createElement('script');
+  script.type  = 'text/javascript';
+  script.src   = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js';
+  script.async = true;
+  script.innerHTML = JSON.stringify({
+    autosize: true,
+    symbol: ticker,
+    interval: 'D',
+    range: '12M',
+    theme: 'light',
+    style: '1',
+    locale: 'en',
+    timezone: 'Etc/UTC',
+    backgroundColor: '#ffffff',
+    gridColor: 'rgba(46,46,46,0.06)',
+    hide_side_toolbar: true,
+    hide_legend: false,
+    hide_volume: false,
+    save_image: false,
+    studies: DEFAULT_STUDIES,
+  });
+  chartEl.querySelector('.tradingview-widget-container').appendChild(script);
+
+  const reqId = ++_refineModalReqId;
+  fetch(`/api/finviz-quote?ticker=${encodeURIComponent(ticker)}`)
+    .then(r => r.json())
+    .then(data => {
+      if (reqId !== _refineModalReqId) return; // modal moved on to a different ticker
+      document.getElementById('refine-modal-desc').textContent = data.description || 'No description available.';
+      document.getElementById('refine-modal-news').innerHTML = _refineNewsHtml(data.news || []);
+    })
+    .catch(() => {
+      if (reqId !== _refineModalReqId) return;
+      document.getElementById('refine-modal-desc').textContent = 'Could not load Finviz data.';
+      document.getElementById('refine-modal-news').innerHTML = '';
+    });
+}
+
+function closeRefineTickerModal() {
+  document.getElementById('refine-ticker-modal').classList.remove('open');
+  document.getElementById('refine-modal-chart').innerHTML = ''; // stop the widget running in the background
+  _refineModalReqId++; // invalidate any still-in-flight fetch for the ticker just closed
+}
+
+function _refineEscHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+}
+
+// Shows the 5 most recent items, but a headline carrying a price-move badge
+// (Finviz's own flag for news tied to a significant move) jumps ahead of
+// plain ones from further back -- recency order is kept within each group.
+function _refineNewsHtml(news) {
+  if (!news.length) return '<div style="color:var(--text3);font-size:12px">No recent news found.</div>';
+  const withBadge = news.filter(n => n.priceChange);
+  const rest      = news.filter(n => !n.priceChange);
+  const picked    = withBadge.concat(rest).slice(0, 5);
+  return picked.map(n => {
+    const badge = n.priceChange
+      ? `<span class="refine-news-badge ${n.positive ? 'pos' : 'neg'}">${_refineEscHtml(n.priceChange)}</span>`
+      : '';
+    return `
+      <div class="refine-news-item">
+        <div class="refine-news-time">${_refineEscHtml(n.time)}</div>
+        <div class="refine-news-body">
+          <span class="refine-news-headline"><a href="${_refineEscHtml(n.url)}" target="_blank" rel="noopener">${_refineEscHtml(n.headline)}</a></span>
+          <span class="refine-news-source">${n.source ? '(' + _refineEscHtml(n.source) + ')' : ''}</span>
+        </div>
+        ${badge}
+      </div>`;
+  }).join('');
+}
+
 function setupRefineDragDrop() {
   const slotEl = document.getElementById('listqa-refine-slot');
   if (!slotEl) return;
@@ -11230,7 +11374,7 @@ function _refineFmtPct(val) {
 
 function _refineTickerRowHtml(r) {
   return `
-    <div class="refine-ticker-row" data-ticker="${r.ticker}">
+    <div class="refine-ticker-row" data-ticker="${r.ticker}" onclick="openRefineTickerModal('${r.ticker}')">
       <div class="refine-ticker-symbol">${r.ticker}</div>
       <div><span class="refine-tag">${r.sector}</span></div>
       <div><span class="refine-tag">${r.industry}</span></div>
