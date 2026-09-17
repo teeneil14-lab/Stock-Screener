@@ -10944,7 +10944,7 @@ function _refineWhyMarkdownToHtml(text) {
 
 function _refineRenderWhyMoving(whyMoving) {
   const el = document.getElementById('refine-modal-why');
-  if (!whyMoving || !whyMoving.summary) { el.style.display = 'none'; el.innerHTML = ''; return; }
+  if (!whyMoving || (!whyMoving.headline && !whyMoving.summary)) { el.style.display = 'none'; el.innerHTML = ''; return; }
 
   const sentimentCls = whyMoving.sentiment === 'good' ? 'good' : whyMoving.sentiment === 'bad' ? 'bad' : '';
   const catalystTag  = whyMoving.catalyst ? '<span class="refine-why-catalyst-tag">CATALYST</span>' : '';

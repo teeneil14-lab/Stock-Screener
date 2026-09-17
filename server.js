@@ -1148,10 +1148,15 @@ const server = http.createServer(async (req, res) => {
         const srcMatch   = body.match(/<span>\(([^)]*)\)<\/span>/);
         const priceMatch = body.match(/<span class="fv-label[^"]*(is-positive|is-negative)[^"]*"[^>]*>\s*([+-]?[\d.,]+%)\s*<\/span>/);
         if (!headMatch) continue;
+        // Most rows carry a full https:// link, but Finviz's own newswire
+        // items (e.g. source "InvestorsHub") sometimes only give a path
+        // like "/news/392219/..." -- relative to finviz.com, not to us, so
+        // left as-is it opens on our own site as a 404 instead.
+        const fullUrl = url.startsWith('/') ? `https://finviz.com${url}` : url;
         news.push({
           time:        timeMatch ? timeMatch[1].replace(/\s+/g, ' ').trim() : null,
           headline:    headMatch[1].replace(/\s+/g, ' ').trim(),
-          url,
+          url:         fullUrl,
           source:      srcMatch ? srcMatch[1].trim() : null,
           priceChange: priceMatch ? priceMatch[2].trim() : null,
           positive:    priceMatch ? priceMatch[1] === 'is-positive' : null,
