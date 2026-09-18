@@ -11662,11 +11662,19 @@ async function loadSectors(force) {
       const json = await res.json();
       const result = json?.chart?.result?.[0];
       if (!result) throw new Error('no data');
-      const ts = result.timestamp || [];
-      const qc = result.indicators.quote[0].close;
+      const ts   = result.timestamp || [];
+      const qc   = result.indicators.quote[0].close;
+      const meta = result.meta || {};
       const bars = [];
       for (let j = 0; j < ts.length; j++) {
         if (qc[j] != null) bars.push({ t: ts[j] * 1000, c: qc[j] });
+      }
+      // While the market is open, today's daily candle comes back with close:null
+      // (the day isn't over), so the loop above drops it — "current" then silently
+      // falls back to yesterday's close and every %-change column, 1D included,
+      // reports yesterday's move instead of today's. Splice in the live price.
+      if (qc.length && qc[qc.length - 1] == null && typeof meta.regularMarketPrice === 'number') {
+        bars.push({ t: ts[ts.length - 1] * 1000, c: meta.regularMarketPrice });
       }
       if (bars.length < 2) throw new Error('insufficient bars');
       return { ...s, bars };
