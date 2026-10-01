@@ -5723,10 +5723,13 @@ function computeWeeklyEMA(bars) {
 
 // w_vol_decline: weekly volume has fallen for 4+ consecutive weeks
 function computeWeeklyVolDecline(bars) {
-  if (!bars || bars.length < 5) return 0.5;
+  if (!bars || bars.length < 6) return 0.5;
   const vols = bars.map(function(b) { return b.v; }).filter(function(v) { return v > 0; });
+  // vols[length-1] is the current, still-in-progress week — skip it (same reasoning as
+  // computeMonthlyRangeContraction above) so a partial week's lower-so-far volume doesn't
+  // get counted as a "decline" just because fewer days have traded yet.
   let count = 0;
-  for (let i = vols.length - 1; i >= 1; i--) {
+  for (let i = vols.length - 2; i >= 1; i--) {
     if (vols[i] < vols[i - 1]) { count++; } else { break; }
     if (count >= 4) break;
   }
@@ -5760,7 +5763,9 @@ function computeDailyReset(bars) {
   if (!bars || bars.length < 10) return 0.5;
   const closes = bars.map(function(b) { return b.c; });
   const lastClose = closes[closes.length - 1];
-  const high60 = Math.max(...closes.slice(-60));
+  // Use each day's actual high, not its close — the "60-day high" should be the real
+  // highest price reached, not just the highest closing price.
+  const high60 = Math.max(...bars.slice(-60).map(function(b) { return b.h != null ? b.h : b.c; }));
   if (high60 <= 0) return 0.5;
   const pctFromHigh = (high60 - lastClose) / high60;
   if (pctFromHigh >= 0.20) return 1.0;
@@ -6410,7 +6415,25 @@ function parseYFResult(result) {
       v: q.volume ? q.volume[i] : 0,
     });
   }
-  return { meta, bars };
+  // Yahoo leaves today's still-forming daily bar with close:null while the market
+  // is open, so the loop above drops it — "today" then silently becomes yesterday
+  // for every calculation that reads the bars array. Splice in a synthetic "today"
+  // bar built from the live quote instead. lastCompletedBar (pre-splice) is kept
+  // for the one filter that intentionally should keep judging only the last
+  // FINISHED candle rather than the live, still-moving price.
+  const lastCompletedBar = bars.length ? bars[bars.length - 1] : null;
+  const lastRawClose = q.close.length ? q.close[q.close.length - 1] : undefined;
+  if (lastRawClose == null && ts.length && typeof meta?.regularMarketPrice === 'number') {
+    bars.push({
+      t: ts[ts.length - 1] * 1000,
+      o: meta.regularMarketPrice,                                // Yahoo doesn't expose today's real open
+      h: meta.regularMarketDayHigh ?? meta.regularMarketPrice,
+      l: meta.regularMarketDayLow  ?? meta.regularMarketPrice,
+      c: meta.regularMarketPrice,
+      v: meta.regularMarketVolume ?? 0,
+    });
+  }
+  return { meta, bars, lastCompletedBar };
 }
 
 // Fetch SPX daily bars once per scan and cache them for all tickers to share
@@ -6558,10 +6581,13 @@ async function fetchStockData(ticker) {
 
   // Hard filter: last daily candle open AND close both above upper BB (parabolic/extended)
   // AND last weekly close also above the weekly upper BB — both must be true to remove the stock.
+  // Deliberately checked against the last FINISHED candle, not the live intraday price, so this
+  // filter's read stays fixed once each day instead of flickering as the price moves.
   const dailyBB = calcBB(closes);
   const lastBar = dailyBars[dailyBars.length - 1];
-  const dailyAboveUpperBB = !!(dailyBB && lastBar && lastBar.o != null &&
-    lastBar.o > dailyBB.upper && lastBar.c > dailyBB.upper);
+  const lastCompletedBar = daily.lastCompletedBar ?? lastBar;
+  const dailyAboveUpperBB = !!(dailyBB && lastCompletedBar && lastCompletedBar.o != null &&
+    lastCompletedBar.o > dailyBB.upper && lastCompletedBar.c > dailyBB.upper);
   const weeklyCloses = weekly ? weekly.bars.map(function(b) { return b.c; }) : [];
   const weeklyBB = weeklyCloses.length >= 20 ? calcBB(weeklyCloses) : null;
   const lastWeeklyBar = weekly && weekly.bars.length ? weekly.bars[weekly.bars.length - 1] : null;
@@ -6609,8 +6635,13 @@ async function fetchStockData(ticker) {
     }
   }
 
-  // 1-year return: compare current price to the oldest close in the 1y daily window
-  const yr_return = closes.length >= 2 && closes[0] > 0 && currentPrice > closes[0]
+  // 1-year return: compare current price to the close ~252 trading days back (clamped to the
+  // start of the array). Using a fixed lookback instead of "the oldest close we have" matters on
+  // PH mode, where history keeps accumulating — closes[0] there drifts further than a year back
+  // the longer the server runs, instead of always meaning "52 weeks ago."
+  const yearAgoIdx    = Math.max(0, closes.length - 1 - 252);
+  const yearAgoClose  = closes[yearAgoIdx];
+  const yr_return = closes.length >= 2 && yearAgoClose > 0 && currentPrice > yearAgoClose
     ? 1.0 : 0.0;
 
   // Volume ratio vs 20-day average
@@ -6699,8 +6730,9 @@ async function fetchDailyOnly(ticker, mode = marketMode) {
 
   const dailyBB = calcBB(closes);
   const lastBar = dailyBars[dailyBars.length - 1];
-  const _dailyAboveUpperBB = !!(dailyBB && lastBar && lastBar.o != null &&
-    lastBar.o > dailyBB.upper && lastBar.c > dailyBB.upper);
+  const lastCompletedBar = daily.lastCompletedBar ?? lastBar;
+  const _dailyAboveUpperBB = !!(dailyBB && lastCompletedBar && lastCompletedBar.o != null &&
+    lastCompletedBar.o > dailyBB.upper && lastCompletedBar.c > dailyBB.upper);
   const touching_lower_bb = !!(dailyBB && lastBar && lastBar.l != null &&
     lastBar.l <= dailyBB.lower);
   const below_bb_midline = !!(dailyBB && lastBar && lastBar.c < dailyBB.middle);
@@ -6724,7 +6756,10 @@ async function fetchDailyOnly(ticker, mode = marketMode) {
     bb_widest_6m = touchingUpper3d;
   }
 
-  const yr_return = closes.length >= 2 && closes[0] > 0 && currentPrice > closes[0] ? 1.0 : 0.0;
+  // See fetchStockData's matching comment: fixed 252-trading-day lookback, not "the oldest close we have."
+  const yearAgoIdx   = Math.max(0, closes.length - 1 - 252);
+  const yearAgoClose = closes[yearAgoIdx];
+  const yr_return = closes.length >= 2 && yearAgoClose > 0 && currentPrice > yearAgoClose ? 1.0 : 0.0;
 
   const avgVol20  = volumes.length >= 20
     ? volumes.slice(-21, -1).reduce((a, b) => a + b, 0) / 20
@@ -11836,6 +11871,13 @@ async function loadSectorBreadth() {
             if (result) {
               const raw    = result.indicators.quote[0].close || [];
               const closes = raw.filter(c => c != null);
+              // Same live-price splice as parseYFResult: while the market is open, today's close
+              // comes back null and gets filtered out above, so "price" would silently be
+              // yesterday's close instead of the live price used for the rest of the breadth scan.
+              const rMeta = result.meta;
+              if (raw.length && raw[raw.length - 1] == null && typeof rMeta?.regularMarketPrice === 'number') {
+                closes.push(rMeta.regularMarketPrice);
+              }
               if (closes.length >= 21) {
                 const price  = closes[closes.length - 1];
                 const ema20  = calcEMA(closes, 20);
@@ -12789,9 +12831,16 @@ async function fetchImapWeekly(ticker) {
     const res = await fetch(`/api/yf?ticker=${encodeURIComponent(ticker)}&range=5d&interval=1d`);
     if (!res.ok) return null;
     const data = await res.json();
-    const closes = data?.chart?.result?.[0]?.indicators?.quote?.[0]?.close;
+    const result = data?.chart?.result?.[0];
+    const closes = result?.indicators?.quote?.[0]?.close;
     if (!closes || closes.length < 2) return null;
     const valid = closes.filter(c => c !== null && c !== undefined);
+    // Same live-price splice as parseYFResult: while the market is open, today's close is
+    // null and gets filtered out above, so the 5-day change would silently stop at yesterday.
+    const meta = result?.meta;
+    if (closes[closes.length - 1] == null && typeof meta?.regularMarketPrice === 'number') {
+      valid.push(meta.regularMarketPrice);
+    }
     if (valid.length < 2) return null;
     return ((valid[valid.length - 1] - valid[0]) / valid[0]) * 100;
   } catch { return null; }
@@ -14810,6 +14859,18 @@ async function openSectorGlance(etf) {
             c: q.close[j],
           });
         }
+        // Same live-price splice as parseYFResult: today's still-forming candle comes back
+        // null while the market is open and gets dropped above, so both the "% today" figure
+        // and the mini chart below would otherwise silently stop at yesterday.
+        if (q.close.length && q.close[q.close.length - 1] == null && typeof meta.regularMarketPrice === 'number') {
+          d.push({
+            t: ts[ts.length - 1] * 1000,
+            o: meta.regularMarketPrice,
+            h: meta.regularMarketDayHigh ?? meta.regularMarketPrice,
+            l: meta.regularMarketDayLow  ?? meta.regularMarketPrice,
+            c: meta.regularMarketPrice,
+          });
+        }
         if (d.length < 21) return null;
         const closes  = d.map(b => b.c);
         const price   = meta.regularMarketPrice ?? closes[closes.length - 1];
@@ -14940,6 +15001,16 @@ async function openSP500RelativeStrength() {
             h: q.high[j]  ?? q.close[j],
             l: q.low[j]   ?? q.close[j],
             c: q.close[j],
+          });
+        }
+        // Same live-price splice as parseYFResult/openSectorGlance — see that comment.
+        if (q.close.length && q.close[q.close.length - 1] == null && typeof meta.regularMarketPrice === 'number') {
+          d.push({
+            t: ts[ts.length - 1] * 1000,
+            o: meta.regularMarketPrice,
+            h: meta.regularMarketDayHigh ?? meta.regularMarketPrice,
+            l: meta.regularMarketDayLow  ?? meta.regularMarketPrice,
+            c: meta.regularMarketPrice,
           });
         }
         if (d.length < 21) return null;

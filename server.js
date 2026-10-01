@@ -78,6 +78,7 @@ const PSE_TTL  = 60 * 60 * 1000; // 1 hour
 
 // ── Persistent history (pse_history.json) ────────────────────────────────────
 const PSE_HIST_FILE = path.join(__dirname, 'pse_history.json');
+const PSE_HISTORY_MAX_DAYS = 730; // ~2 years — history is only ever appended to, so trim it here
 
 // In-memory history: { dates: string[], stocks: { [sym]: { name, days: { [date]: [o,h,l,c,v,val,nf] } } } }
 // (Sector/PSEi data is NOT stored here — see refreshPSESectorRolling() in screener.html,
@@ -94,6 +95,12 @@ function loadPSEHistory() {
     pseHistory.dates  = pseHistory.dates  || [];
     pseHistory.stocks = pseHistory.stocks || {};
     console.log(`[PSE history] Loaded: ${pseHistory.dates.length} days`);
+    const beforeTrim = pseHistory.dates.length;
+    trimPSEHistory();
+    if (pseHistory.dates.length < beforeTrim) {
+      console.log(`[PSE history] Trimmed to ${pseHistory.dates.length} days (max ${PSE_HISTORY_MAX_DAYS})`);
+      savePSEHistory();
+    }
   } catch { /* file doesn't exist yet */ }
 }
 
@@ -125,6 +132,21 @@ function mergeIntoPSEHistory(dateStr, stocks) {
     // compact: [open, high, low, close, volume, value, netForeign]
     pseHistory.stocks[s.symbol].days[dateStr] =
       [s.open, s.high, s.low, s.close, s.volume, s.value, s.netForeign];
+  }
+}
+
+// Drops days older than PSE_HISTORY_MAX_DAYS so the history file doesn't grow forever —
+// mergeIntoPSEHistory only ever adds days, it never removes old ones on its own.
+function trimPSEHistory() {
+  if (pseHistory.dates.length <= PSE_HISTORY_MAX_DAYS) return;
+  pseHistory.dates.sort();
+  const cutoff = pseHistory.dates[pseHistory.dates.length - PSE_HISTORY_MAX_DAYS];
+  pseHistory.dates = pseHistory.dates.filter(d => d >= cutoff);
+  for (const sym of Object.keys(pseHistory.stocks)) {
+    const days = pseHistory.stocks[sym].days;
+    for (const d of Object.keys(days)) {
+      if (d < cutoff) delete days[d];
+    }
   }
 }
 
@@ -167,6 +189,7 @@ async function runPSEHistoryBuild() {
   }
 
   pseHistory.dates.sort();
+  trimPSEHistory();
   savePSEHistory();
   pseBuild.running = false;
   console.log(`[PSE history] Build complete: ${pseHistory.dates.length} days total`);
@@ -594,12 +617,20 @@ function parseYFBars(body) {
     if (!result) return null;
     const ts     = result.timestamp || [];
     const closes = result.indicators?.quote?.[0]?.close || [];
+    const meta   = result.meta || null;
     const bars   = [];
     for (let i = 0; i < ts.length; i++) {
       if (closes[i] == null) continue;
       bars.push({ t: ts[i] * 1000, c: closes[i] });
     }
-    return bars.length ? bars : null;
+    // Yahoo leaves today's still-forming daily bar with close:null while the market is
+    // open, so the loop above drops it. Splice in a synthetic "today" bar from the live
+    // quote here (server-side) so callers of this batch endpoint don't silently treat
+    // yesterday as today — and also hand back `meta` so a caller can do its own check too.
+    if (closes.length && closes[closes.length - 1] == null && typeof meta?.regularMarketPrice === 'number') {
+      bars.push({ t: ts[ts.length - 1] * 1000, c: meta.regularMarketPrice });
+    }
+    return bars.length ? { bars, meta } : null;
   } catch { return null; }
 }
 
@@ -628,8 +659,8 @@ const server = http.createServer(async (req, res) => {
     for (let i = 0; i < tickers.length; i++) {
       const r = settled[i];
       if (r.status === 'fulfilled' && r.value.status === 200) {
-        const bars = parseYFBars(r.value.body);
-        if (bars) out[tickers[i]] = { bars };
+        const parsed = parseYFBars(r.value.body);
+        if (parsed) out[tickers[i]] = parsed;
       }
     }
 
@@ -1236,10 +1267,18 @@ const server = http.createServer(async (req, res) => {
       return res.end(JSON.stringify({ bars: dailyBars }));
     }
 
-    // Aggregate to weekly (Monday-keyed) or monthly (YYYY-MM keyed)
+    // Aggregate to weekly (Monday-keyed) or monthly (YYYY-MM keyed).
+    // `t` is a Philippine-midnight instant (see `ds + 'T00:00:00+08:00'` above), but this
+    // server may run in a different timezone (e.g. UTC) — reading it back with plain
+    // getDay()/toISOString() recovers the server's calendar date, which for any UTC-offset
+    // host is the PREVIOUS Philippine day (UTC midnight Manila is still the evening before in
+    // UTC). That pushed the first trading day of a week/month into the prior bucket. Shifting
+    // the instant forward by the PH UTC offset before reading it back fixes this regardless of
+    // what timezone the server itself runs in.
+    const PH_OFFSET_MS = 8 * 60 * 60 * 1000;
     const getKey = interval === 'w'
-      ? (t) => { const d = new Date(t); const day = d.getDay() || 7; d.setDate(d.getDate() - day + 1); return d.toISOString().slice(0, 10); }
-      : (t) => new Date(t).toISOString().slice(0, 7);
+      ? (t) => { const d = new Date(t + PH_OFFSET_MS); const day = d.getUTCDay() || 7; d.setUTCDate(d.getUTCDate() - day + 1); return d.toISOString().slice(0, 10); }
+      : (t) => new Date(t + PH_OFFSET_MS).toISOString().slice(0, 7);
 
     const grouped = new Map();
     for (const bar of dailyBars) {
