@@ -16148,6 +16148,12 @@ function loadMtlTopByInput() {
   _mtlFetchOHLCV(sym).then(bars => {
     _mtlTopBars = bars;
     _mtlBuildTopChart();
+    // Refresh the bottom chart's padding against this (possibly new) top symbol,
+    // in case it was built against a different top ticker's date range.
+    const botBars = _mtlBotBars[_mtlBottomSym];
+    if (_mtlBotSeries && botBars) {
+      _mtlBotSeries.setData(_mtlPadWithWhitespace(botBars, bars));
+    }
     if (updated) updated.textContent = 'Updated ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   }).catch(() => {
     if (updated) updated.textContent = `Error loading ${sym}`;
@@ -16288,9 +16294,8 @@ function _mtlBuildTopChart() {
     borderUpColor:  '#0a7c4e', borderDownColor:  '#c82828',
     wickUpColor:    '#0a7c4e', wickDownColor:    '#c82828',
   });
-  _mtlTopCandles.setData(_mtlTopBars.map(b => ({
-    time: Math.floor(b.t / 1000), open: b.o, high: b.h, low: b.l, close: b.c,
-  })));
+  const _topOtherBars = _mtlLayout === 2 ? _mtlBotBars[_mtlBottomSym] : null;
+  _mtlTopCandles.setData(_mtlPadWithWhitespace(_mtlTopBars, _topOtherBars));
 
   _mtlAddEMAs(_mtlTopChart, _mtlTopBars);
 
@@ -16335,9 +16340,13 @@ function _mtlBuildBotChart() {
     borderUpColor:  '#0a7c4e', borderDownColor:  '#c82828',
     wickUpColor:    '#0a7c4e', wickDownColor:    '#c82828',
   });
-  _mtlBotSeries.setData(bars.map(b => ({
-    time: Math.floor(b.t / 1000), open: b.o, high: b.h, low: b.l, close: b.c,
-  })));
+  _mtlBotSeries.setData(_mtlPadWithWhitespace(bars, _mtlTopBars));
+
+  // Also refresh the top chart's padding against this (possibly new) bottom symbol,
+  // in case the top chart was built before this bottom ticker was loaded.
+  if (_mtlTopCandles && _mtlTopBars) {
+    _mtlTopCandles.setData(_mtlPadWithWhitespace(_mtlTopBars, bars));
+  }
 
   _mtlAddEMAs(_mtlBotChart, bars);
 
@@ -16364,6 +16373,24 @@ function _mtlBuildBotChart() {
 
 function _mtlDateStr(tMs) {
   return new Date(tMs).toISOString().split('T')[0]; // "YYYY-MM-DD"
+}
+
+// Turn real bars into chart data, padded with invisible "whitespace" points for any
+// date the OTHER chart has but this one doesn't (e.g. a recent IPO has no bars before
+// its listing date, while SPY on the other chart goes back 5 years). Without this, the
+// short chart's time scale has no notion of those earlier dates at all, so scrolling it
+// back past its own first bar can't report a time range — and the other chart then has
+// nothing to sync to and stops moving. Whitespace points carry a date but no price, so
+// they render as blank space while still keeping both charts on the same calendar axis.
+function _mtlPadWithWhitespace(ownBars, otherBars) {
+  const real = ownBars.map(b => ({ time: Math.floor(b.t / 1000), open: b.o, high: b.h, low: b.l, close: b.c }));
+  if (!otherBars || !otherBars.length) return real;
+  const ownDates = new Set(ownBars.map(b => _mtlDateStr(b.t)));
+  const whitespace = otherBars
+    .filter(b => !ownDates.has(_mtlDateStr(b.t)))
+    .map(b => ({ time: Math.floor(b.t / 1000) }));
+  if (!whitespace.length) return real;
+  return [...whitespace, ...real].sort((a, b) => a.time - b.time);
 }
 
 function _mtlGetHistReturn(bars, targetDateStr, lookbackBars) {
