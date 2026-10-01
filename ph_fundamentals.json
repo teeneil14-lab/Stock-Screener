@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-01T03:38:06.947Z",
+  "generatedAt": "2026-10-01T04:01:43.137Z",
   "source": "TradingView scanner (philippines market) via MCP — trailing-twelve-month Y/Y growth. Partial coverage: 37 of 251 tickers fetched before TradingView's PH-market quota was hit.",
   "coverage": {
     "fetched": 37,
@@ -9,1257 +9,1512 @@
     "BNCOM": {
       "name": "BANK COMMERCE",
       "revenueGrowthTTM": 14.712698629489696,
-      "earningsGrowthTTM": 9.253824021802004
+      "earningsGrowthTTM": 9.253824021802004,
+      "earningsGrowthQtr": null
     },
     "FAF": {
       "name": "FIRST ABACUS",
       "revenueGrowthTTM": -23.049072872892793,
-      "earningsGrowthTTM": -64.18505719831748
+      "earningsGrowthTTM": -64.18505719831748,
+      "earningsGrowthQtr": null
     },
     "ASLAG": {
       "name": "RASLAG",
       "revenueGrowthTTM": 69.97297241145341,
-      "earningsGrowthTTM": 1646.6631061833305
+      "earningsGrowthTTM": 1646.6631061833305,
+      "earningsGrowthQtr": null
     },
     "PPC": {
       "name": "PRYCE CORP",
       "revenueGrowthTTM": 3.8039355983015937,
-      "earningsGrowthTTM": 7.852770554335731
+      "earningsGrowthTTM": 7.852770554335731,
+      "earningsGrowthQtr": null
     },
     "DELM": {
       "name": "DEL MONTE",
       "revenueGrowthTTM": -46.018416829965844,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "GSMI": {
       "name": "GINEBRA",
       "revenueGrowthTTM": 4.177452537983366,
-      "earningsGrowthTTM": 12.549685116819745
+      "earningsGrowthTTM": 12.549685116819745,
+      "earningsGrowthQtr": null
     },
     "CROWN": {
       "name": "CROWN ASIA",
       "revenueGrowthTTM": 9.088421104549688,
-      "earningsGrowthTTM": 43.490474790681155
+      "earningsGrowthTTM": 43.490474790681155,
+      "earningsGrowthQtr": null
     },
     "PMPC": {
       "name": "PANASONIC",
       "revenueGrowthTTM": -4.1487733117674095,
-      "earningsGrowthTTM": -79.92742348121645
+      "earningsGrowthTTM": -79.92742348121645,
+      "earningsGrowthQtr": null
     },
     "ABA": {
       "name": "ABACORE CAPITAL",
       "revenueGrowthTTM": -8.565816029441033,
-      "earningsGrowthTTM": -65.12710372925025
+      "earningsGrowthTTM": -65.12710372925025,
+      "earningsGrowthQtr": -62.6
     },
     "ALLHC": {
       "name": "AYALA LAND LOG",
       "revenueGrowthTTM": -19.98296423248749,
-      "earningsGrowthTTM": -74.67143897173905
+      "earningsGrowthTTM": -74.67143897173905,
+      "earningsGrowthQtr": null
     },
     "DDMPR": {
       "name": "DDMP RT",
       "revenueGrowthTTM": 8.271472976854744,
-      "earningsGrowthTTM": 24.352733080389992
+      "earningsGrowthTTM": 24.352733080389992,
+      "earningsGrowthQtr": null
     },
     "DMW": {
       "name": "DM WENCESLAO",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "EGRN": {
       "name": "EVERWOODS",
       "revenueGrowthTTM": -4.292551934821321,
-      "earningsGrowthTTM": -47.48281788712101
+      "earningsGrowthTTM": -47.48281788712101,
+      "earningsGrowthQtr": null
     },
     "ELI": {
       "name": "EMPIRE EAST",
       "revenueGrowthTTM": -5.734275663781144,
-      "earningsGrowthTTM": 3.4180641373306786
+      "earningsGrowthTTM": 3.4180641373306786,
+      "earningsGrowthQtr": null
     },
     "GERI": {
       "name": "GLOBAL ESTATE",
       "revenueGrowthTTM": -6.532633867462949,
-      "earningsGrowthTTM": 6.94931339811803
+      "earningsGrowthTTM": 6.94931339811803,
+      "earningsGrowthQtr": null
     },
     "PHES": {
       "name": "PHIL ESTATES",
       "revenueGrowthTTM": -7.492035382704739,
-      "earningsGrowthTTM": -159.61099245494202
+      "earningsGrowthTTM": -159.61099245494202,
+      "earningsGrowthQtr": null
     },
     "PREIT": {
       "name": "PREMIERE RT",
       "revenueGrowthTTM": -36.96251265825492,
-      "earningsGrowthTTM": -483.0462592805617
+      "earningsGrowthTTM": -483.0462592805617,
+      "earningsGrowthQtr": null
     },
     "DFNN": {
       "name": "DFNN INC",
       "revenueGrowthTTM": -54.394736353000404,
-      "earningsGrowthTTM": -24.181014995973836
+      "earningsGrowthTTM": -24.181014995973836,
+      "earningsGrowthQtr": null
     },
     "IS": {
       "name": "ISLAND INFO",
       "revenueGrowthTTM": 5,
-      "earningsGrowthTTM": 50.79766811171562
+      "earningsGrowthTTM": 50.79766811171562,
+      "earningsGrowthQtr": null
     },
     "WPI": {
       "name": "WATERFRONT",
       "revenueGrowthTTM": -6.520788037583902,
-      "earningsGrowthTTM": -104.52383711624755
+      "earningsGrowthTTM": -104.52383711624755,
+      "earningsGrowthQtr": null
     },
     "MEDIC": {
       "name": "MEDILINES",
       "revenueGrowthTTM": 20.554458322978512,
-      "earningsGrowthTTM": 1544.131488702341
+      "earningsGrowthTTM": 1544.131488702341,
+      "earningsGrowthQtr": null
     },
     "CPGPB": {
       "name": "CPG PREF B",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "EEIPB": {
       "name": "EEI PREF B",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "GTPPB": {
       "name": "GTCAP PREF B",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "HTI": {
       "name": "HAUS TALK",
       "revenueGrowthTTM": -20.854260210878593,
-      "earningsGrowthTTM": -28.77367777960006
+      "earningsGrowthTTM": -28.77367777960006,
+      "earningsGrowthQtr": null
     },
     "MFIN": {
       "name": "MAKATI FINANCE",
       "revenueGrowthTTM": -43.621837607545636,
-      "earningsGrowthTTM": -400.8332701001946
+      "earningsGrowthTTM": -400.8332701001946,
+      "earningsGrowthQtr": null
     },
     "AB": {
       "name": "ATOK",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": -1188.4837037363443
+      "earningsGrowthTTM": -1188.4837037363443,
+      "earningsGrowthQtr": -395.9
     },
     "BRNPB": {
       "name": "BRN PREF B",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "PRF4A": {
       "name": "PCOR PREF 4A",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "SMC2N": {
       "name": "SMC PREF 2N",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "SMC2O": {
       "name": "SMC PREF 2O",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "DWC": {
       "name": "DISCOVERY WORLD",
       "revenueGrowthTTM": -0.6438692192568619,
-      "earningsGrowthTTM": -85.39473297317758
+      "earningsGrowthTTM": -85.39473297317758,
+      "earningsGrowthQtr": null
     },
     "HI": {
       "name": "HOUSE OF INV",
       "revenueGrowthTTM": 46.44950043285785,
-      "earningsGrowthTTM": 106.06485800291199
+      "earningsGrowthTTM": 106.06485800291199,
+      "earningsGrowthQtr": null
     },
     "BRNP": {
       "name": "BRN PREF A",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "SMC2V": {
       "name": "SMC PREF 2V",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "TFHI": {
       "name": "TOP FRONTIER",
       "revenueGrowthTTM": 15.239302984394193,
-      "earningsGrowthTTM": -91.14580831131396
+      "earningsGrowthTTM": -91.14580831131396,
+      "earningsGrowthQtr": null
     },
     "FDC": {
       "name": "FILINVEST DEV",
       "revenueGrowthTTM": 8.794819856567202,
-      "earningsGrowthTTM": 6.500580794892001
+      "earningsGrowthTTM": 6.500580794892001,
+      "earningsGrowthQtr": null
     },
     "EMI": {
       "name": "EMPERADOR",
       "revenueGrowthTTM": -1.6186740289934805,
-      "earningsGrowthTTM": -43.95183067559002
+      "earningsGrowthTTM": -43.95183067559002,
+      "earningsGrowthQtr": null
     },
     "KEP": {
       "name": "KEPPEL PROP",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "PRF4D": {
       "name": "PCOR PREF 4D",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "LTL": {
       "name": "PNB HLDG",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "TOPA1": {
       "name": "TOP PREF A1",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "MWC": {
       "name": "MANILA WATER",
       "revenueGrowthTTM": 10.77696627733998,
-      "earningsGrowthTTM": 41.44054714465147
+      "earningsGrowthTTM": 41.44054714465147,
+      "earningsGrowthQtr": null
     },
     "LFM": {
       "name": "LIBERTY FLOUR",
       "revenueGrowthTTM": 17.16405296199823,
-      "earningsGrowthTTM": 1262.4051971633087
+      "earningsGrowthTTM": 1262.4051971633087,
+      "earningsGrowthQtr": null
     },
     "RLC": {
       "name": "ROBINSONS LAND",
       "revenueGrowthTTM": 14.202440562790262,
-      "earningsGrowthTTM": 7.523899770718305
+      "earningsGrowthTTM": 7.523899770718305,
+      "earningsGrowthQtr": null
     },
     "PIZZA": {
       "name": "SHAKEYS PIZZA",
       "revenueGrowthTTM": 9.691566588629582,
-      "earningsGrowthTTM": -37.47895957276048
+      "earningsGrowthTTM": -37.47895957276048,
+      "earningsGrowthQtr": null
     },
     "SMC2L": {
       "name": "SMC PREF 2L",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "AGI": {
       "name": "ALLIANCE GLOBAL",
       "revenueGrowthTTM": -16.4362634189792,
-      "earningsGrowthTTM": -22.75888488517896
+      "earningsGrowthTTM": -22.75888488517896,
+      "earningsGrowthQtr": null
     },
     "RLT": {
       "name": "PHIL REALTY",
       "revenueGrowthTTM": -39.89387513612853,
-      "earningsGrowthTTM": -0.16065936397540082
+      "earningsGrowthTTM": -0.16065936397540082,
+      "earningsGrowthQtr": null
     },
     "MRC": {
       "name": "MRC ALLIED",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "CAT": {
       "name": "CNTRL AZUCARERA",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "AC": {
       "name": "AYALA CORP",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "BLOOM": {
       "name": "BLOOMBERRY",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "MWIDE": {
       "name": "MEGAWIDE",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "SHNG": {
       "name": "SHANG PROP",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "FJP": {
       "name": "FJ PRINCE A",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "LBC": {
       "name": "LBC EXPRESS",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "PNB": {
       "name": "PHIL NATL BANK",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "REDC": {
       "name": "REPOWER ENERGY",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "CEBCP": {
       "name": "CEB PREF",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "ALTER": {
       "name": "ALTERNERGY HLDG",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "MRSGI": {
       "name": "METRO RETAIL",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "LCB": {
       "name": "LEPANTO B",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "SECB": {
       "name": "SECURITY BANK",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "MEG": {
       "name": "MEGAWORLD",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "GEO": {
       "name": "GEOGRACE",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "MG": {
       "name": "MG HLDG",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "ION": {
       "name": "IONICS",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "SGI": {
       "name": "SOLID GROUP",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "FB": {
       "name": "SMC FOODANDBEV",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "IMI": {
       "name": "INTEGRATED MICR",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "ROCK": {
       "name": "ROCKWELL",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "FOOD": {
       "name": "ALLIANCE SELECT",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "GREEN": {
       "name": "GREENERGY",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "FLI": {
       "name": "FILINVEST LAND",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "PHA": {
       "name": "PRMIERE HORIZON",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "DITO": {
       "name": "DITO CME HLDG",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "SEVN": {
       "name": "PHIL SEVEN CORP",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "PRC": {
       "name": "PHIL RACING",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "AEV": {
       "name": "ABOITIZ EQUITY",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "COL": {
       "name": "COL FINANCIAL",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "PSE": {
       "name": "PHIL STOCK EXCH",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "ECVC": {
       "name": "EC VULCAN",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "UPM": {
       "name": "UNITED PARAGON",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "UBP": {
       "name": "UNION BANK",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "COSCO": {
       "name": "COSCO CAPITAL",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "LTG": {
       "name": "LT GROUP",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "AREIT": {
       "name": "AREIT RT",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "MAH": {
       "name": "METRO ALLIANCE",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "BSC": {
       "name": "BASIC ENERGY",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "FCG": {
       "name": "FIGARO GROUP",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "SRDC": {
       "name": "SUPERCITY",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "WLCON": {
       "name": "WILCON DEPOT",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "BRNPC": {
       "name": "BRN PREF C",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "BCOR": {
       "name": "BERJAYA",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "SHLPH": {
       "name": "SHELL PILIPINAS",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "NIKL": {
       "name": "NICKEL ASIA",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "PCOR": {
       "name": "PETRON",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "PXP": {
       "name": "PXP ENERGY",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "CIC": {
       "name": "CONCEPCION",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "OGP": {
       "name": "OCEANAGOLD",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "BDO": {
       "name": "BDO UNIBANK",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "SLI": {
       "name": "STA LUCIA LAND",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "PAL": {
       "name": "PAL HLDG",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "PHR": {
       "name": "PH RESORTS GRP",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "WEB": {
       "name": "PHILWEB",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "ALI": {
       "name": "AYALA LAND",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "APX": {
       "name": "APEX MINING",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "SPNEC": {
       "name": "SP NEW ENERGY",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "ATNB": {
       "name": "ATN HLDG B",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "CDC": {
       "name": "CITYLAND DEVT",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "CPG": {
       "name": "CENTURY PROP",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "CREIT": {
       "name": "CITICORE RT",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "IPM": {
       "name": "IPM HLDG",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "MARC": {
       "name": "MARCVENTURES",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "MWP7A": {
       "name": "MWIDE PREF 7A",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "SMC2S": {
       "name": "SMC PREF 2S",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "AGIW": {
       "name": "AGI WARRANT",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "GPH": {
       "name": "GRAND PLAZA",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "SMC2R": {
       "name": "SMC PREF 2R",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "MVC": {
       "name": "MABUHAY VINYL",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "MED": {
       "name": "MEDCO HLDG",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "REG": {
       "name": "REPUBLIC GLASS",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "WIN": {
       "name": "WELLEX INDUS",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "ECP": {
       "name": "EASYCALL",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "GLOBA": {
       "name": "GLO PREF ANV",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "ABSP": {
       "name": "ABS HLDG PDR",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "CTS": {
       "name": "CTS GLOBAL",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "KPPI": {
       "name": "KEPWEALTH",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "AP": {
       "name": "ABOITIZ POWER",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "SMC2U": {
       "name": "SMC PREF 2U",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "LC": {
       "name": "LEPANTO A",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "PSB": {
       "name": "PSBANK",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "BRN": {
       "name": "A BROWN",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "MYNLD": {
       "name": "MAYNILAD",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "ACR": {
       "name": "ALSONS CONS",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "UPSON": {
       "name": "UPSON INTL CORP",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "ORE": {
       "name": "ORNTL PENINSULA",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "IDC": {
       "name": "ITALPINAS",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "LPZ": {
       "name": "LOPEZ HLDG",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "DD": {
       "name": "DOUBLEDRAGON",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "TBGI": {
       "name": "TRANSPACIFIC BR",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "LOTO": {
       "name": "PACIFIC ONLINE",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "LODE": {
       "name": "LODESTAR",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "SM": {
       "name": "SM INVESTMENTS",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "PX": {
       "name": "PX MINING",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "DDPR": {
       "name": "DD PREF",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "PBC": {
       "name": "PBCOM",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "FRUIT": {
       "name": "FRUITAS HLDG",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "GTCAP": {
       "name": "GT CAPITAL",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "APL": {
       "name": "APOLLO GLOBAL",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "NOW": {
       "name": "NOW CORP",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "MA": {
       "name": "MANILA MINING A",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "SPC": {
       "name": "SPC POWER",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "TOP": {
       "name": "TOP LINE",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "AUB": {
       "name": "ASIA UNITED",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "TECH": {
       "name": "CIRTEK HLDG",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "TOPA2": {
       "name": "TOP PREF A2",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "DNL": {
       "name": "DNL INDUS",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "MAC": {
       "name": "MACROASIA",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "FMETF": {
       "name": "ATR FAMI ETF",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "CREC": {
       "name": "CITICORE RE",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "SGP": {
       "name": "SYNERGY GRID",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "EW": {
       "name": "EAST WEST BANK",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "AT": {
       "name": "ATLAS MINING",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "MREIT": {
       "name": "MREIT RT",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "ACPB3": {
       "name": "AC PREF B3R",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "CNPF": {
       "name": "CENTURY FOOD",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "TUGS": {
       "name": "HARBOR STAR",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "KEEPR": {
       "name": "KEEPERS HLDG",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "CLI": {
       "name": "CEB LANDMASTERS",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "GMA7": {
       "name": "GMA NETWORK",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "SSI": {
       "name": "SSI GROUP",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "LPC": {
       "name": "LFM PROP",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "BKR": {
       "name": "BRIGHT KINDLE",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "SMC": {
       "name": "SAN MIGUEL CORP",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "TEL": {
       "name": "PLDT",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "CNVRG": {
       "name": "CONVERGE",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "C": {
       "name": "CHELSEA",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "MER": {
       "name": "MERALCO",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "PERC": {
       "name": "PETROENERGY",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "RFM": {
       "name": "RFM CORP",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "EURO": {
       "name": "EUROMED",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "CEU": {
       "name": "CENTRO ESCOLAR",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "ICT": {
       "name": "INTL CONTAINER",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "FILRT": {
       "name": "FILINVEST RT",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "PBB": {
       "name": "PB BANK",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "CHP": {
       "name": "CONCREAT HLDG",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "APO": {
       "name": "ANGLO PHIL HLDG",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "RCR": {
       "name": "RL COMM RT",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "CBC": {
       "name": "CHINABANK",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "APVI": {
       "name": "ALTUS PROP",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "MAXS": {
       "name": "MAXS GROUP",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "ANS": {
       "name": "ANSCOR",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "RCI": {
       "name": "ROXAS AND CO",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "JGS": {
       "name": "JG SUMMIT",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "SMPH": {
       "name": "SM PRIME HLDG",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "CEB": {
       "name": "CEBU AIR",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "URC": {
       "name": "UNIV ROBINA",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "OM": {
       "name": "OMICO CORP",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "BPI": {
       "name": "BANK PH ISLANDS",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "MBT": {
       "name": "METROBANK",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "RCB": {
       "name": "RCBC",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "FERRO": {
       "name": "FERRONOUX HLDG",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "MFC": {
       "name": "MANULIFE",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "NRCP": {
       "name": "NTL REINSURANCE",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "SLF": {
       "name": "SUN LIFE",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "V": {
       "name": "VANTAGE",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "ACEN": {
       "name": "ACEN CORP",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "FGEN": {
       "name": "FIRST GEN",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "FPH": {
       "name": "FIRST PHIL HLDG",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "SCC": {
       "name": "SEMIRARA MINING",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "AXLM": {
       "name": "AXELUM",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "JFC": {
       "name": "JOLLIBEE",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "MONDE": {
       "name": "MONDE NISSIN",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "SFI": {
       "name": "SWIFT FOODS",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "VITA": {
       "name": "VITARICH",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "ATN": {
       "name": "ATN HLDG A",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "EEI": {
       "name": "EEI CORP",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "PHN": {
       "name": "PHINMA",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "ABG": {
       "name": "ASIABEST GROUP",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "DMC": {
       "name": "DMCI HLDG",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "PA": {
       "name": "PACIFICA HLDG",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "PRIM": {
       "name": "PRIME MEDIA",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "ZHI": {
       "name": "ZEUS HLDG",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "CEI": {
       "name": "CROWN EQUITIES",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "ABS": {
       "name": "ABS CBN",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "GLO": {
       "name": "GLOBE TELECOM",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "LSC": {
       "name": "LORENZO SHIPPNG",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "BHI": {
       "name": "BOULEVARD HLDG",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "FEU": {
       "name": "FAR EASTERN U",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "IPO": {
       "name": "IPEOPLE",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "STI": {
       "name": "STI HLDG",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "BEL": {
       "name": "BELLE CORP",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "PLUS": {
       "name": "DIGIPLUS",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "PGOLD": {
       "name": "PUREGOLD",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "APC": {
       "name": "APC GROUP",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "BC": {
       "name": "BENGUET",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "FNI": {
       "name": "FERRONICKEL",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "MAB": {
       "name": "MANILA MINING B",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "NI": {
       "name": "NIHAO",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "OPM": {
       "name": "ORNTL PETROL A",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "OPMB": {
       "name": "ORNTL PETROL B",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "OV": {
       "name": "PHILODRILL",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "ACPB4": {
       "name": "AC PREF B4R",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "SMC2W": {
       "name": "SMC PREF 2W",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "SMC2X": {
       "name": "SMC PREF 2X",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "X": {
       "name": "XURPAS",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "MB": {
       "name": "MANILA BULLETIN",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "MWP6B": {
       "name": "MWIDE PREF 6B",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     },
     "ACENB": {
       "name": "ACEN PREF B",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null
+      "earningsGrowthTTM": null,
+      "earningsGrowthQtr": null
     }
+  },
+  "coverageQtrEarnings": {
+    "fetched": 2,
+    "total": 251
   }
 }

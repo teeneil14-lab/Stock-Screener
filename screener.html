@@ -13417,15 +13417,18 @@ async function loadFundamentalsTab() {
 
   const data = _fundSnapshot.data || {};
   fundRows = Object.keys(data).map(sym => {
-    const d     = data[sym];
-    const revTTM  = typeof d.revenueGrowthTTM  === 'number' ? d.revenueGrowthTTM  : null;
-    const earnTTM = typeof d.earningsGrowthTTM === 'number' ? d.earningsGrowthTTM : null;
+    const d       = data[sym];
+    const revTTM  = typeof d.revenueGrowthTTM   === 'number' ? d.revenueGrowthTTM   : null;
+    const earnTTM = typeof d.earningsGrowthTTM  === 'number' ? d.earningsGrowthTTM  : null;
+    const earnQtr = typeof d.earningsGrowthQtr  === 'number' ? d.earningsGrowthQtr  : null;
     // Default ranking signal: average of the two TTM growth figures that are
     // available (revenue + net income) — falls back to null (sorts last) when
-    // neither has reported financials covered by this snapshot yet.
+    // neither has reported financials covered by this snapshot yet. The latest-
+    // quarter figure is shown for reference but doesn't feed the score, since
+    // it's a noisier, single-period number.
     const vals  = [revTTM, earnTTM].filter(v => v != null);
     const score = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
-    return { symbol: sym, name: d.name || '', revTTM, earnTTM, score };
+    return { symbol: sym, name: d.name || '', revTTM, earnTTM, earnQtr, score };
   });
 
   if (updated) {
@@ -13501,6 +13504,7 @@ function renderFundamentalsTable() {
       <th${thCls('name')} onclick="sortFundamentals('name')">Name${thArrow('name')}</th>
       <th${thCls('revTTM')} onclick="sortFundamentals('revTTM')">Revenue Growth (TTM YoY)${thArrow('revTTM')}</th>
       <th${thCls('earnTTM')} onclick="sortFundamentals('earnTTM')">Earnings Growth (TTM YoY)${thArrow('earnTTM')}</th>
+      <th${thCls('earnQtr')} onclick="sortFundamentals('earnQtr')">Earnings Growth (Latest Qtr YoY)${thArrow('earnQtr')}</th>
       <th${thCls('score')} onclick="sortFundamentals('score')">Combined Score${thArrow('score')}</th>
     </tr>`;
 
@@ -13510,6 +13514,7 @@ function renderFundamentalsTable() {
       <td>${r.name || ''}</td>
       <td>${fundGrowthCell(r.revTTM)}</td>
       <td>${fundGrowthCell(r.earnTTM)}</td>
+      <td>${fundGrowthCell(r.earnQtr)}</td>
       <td>${fundGrowthCell(r.score)}</td>
     </tr>`).join('');
 
@@ -16110,9 +16115,10 @@ async function showHoverChart(ticker, clientX, clientY) {
 
 function initHoverChartPreview() {
   const inScope = tr => {
-    const panels = document.getElementById('pse-panels');
-    const mktTbl = document.getElementById('marketperf-table-wrap');
-    return (panels && panels.contains(tr)) || (mktTbl && mktTbl.contains(tr));
+    const panels   = document.getElementById('pse-panels');
+    const mktTbl   = document.getElementById('marketperf-table-wrap');
+    const fundTbl  = document.getElementById('fundamentals-table-wrap');
+    return (panels && panels.contains(tr)) || (mktTbl && mktTbl.contains(tr)) || (fundTbl && fundTbl.contains(tr));
   };
   document.addEventListener('mouseover', e => {
     const tr = e.target.closest('tr[data-ticker]');
