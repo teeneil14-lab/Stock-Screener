@@ -4291,6 +4291,12 @@
           onkeydown="if(event.key==='Enter')addPickByTicker(this.value,document.getElementById('picks-add-date').value)" autocomplete="off" spellcheck="false"/>
         <input id="picks-add-date" class="picks-add-date" type="date" title="Pick date (leave as today for a current pick)"/>
         <button id="picks-add-btn" class="picks-add-btn" onclick="addPickByTicker(document.getElementById('picks-add-input').value,document.getElementById('picks-add-date').value)">ADD ★</button>
+        <span style="width:1px;height:20px;background:var(--border);margin:0 2px"></span>
+        <span style="font-size:10px;color:var(--text3);font-family:'IBM Plex Mono',monospace;letter-spacing:0.06em">DELETE BY DATE:</span>
+        <input id="picks-bulkdel-from" class="picks-add-date" type="date" title="From this date (leave blank for no lower limit)"/>
+        <span style="font-size:10px;color:var(--text3);font-family:'IBM Plex Mono',monospace">to</span>
+        <input id="picks-bulkdel-to" class="picks-add-date" type="date" title="To this date (leave blank for no upper limit)"/>
+        <button class="picks-view-btn danger" onclick="deletePicksByDateRange()" title="Remove every pick added within this date range">DELETE RANGE</button>
       </div>
     </div>
     <div class="picks-body">
@@ -8923,6 +8929,48 @@ function deleteSelectedPicks() {
   renderPatternPanel();
   if (results.length) renderResults();
 
+  if (picksViewMode === 'list') renderPicksList(); else renderStarredCharts();
+  showToast(`Removed ${n} pick${n === 1 ? '' : 's'} from My Picks`);
+}
+
+// Bulk delete by the date a pick was added (starredAt) — e.g. "remove everything
+// I added between these two dates". Either end can be left blank for an open range.
+function deletePicksByDateRange() {
+  const fromEl = document.getElementById('picks-bulkdel-from');
+  const toEl   = document.getElementById('picks-bulkdel-to');
+  const fromVal = fromEl.value;
+  const toVal   = toEl.value;
+
+  if (!fromVal && !toVal) { showToast('Pick a start and/or end date first', 'error'); return; }
+
+  const fromMs = fromVal ? new Date(fromVal + 'T00:00:00').getTime() : -Infinity;
+  const toMs   = toVal   ? new Date(toVal   + 'T23:59:59.999').getTime() : Infinity;
+  if (fromMs > toMs) { showToast('Start date is after the end date', 'error'); return; }
+
+  const liked   = loadLiked(currentSetup);
+  const matches = liked.filter(e => e.starredAt >= fromMs && e.starredAt <= toMs);
+  const n = matches.length;
+  if (!n) { showToast('No picks were added in that date range', 'error'); return; }
+
+  const rangeLabel = `${fromVal || 'the beginning'} to ${toVal || 'today'}`;
+  if (!confirm(`Remove ${n} pick${n === 1 ? '' : 's'} added between ${rangeLabel}? This can't be undone.`)) return;
+
+  const keysToRemove = new Set(matches.map(e => _pickKey(e.ticker, e.starredAt)));
+  getActiveSetupIds().forEach(sid => {
+    const remaining = loadLiked(sid).filter(l => !keysToRemove.has(_pickKey(l.ticker, l.starredAt)));
+    saveLiked(sid, remaining);
+  });
+
+  keysToRemove.forEach(k => picksSelectedKeys.delete(k));
+  _syncPicksToolbar();
+
+  autoRestoreStars();
+  computeAllSimilarityBonuses();
+  renderPatternPanel();
+  if (results.length) renderResults();
+
+  fromEl.value = '';
+  toEl.value   = '';
   if (picksViewMode === 'list') renderPicksList(); else renderStarredCharts();
   showToast(`Removed ${n} pick${n === 1 ? '' : 's'} from My Picks`);
 }
