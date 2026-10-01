@@ -16298,10 +16298,12 @@ function _mtlBuildBotChart() {
 
   // Sync time range with top chart
   _mtlSyncTimeRanges();
-  // Copy top chart's current visible range so bot opens showing the same 1-year window
+  // Copy top chart's current visible range so bot opens showing the same calendar window.
+  // Uses actual dates (not bar-index/logical range) so it still lines up when the two
+  // symbols have different history lengths (e.g. a recent IPO with far fewer bars).
   if (_mtlTopChart) {
-    const topRange = _mtlTopChart.timeScale().getVisibleLogicalRange();
-    if (topRange) { try { _mtlBotChart.timeScale().setVisibleLogicalRange(topRange); } catch {} }
+    const topRange = _mtlTopChart.timeScale().getVisibleRange();
+    if (topRange) { try { _mtlBotChart.timeScale().setVisibleRange(topRange); } catch {} }
   }
 }
 
@@ -16539,18 +16541,25 @@ function _mtlHandleChartClick(param) {
 }
 
 // ── Time range sync (scroll/zoom both charts together) ────────────────────────
+// Synced by actual calendar date (getVisibleRange/setVisibleRange), not bar-index
+// (getVisibleLogicalRange/setVisibleLogicalRange). Logical-range sync lines up the
+// Nth-bar-from-the-left on both charts, which breaks as soon as the two symbols
+// don't have the same number of historical bars — e.g. a recently-IPO'd stock on
+// one side and SPY's full 5-year history on the other would show completely
+// different date ranges even though the bar index matched. Date-based sync keeps
+// both charts showing the same window of time regardless of history length.
 function _mtlSyncTimeRanges() {
   if (!_mtlTopChart || !_mtlBotChart) return;
-  _mtlTopChart.timeScale().subscribeVisibleLogicalRangeChange(range => {
+  _mtlTopChart.timeScale().subscribeVisibleTimeRangeChange(range => {
     if (_mtlSyncingRange || !_mtlBotChart || !range) return;
     _mtlSyncingRange = true;
-    try { _mtlBotChart.timeScale().setVisibleLogicalRange(range); } catch {}
+    try { _mtlBotChart.timeScale().setVisibleRange(range); } catch {}
     _mtlSyncingRange = false;
   });
-  _mtlBotChart.timeScale().subscribeVisibleLogicalRangeChange(range => {
+  _mtlBotChart.timeScale().subscribeVisibleTimeRangeChange(range => {
     if (_mtlSyncingRange || !_mtlTopChart || !range) return;
     _mtlSyncingRange = true;
-    try { _mtlTopChart.timeScale().setVisibleLogicalRange(range); } catch {}
+    try { _mtlTopChart.timeScale().setVisibleRange(range); } catch {}
     _mtlSyncingRange = false;
   });
 }
