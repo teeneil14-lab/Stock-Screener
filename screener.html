@@ -13419,16 +13419,17 @@ async function loadFundamentalsTab() {
   fundRows = Object.keys(data).map(sym => {
     const d       = data[sym];
     const revTTM  = typeof d.revenueGrowthTTM   === 'number' ? d.revenueGrowthTTM   : null;
+    const revQtr  = typeof d.revenueGrowthQtr   === 'number' ? d.revenueGrowthQtr   : null;
     const earnTTM = typeof d.earningsGrowthTTM  === 'number' ? d.earningsGrowthTTM  : null;
     const earnQtr = typeof d.earningsGrowthQtr  === 'number' ? d.earningsGrowthQtr  : null;
     // Default ranking signal: average of the two TTM growth figures that are
     // available (revenue + net income) — falls back to null (sorts last) when
     // neither has reported financials covered by this snapshot yet. The latest-
-    // quarter figure is shown for reference but doesn't feed the score, since
-    // it's a noisier, single-period number.
+    // quarter figures are shown for reference but don't feed the score, since
+    // they're noisier, single-period numbers.
     const vals  = [revTTM, earnTTM].filter(v => v != null);
     const score = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
-    return { symbol: sym, name: d.name || '', revTTM, earnTTM, earnQtr, score };
+    return { symbol: sym, name: d.name || '', revTTM, revQtr, earnTTM, earnQtr, score };
   });
 
   if (updated) {
@@ -13503,6 +13504,7 @@ function renderFundamentalsTable() {
       <th${thCls('symbol')} onclick="sortFundamentals('symbol')">Symbol${thArrow('symbol')}</th>
       <th${thCls('name')} onclick="sortFundamentals('name')">Name${thArrow('name')}</th>
       <th${thCls('revTTM')} onclick="sortFundamentals('revTTM')">Revenue Growth (TTM YoY)${thArrow('revTTM')}</th>
+      <th${thCls('revQtr')} onclick="sortFundamentals('revQtr')">Revenue Growth (Latest Qtr YoY)${thArrow('revQtr')}</th>
       <th${thCls('earnTTM')} onclick="sortFundamentals('earnTTM')">Earnings Growth (TTM YoY)${thArrow('earnTTM')}</th>
       <th${thCls('earnQtr')} onclick="sortFundamentals('earnQtr')">Earnings Growth (Latest Qtr YoY)${thArrow('earnQtr')}</th>
       <th${thCls('score')} onclick="sortFundamentals('score')">Combined Score${thArrow('score')}</th>
@@ -13513,6 +13515,7 @@ function renderFundamentalsTable() {
       <td>${r.symbol}</td>
       <td>${r.name || ''}</td>
       <td>${fundGrowthCell(r.revTTM)}</td>
+      <td>${fundGrowthCell(r.revQtr)}</td>
       <td>${fundGrowthCell(r.earnTTM)}</td>
       <td>${fundGrowthCell(r.earnQtr)}</td>
       <td>${fundGrowthCell(r.score)}</td>

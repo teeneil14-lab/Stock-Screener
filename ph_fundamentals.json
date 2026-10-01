@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-01T04:01:43.137Z",
+  "generatedAt": "2026-10-01T04:18:28.915Z",
   "source": "TradingView scanner (philippines market) via MCP — trailing-twelve-month Y/Y growth. Partial coverage: 37 of 251 tickers fetched before TradingView's PH-market quota was hit.",
   "coverage": {
     "fetched": 37,
@@ -58,7 +58,8 @@
       "name": "ABACORE CAPITAL",
       "revenueGrowthTTM": -8.565816029441033,
       "earningsGrowthTTM": -65.12710372925025,
-      "earningsGrowthQtr": -62.6
+      "earningsGrowthQtr": -62.6,
+      "revenueGrowthQtr": -13.6
     },
     "ALLHC": {
       "name": "AYALA LAND LOG",
@@ -166,7 +167,8 @@
       "name": "ATOK",
       "revenueGrowthTTM": null,
       "earningsGrowthTTM": -1188.4837037363443,
-      "earningsGrowthQtr": -395.9
+      "earningsGrowthQtr": -395.9,
+      "revenueGrowthQtr": null
     },
     "BRNPB": {
       "name": "BRN PREF B",
