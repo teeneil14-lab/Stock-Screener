@@ -12301,6 +12301,13 @@ function saveLiked(setupId, arr) {
       });
     });
 
+    // Save the (heavier) shared chart-bar pool BEFORE the pick-list entry itself.
+    // This is the write most likely to hit the storage quota, and if it fails we
+    // must bail out here — otherwise the small pick-list write below would still
+    // succeed and the ticker would show up in My Picks despite the "storage full"
+    // error, just missing its chart data.
+    if (!_saveSharedBarsMap(sharedMap)) return false;
+
     const slim = arr.map(e => ({
       ticker:         e.ticker,
       starredAt:      e.starredAt,
@@ -12311,7 +12318,7 @@ function saveLiked(setupId, arr) {
     }));
     localStorage.setItem(`cts_liked_setup_${setupId}`, LZString.compressToBase64(JSON.stringify(slim)));
 
-    if (!_gcSharedBars(sharedMap)) return false;
+    _gcSharedBars(sharedMap); // best-effort cleanup of now-unreferenced snapshots
 
     _likedCache[setupId] = arr; // only sync the in-memory copy once the write actually succeeded
     return true;
