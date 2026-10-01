@@ -3948,6 +3948,7 @@
   <button class="tab-btn" id="tab-btn-psedaily" onclick="switchTab('psedaily')" style="display:none">PSE Daily</button>
   <button class="tab-btn" id="tab-btn-marketperf" onclick="switchTab('marketperf')" style="display:none">Market Performance</button>
   <button class="tab-btn" id="tab-btn-prioritylist" onclick="switchTab('prioritylist')" style="display:none">Priority List</button>
+  <button class="tab-btn" id="tab-btn-fundamentals" onclick="switchTab('fundamentals')" style="display:none">Fundamentals</button>
   <div class="tab-search-wrap">
     <input type="text" id="tab-search-input" class="tab-search-input" placeholder="AAPL or AVGO, AAPL, SMCI…"
       oninput="tabSearchOnInput()" onkeydown="if(event.key==='Enter')tabSearchGo()" />
@@ -4561,6 +4562,28 @@
     </div>
   </div>
 </div><!-- /tab-marketperf -->
+
+<!-- FUNDAMENTALS TAB (PH) -->
+<div id="tab-fundamentals" class="tab-page" style="display:none">
+  <div class="sectors-page">
+    <div class="sectors-toolbar">
+      <div class="sectors-toolbar-left">
+        <div class="sectors-title">FUNDAMENTALS — REVENUE &amp; EARNINGS GROWTH (TradingView snapshot)</div>
+        <div class="sectors-updated" id="fundamentals-updated">Not loaded</div>
+      </div>
+      <div class="sectors-toolbar-right">
+        <button class="sectors-refresh-btn" id="fundamentals-refresh-btn" onclick="loadFundamentalsTab()" title="Reload the saved snapshot file — ask Claude to pull fresh numbers from TradingView first">↻ RELOAD</button>
+      </div>
+    </div>
+    <div class="sectors-body" id="fundamentals-body">
+      <div class="sectors-loading" id="fundamentals-loading" style="display:none">
+        <div class="sectors-spinner"></div>
+        <div id="fundamentals-loading-text">Loading fundamentals…</div>
+      </div>
+      <div id="fundamentals-table-wrap"></div>
+    </div>
+  </div>
+</div><!-- /tab-fundamentals -->
 
 <!-- MARKET TIMELINE TAB -->
 <div id="tab-timeline" class="tab-page" style="display:none">
@@ -10142,6 +10165,11 @@ let marketPerfSortCol  = '1d';
 let marketPerfSortDir  = -1;
 let marketPerfMinValue  = null;  // filter: only show issues with Value Traded >= this
 let marketPerfMinShares = null;  // filter: only show issues with Shares Traded >= this
+let fundamentalsLoaded   = false;
+let fundamentalsLoadedAt = 0;
+let fundRows             = [];   // computed rows for the Fundamentals table
+let fundSortCol          = 'score';
+let fundSortDir          = -1;
 let _tweeklyActiveTab  = 'weekly';
 let _tweeklyYTDChart   = null;
 let _tweeklyYTDChartRO = null;
@@ -10149,7 +10177,7 @@ let _tweeklyMOChart    = null;
 let _tweeklyMOChartRO  = null;
 
 function switchTab(tab) {
-  ['screener','sectors','imap','picks','tweekly','timeline','listqa','psedaily','marketperf','prioritylist'].forEach(t => {
+  ['screener','sectors','imap','picks','tweekly','timeline','listqa','psedaily','marketperf','prioritylist','fundamentals'].forEach(t => {
     const page = document.getElementById(`tab-${t}`);
     const btn  = document.getElementById(`tab-btn-${t}`);
     if (page) page.style.display = tab === t ? '' : 'none';
@@ -10161,6 +10189,7 @@ function switchTab(tab) {
   if (tab === 'timeline'  && !mtlLoaded       && marketMode !== 'PH') loadMarketTimeline(false);
   if (tab === 'psedaily'   && Date.now() - pseDailyLoadedAt   > TAB_REFRESH_MS) runPSEScan();
   if (tab === 'marketperf' && marketMode === 'PH' && Date.now() - marketPerfLoadedAt > TAB_REFRESH_MS) loadMarketPerformance();
+  if (tab === 'fundamentals' && marketMode === 'PH' && Date.now() - fundamentalsLoadedAt > TAB_REFRESH_MS) loadFundamentalsTab();
   if (tab === 'prioritylist') {
     if (Date.now() - pseDailyLoadedAt > TAB_REFRESH_MS) {
       runPSEScan();
@@ -10239,7 +10268,11 @@ function switchMarket(mode) {
   if (marketPerfBtn) marketPerfBtn.style.display = mode === 'PH' ? '' : 'none';
   const priorityListBtn = document.getElementById('tab-btn-prioritylist');
   if (priorityListBtn) priorityListBtn.style.display = mode === 'PH' ? '' : 'none';
+  const fundamentalsBtn = document.getElementById('tab-btn-fundamentals');
+  if (fundamentalsBtn) fundamentalsBtn.style.display = mode === 'PH' ? '' : 'none';
   marketPerfLoadedAt = 0;
+  fundamentalsLoadedAt = 0;
+  fundamentalsLoaded   = false;
   sectorsLoaded     = false;
   imapLoaded        = false;
   _imapLoadedMode   = null;
@@ -13338,6 +13371,149 @@ function updateMarketPerfFilter() {
   marketPerfMinValue  = valueRaw  !== '' && valueRaw  != null ? Number(valueRaw)  : null;
   marketPerfMinShares = sharesRaw !== '' && sharesRaw != null ? Number(sharesRaw) : null;
   if (marketPerfData) renderMarketPerfTable();
+}
+
+// ============================================================
+//  FUNDAMENTALS TAB (PH) — ranks the PSE ticker list by trailing-twelve-month
+//  Y/Y revenue and earnings (net income) growth.
+//
+//  Yahoo Finance has no fundamentals data at all for native PSE-listed shares
+//  (confirmed: its quoteSummary/chart endpoints 404 on every .PS symbol), so
+//  this doesn't call a live server endpoint. Instead it reads a snapshot file
+//  (ph_fundamentals.json, at the project root) fetched from TradingView —
+//  refreshed by asking Claude to pull new numbers, not on a timer, since
+//  TradingView's Philippines-market data has a strict request quota and
+//  revenue/earnings only change once a quarter anyway.
+// ============================================================
+let _fundSnapshot = null; // { generatedAt, source, coverage, data: { symbol: {name, revenueGrowthTTM, earningsGrowthTTM} } }
+
+async function loadFundamentalsTab() {
+  if (marketMode !== 'PH') return;
+
+  const loading    = document.getElementById('fundamentals-loading');
+  const loadingMsg = document.getElementById('fundamentals-loading-text');
+  const updated    = document.getElementById('fundamentals-updated');
+  const wrap       = document.getElementById('fundamentals-table-wrap');
+  const btn        = document.getElementById('fundamentals-refresh-btn');
+
+  fundamentalsLoaded   = true;
+  fundamentalsLoadedAt = Date.now();
+  if (btn) btn.disabled = true;
+  if (loading) loading.style.display = 'flex';
+  if (loadingMsg) loadingMsg.textContent = 'Loading fundamentals snapshot…';
+  if (updated) updated.textContent = 'Loading…';
+
+  try {
+    const res = await fetch(`/ph_fundamentals.json?v=${Date.now()}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    _fundSnapshot = await res.json();
+  } catch (e) {
+    if (wrap) wrap.innerHTML = `<div class="pse-panel-empty">No fundamentals snapshot available yet. Ask Claude to fetch PSE revenue/earnings growth from TradingView.</div>`;
+    if (updated) updated.textContent = 'Not loaded';
+    if (loading) loading.style.display = 'none';
+    if (btn) btn.disabled = false;
+    return;
+  }
+
+  const data = _fundSnapshot.data || {};
+  fundRows = Object.keys(data).map(sym => {
+    const d     = data[sym];
+    const revTTM  = typeof d.revenueGrowthTTM  === 'number' ? d.revenueGrowthTTM  : null;
+    const earnTTM = typeof d.earningsGrowthTTM === 'number' ? d.earningsGrowthTTM : null;
+    // Default ranking signal: average of the two TTM growth figures that are
+    // available (revenue + net income) — falls back to null (sorts last) when
+    // neither has reported financials covered by this snapshot yet.
+    const vals  = [revTTM, earnTTM].filter(v => v != null);
+    const score = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+    return { symbol: sym, name: d.name || '', revTTM, earnTTM, score };
+  });
+
+  if (updated) {
+    const gen = _fundSnapshot.generatedAt ? new Date(_fundSnapshot.generatedAt) : null;
+    const cov = _fundSnapshot.coverage;
+    const genStr = gen ? gen.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ' + gen.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'unknown';
+    updated.textContent = cov
+      ? `Snapshot from ${genStr} · ${cov.fetched} of ${cov.total} tickers covered`
+      : `Snapshot from ${genStr}`;
+  }
+  if (loading) loading.style.display = 'none';
+  if (btn) btn.disabled = false;
+  renderFundamentalsTable();
+}
+
+// Growth figures run much larger than daily price moves, so this uses wider
+// bands than pctCell() while reusing the same .pct-cell color classes. Values
+// here are already percentage points (e.g. 14.7 = +14.7%), not fractions.
+function fundGrowthCell(pct) {
+  if (pct == null || isNaN(pct)) return '<span class="pct-cell pct-flat">—</span>';
+  const sign = pct >= 0 ? '+' : '';
+  let cls;
+  if      (pct >=  20) cls = 'pct-strong-up';
+  else if (pct >=   5) cls = 'pct-mild-up';
+  else if (pct >=  -5) cls = 'pct-flat';
+  else if (pct >= -20) cls = 'pct-mild-down';
+  else                 cls = 'pct-strong-down';
+  return `<span class="pct-cell ${cls}">${sign}${pct.toFixed(1)}%</span>`;
+}
+
+function sortFundamentals(col) {
+  if (fundSortCol === col) {
+    fundSortDir *= -1;
+  } else {
+    fundSortCol = col;
+    fundSortDir = (col === 'symbol' || col === 'name') ? 1 : -1; // names A→Z, growth high→low by default
+  }
+  renderFundamentalsTable();
+}
+
+function renderFundamentalsTable() {
+  const wrap = document.getElementById('fundamentals-table-wrap');
+  if (!wrap) return;
+
+  if (!fundRows.length) {
+    wrap.innerHTML = '<div class="pse-panel-empty">No fundamentals data loaded yet.</div>';
+    return;
+  }
+
+  const isStr = fundSortCol === 'symbol' || fundSortCol === 'name';
+  const sorted = fundRows.slice().sort((a, b) => {
+    if (isStr) {
+      const av = (a[fundSortCol] || '').toUpperCase();
+      const bv = (b[fundSortCol] || '').toUpperCase();
+      return fundSortDir * av.localeCompare(bv);
+    }
+    const av = a[fundSortCol] ?? -Infinity;
+    const bv = b[fundSortCol] ?? -Infinity;
+    return fundSortDir * (av - bv);
+  });
+
+  function thArrow(col) {
+    if (fundSortCol !== col) return '';
+    return fundSortDir === -1 ? ' ↓' : ' ↑';
+  }
+  function thCls(col) {
+    return fundSortCol === col ? ' class="sort-active"' : '';
+  }
+
+  const thead = `
+    <tr>
+      <th${thCls('symbol')} onclick="sortFundamentals('symbol')">Symbol${thArrow('symbol')}</th>
+      <th${thCls('name')} onclick="sortFundamentals('name')">Name${thArrow('name')}</th>
+      <th${thCls('revTTM')} onclick="sortFundamentals('revTTM')">Revenue Growth (TTM YoY)${thArrow('revTTM')}</th>
+      <th${thCls('earnTTM')} onclick="sortFundamentals('earnTTM')">Earnings Growth (TTM YoY)${thArrow('earnTTM')}</th>
+      <th${thCls('score')} onclick="sortFundamentals('score')">Combined Score${thArrow('score')}</th>
+    </tr>`;
+
+  const tbody = sorted.map(r => `
+    <tr data-ticker="${r.symbol}">
+      <td>${r.symbol}</td>
+      <td>${r.name || ''}</td>
+      <td>${fundGrowthCell(r.revTTM)}</td>
+      <td>${fundGrowthCell(r.earnTTM)}</td>
+      <td>${fundGrowthCell(r.score)}</td>
+    </tr>`).join('');
+
+  wrap.innerHTML = `<table class="sectors-table"><colgroup><col style="width:80px"><col style="width:200px"></colgroup><thead>${thead}</thead><tbody>${tbody}</tbody></table>`;
 }
 
 // ============================================================

@@ -1,0 +1,1265 @@
+{
+  "generatedAt": "2026-10-01T03:38:06.947Z",
+  "source": "TradingView scanner (philippines market) via MCP — trailing-twelve-month Y/Y growth. Partial coverage: 37 of 251 tickers fetched before TradingView's PH-market quota was hit.",
+  "coverage": {
+    "fetched": 37,
+    "total": 251
+  },
+  "data": {
+    "BNCOM": {
+      "name": "BANK COMMERCE",
+      "revenueGrowthTTM": 14.712698629489696,
+      "earningsGrowthTTM": 9.253824021802004
+    },
+    "FAF": {
+      "name": "FIRST ABACUS",
+      "revenueGrowthTTM": -23.049072872892793,
+      "earningsGrowthTTM": -64.18505719831748
+    },
+    "ASLAG": {
+      "name": "RASLAG",
+      "revenueGrowthTTM": 69.97297241145341,
+      "earningsGrowthTTM": 1646.6631061833305
+    },
+    "PPC": {
+      "name": "PRYCE CORP",
+      "revenueGrowthTTM": 3.8039355983015937,
+      "earningsGrowthTTM": 7.852770554335731
+    },
+    "DELM": {
+      "name": "DEL MONTE",
+      "revenueGrowthTTM": -46.018416829965844,
+      "earningsGrowthTTM": null
+    },
+    "GSMI": {
+      "name": "GINEBRA",
+      "revenueGrowthTTM": 4.177452537983366,
+      "earningsGrowthTTM": 12.549685116819745
+    },
+    "CROWN": {
+      "name": "CROWN ASIA",
+      "revenueGrowthTTM": 9.088421104549688,
+      "earningsGrowthTTM": 43.490474790681155
+    },
+    "PMPC": {
+      "name": "PANASONIC",
+      "revenueGrowthTTM": -4.1487733117674095,
+      "earningsGrowthTTM": -79.92742348121645
+    },
+    "ABA": {
+      "name": "ABACORE CAPITAL",
+      "revenueGrowthTTM": -8.565816029441033,
+      "earningsGrowthTTM": -65.12710372925025
+    },
+    "ALLHC": {
+      "name": "AYALA LAND LOG",
+      "revenueGrowthTTM": -19.98296423248749,
+      "earningsGrowthTTM": -74.67143897173905
+    },
+    "DDMPR": {
+      "name": "DDMP RT",
+      "revenueGrowthTTM": 8.271472976854744,
+      "earningsGrowthTTM": 24.352733080389992
+    },
+    "DMW": {
+      "name": "DM WENCESLAO",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "EGRN": {
+      "name": "EVERWOODS",
+      "revenueGrowthTTM": -4.292551934821321,
+      "earningsGrowthTTM": -47.48281788712101
+    },
+    "ELI": {
+      "name": "EMPIRE EAST",
+      "revenueGrowthTTM": -5.734275663781144,
+      "earningsGrowthTTM": 3.4180641373306786
+    },
+    "GERI": {
+      "name": "GLOBAL ESTATE",
+      "revenueGrowthTTM": -6.532633867462949,
+      "earningsGrowthTTM": 6.94931339811803
+    },
+    "PHES": {
+      "name": "PHIL ESTATES",
+      "revenueGrowthTTM": -7.492035382704739,
+      "earningsGrowthTTM": -159.61099245494202
+    },
+    "PREIT": {
+      "name": "PREMIERE RT",
+      "revenueGrowthTTM": -36.96251265825492,
+      "earningsGrowthTTM": -483.0462592805617
+    },
+    "DFNN": {
+      "name": "DFNN INC",
+      "revenueGrowthTTM": -54.394736353000404,
+      "earningsGrowthTTM": -24.181014995973836
+    },
+    "IS": {
+      "name": "ISLAND INFO",
+      "revenueGrowthTTM": 5,
+      "earningsGrowthTTM": 50.79766811171562
+    },
+    "WPI": {
+      "name": "WATERFRONT",
+      "revenueGrowthTTM": -6.520788037583902,
+      "earningsGrowthTTM": -104.52383711624755
+    },
+    "MEDIC": {
+      "name": "MEDILINES",
+      "revenueGrowthTTM": 20.554458322978512,
+      "earningsGrowthTTM": 1544.131488702341
+    },
+    "CPGPB": {
+      "name": "CPG PREF B",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "EEIPB": {
+      "name": "EEI PREF B",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "GTPPB": {
+      "name": "GTCAP PREF B",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "HTI": {
+      "name": "HAUS TALK",
+      "revenueGrowthTTM": -20.854260210878593,
+      "earningsGrowthTTM": -28.77367777960006
+    },
+    "MFIN": {
+      "name": "MAKATI FINANCE",
+      "revenueGrowthTTM": -43.621837607545636,
+      "earningsGrowthTTM": -400.8332701001946
+    },
+    "AB": {
+      "name": "ATOK",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": -1188.4837037363443
+    },
+    "BRNPB": {
+      "name": "BRN PREF B",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "PRF4A": {
+      "name": "PCOR PREF 4A",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "SMC2N": {
+      "name": "SMC PREF 2N",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "SMC2O": {
+      "name": "SMC PREF 2O",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "DWC": {
+      "name": "DISCOVERY WORLD",
+      "revenueGrowthTTM": -0.6438692192568619,
+      "earningsGrowthTTM": -85.39473297317758
+    },
+    "HI": {
+      "name": "HOUSE OF INV",
+      "revenueGrowthTTM": 46.44950043285785,
+      "earningsGrowthTTM": 106.06485800291199
+    },
+    "BRNP": {
+      "name": "BRN PREF A",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "SMC2V": {
+      "name": "SMC PREF 2V",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "TFHI": {
+      "name": "TOP FRONTIER",
+      "revenueGrowthTTM": 15.239302984394193,
+      "earningsGrowthTTM": -91.14580831131396
+    },
+    "FDC": {
+      "name": "FILINVEST DEV",
+      "revenueGrowthTTM": 8.794819856567202,
+      "earningsGrowthTTM": 6.500580794892001
+    },
+    "EMI": {
+      "name": "EMPERADOR",
+      "revenueGrowthTTM": -1.6186740289934805,
+      "earningsGrowthTTM": -43.95183067559002
+    },
+    "KEP": {
+      "name": "KEPPEL PROP",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "PRF4D": {
+      "name": "PCOR PREF 4D",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "LTL": {
+      "name": "PNB HLDG",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "TOPA1": {
+      "name": "TOP PREF A1",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "MWC": {
+      "name": "MANILA WATER",
+      "revenueGrowthTTM": 10.77696627733998,
+      "earningsGrowthTTM": 41.44054714465147
+    },
+    "LFM": {
+      "name": "LIBERTY FLOUR",
+      "revenueGrowthTTM": 17.16405296199823,
+      "earningsGrowthTTM": 1262.4051971633087
+    },
+    "RLC": {
+      "name": "ROBINSONS LAND",
+      "revenueGrowthTTM": 14.202440562790262,
+      "earningsGrowthTTM": 7.523899770718305
+    },
+    "PIZZA": {
+      "name": "SHAKEYS PIZZA",
+      "revenueGrowthTTM": 9.691566588629582,
+      "earningsGrowthTTM": -37.47895957276048
+    },
+    "SMC2L": {
+      "name": "SMC PREF 2L",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "AGI": {
+      "name": "ALLIANCE GLOBAL",
+      "revenueGrowthTTM": -16.4362634189792,
+      "earningsGrowthTTM": -22.75888488517896
+    },
+    "RLT": {
+      "name": "PHIL REALTY",
+      "revenueGrowthTTM": -39.89387513612853,
+      "earningsGrowthTTM": -0.16065936397540082
+    },
+    "MRC": {
+      "name": "MRC ALLIED",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "CAT": {
+      "name": "CNTRL AZUCARERA",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "AC": {
+      "name": "AYALA CORP",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "BLOOM": {
+      "name": "BLOOMBERRY",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "MWIDE": {
+      "name": "MEGAWIDE",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "SHNG": {
+      "name": "SHANG PROP",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "FJP": {
+      "name": "FJ PRINCE A",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "LBC": {
+      "name": "LBC EXPRESS",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "PNB": {
+      "name": "PHIL NATL BANK",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "REDC": {
+      "name": "REPOWER ENERGY",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "CEBCP": {
+      "name": "CEB PREF",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "ALTER": {
+      "name": "ALTERNERGY HLDG",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "MRSGI": {
+      "name": "METRO RETAIL",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "LCB": {
+      "name": "LEPANTO B",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "SECB": {
+      "name": "SECURITY BANK",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "MEG": {
+      "name": "MEGAWORLD",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "GEO": {
+      "name": "GEOGRACE",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "MG": {
+      "name": "MG HLDG",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "ION": {
+      "name": "IONICS",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "SGI": {
+      "name": "SOLID GROUP",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "FB": {
+      "name": "SMC FOODANDBEV",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "IMI": {
+      "name": "INTEGRATED MICR",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "ROCK": {
+      "name": "ROCKWELL",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "FOOD": {
+      "name": "ALLIANCE SELECT",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "GREEN": {
+      "name": "GREENERGY",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "FLI": {
+      "name": "FILINVEST LAND",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "PHA": {
+      "name": "PRMIERE HORIZON",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "DITO": {
+      "name": "DITO CME HLDG",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "SEVN": {
+      "name": "PHIL SEVEN CORP",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "PRC": {
+      "name": "PHIL RACING",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "AEV": {
+      "name": "ABOITIZ EQUITY",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "COL": {
+      "name": "COL FINANCIAL",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "PSE": {
+      "name": "PHIL STOCK EXCH",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "ECVC": {
+      "name": "EC VULCAN",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "UPM": {
+      "name": "UNITED PARAGON",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "UBP": {
+      "name": "UNION BANK",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "COSCO": {
+      "name": "COSCO CAPITAL",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "LTG": {
+      "name": "LT GROUP",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "AREIT": {
+      "name": "AREIT RT",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "MAH": {
+      "name": "METRO ALLIANCE",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "BSC": {
+      "name": "BASIC ENERGY",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "FCG": {
+      "name": "FIGARO GROUP",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "SRDC": {
+      "name": "SUPERCITY",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "WLCON": {
+      "name": "WILCON DEPOT",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "BRNPC": {
+      "name": "BRN PREF C",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "BCOR": {
+      "name": "BERJAYA",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "SHLPH": {
+      "name": "SHELL PILIPINAS",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "NIKL": {
+      "name": "NICKEL ASIA",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "PCOR": {
+      "name": "PETRON",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "PXP": {
+      "name": "PXP ENERGY",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "CIC": {
+      "name": "CONCEPCION",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "OGP": {
+      "name": "OCEANAGOLD",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "BDO": {
+      "name": "BDO UNIBANK",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "SLI": {
+      "name": "STA LUCIA LAND",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "PAL": {
+      "name": "PAL HLDG",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "PHR": {
+      "name": "PH RESORTS GRP",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "WEB": {
+      "name": "PHILWEB",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "ALI": {
+      "name": "AYALA LAND",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "APX": {
+      "name": "APEX MINING",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "SPNEC": {
+      "name": "SP NEW ENERGY",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "ATNB": {
+      "name": "ATN HLDG B",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "CDC": {
+      "name": "CITYLAND DEVT",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "CPG": {
+      "name": "CENTURY PROP",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "CREIT": {
+      "name": "CITICORE RT",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "IPM": {
+      "name": "IPM HLDG",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "MARC": {
+      "name": "MARCVENTURES",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "MWP7A": {
+      "name": "MWIDE PREF 7A",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "SMC2S": {
+      "name": "SMC PREF 2S",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "AGIW": {
+      "name": "AGI WARRANT",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "GPH": {
+      "name": "GRAND PLAZA",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "SMC2R": {
+      "name": "SMC PREF 2R",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "MVC": {
+      "name": "MABUHAY VINYL",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "MED": {
+      "name": "MEDCO HLDG",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "REG": {
+      "name": "REPUBLIC GLASS",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "WIN": {
+      "name": "WELLEX INDUS",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "ECP": {
+      "name": "EASYCALL",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "GLOBA": {
+      "name": "GLO PREF ANV",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "ABSP": {
+      "name": "ABS HLDG PDR",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "CTS": {
+      "name": "CTS GLOBAL",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "KPPI": {
+      "name": "KEPWEALTH",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "AP": {
+      "name": "ABOITIZ POWER",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "SMC2U": {
+      "name": "SMC PREF 2U",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "LC": {
+      "name": "LEPANTO A",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "PSB": {
+      "name": "PSBANK",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "BRN": {
+      "name": "A BROWN",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "MYNLD": {
+      "name": "MAYNILAD",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "ACR": {
+      "name": "ALSONS CONS",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "UPSON": {
+      "name": "UPSON INTL CORP",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "ORE": {
+      "name": "ORNTL PENINSULA",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "IDC": {
+      "name": "ITALPINAS",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "LPZ": {
+      "name": "LOPEZ HLDG",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "DD": {
+      "name": "DOUBLEDRAGON",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "TBGI": {
+      "name": "TRANSPACIFIC BR",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "LOTO": {
+      "name": "PACIFIC ONLINE",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "LODE": {
+      "name": "LODESTAR",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "SM": {
+      "name": "SM INVESTMENTS",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "PX": {
+      "name": "PX MINING",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "DDPR": {
+      "name": "DD PREF",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "PBC": {
+      "name": "PBCOM",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "FRUIT": {
+      "name": "FRUITAS HLDG",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "GTCAP": {
+      "name": "GT CAPITAL",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "APL": {
+      "name": "APOLLO GLOBAL",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "NOW": {
+      "name": "NOW CORP",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "MA": {
+      "name": "MANILA MINING A",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "SPC": {
+      "name": "SPC POWER",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "TOP": {
+      "name": "TOP LINE",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "AUB": {
+      "name": "ASIA UNITED",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "TECH": {
+      "name": "CIRTEK HLDG",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "TOPA2": {
+      "name": "TOP PREF A2",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "DNL": {
+      "name": "DNL INDUS",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "MAC": {
+      "name": "MACROASIA",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "FMETF": {
+      "name": "ATR FAMI ETF",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "CREC": {
+      "name": "CITICORE RE",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "SGP": {
+      "name": "SYNERGY GRID",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "EW": {
+      "name": "EAST WEST BANK",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "AT": {
+      "name": "ATLAS MINING",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "MREIT": {
+      "name": "MREIT RT",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "ACPB3": {
+      "name": "AC PREF B3R",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "CNPF": {
+      "name": "CENTURY FOOD",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "TUGS": {
+      "name": "HARBOR STAR",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "KEEPR": {
+      "name": "KEEPERS HLDG",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "CLI": {
+      "name": "CEB LANDMASTERS",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "GMA7": {
+      "name": "GMA NETWORK",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "SSI": {
+      "name": "SSI GROUP",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "LPC": {
+      "name": "LFM PROP",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "BKR": {
+      "name": "BRIGHT KINDLE",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "SMC": {
+      "name": "SAN MIGUEL CORP",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "TEL": {
+      "name": "PLDT",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "CNVRG": {
+      "name": "CONVERGE",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "C": {
+      "name": "CHELSEA",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "MER": {
+      "name": "MERALCO",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "PERC": {
+      "name": "PETROENERGY",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "RFM": {
+      "name": "RFM CORP",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "EURO": {
+      "name": "EUROMED",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "CEU": {
+      "name": "CENTRO ESCOLAR",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "ICT": {
+      "name": "INTL CONTAINER",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "FILRT": {
+      "name": "FILINVEST RT",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "PBB": {
+      "name": "PB BANK",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "CHP": {
+      "name": "CONCREAT HLDG",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "APO": {
+      "name": "ANGLO PHIL HLDG",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "RCR": {
+      "name": "RL COMM RT",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "CBC": {
+      "name": "CHINABANK",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "APVI": {
+      "name": "ALTUS PROP",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "MAXS": {
+      "name": "MAXS GROUP",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "ANS": {
+      "name": "ANSCOR",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "RCI": {
+      "name": "ROXAS AND CO",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "JGS": {
+      "name": "JG SUMMIT",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "SMPH": {
+      "name": "SM PRIME HLDG",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "CEB": {
+      "name": "CEBU AIR",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "URC": {
+      "name": "UNIV ROBINA",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "OM": {
+      "name": "OMICO CORP",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "BPI": {
+      "name": "BANK PH ISLANDS",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "MBT": {
+      "name": "METROBANK",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "RCB": {
+      "name": "RCBC",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "FERRO": {
+      "name": "FERRONOUX HLDG",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "MFC": {
+      "name": "MANULIFE",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "NRCP": {
+      "name": "NTL REINSURANCE",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "SLF": {
+      "name": "SUN LIFE",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "V": {
+      "name": "VANTAGE",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "ACEN": {
+      "name": "ACEN CORP",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "FGEN": {
+      "name": "FIRST GEN",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "FPH": {
+      "name": "FIRST PHIL HLDG",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "SCC": {
+      "name": "SEMIRARA MINING",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "AXLM": {
+      "name": "AXELUM",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "JFC": {
+      "name": "JOLLIBEE",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "MONDE": {
+      "name": "MONDE NISSIN",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "SFI": {
+      "name": "SWIFT FOODS",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "VITA": {
+      "name": "VITARICH",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "ATN": {
+      "name": "ATN HLDG A",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "EEI": {
+      "name": "EEI CORP",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "PHN": {
+      "name": "PHINMA",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "ABG": {
+      "name": "ASIABEST GROUP",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "DMC": {
+      "name": "DMCI HLDG",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "PA": {
+      "name": "PACIFICA HLDG",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "PRIM": {
+      "name": "PRIME MEDIA",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "ZHI": {
+      "name": "ZEUS HLDG",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "CEI": {
+      "name": "CROWN EQUITIES",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "ABS": {
+      "name": "ABS CBN",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "GLO": {
+      "name": "GLOBE TELECOM",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "LSC": {
+      "name": "LORENZO SHIPPNG",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "BHI": {
+      "name": "BOULEVARD HLDG",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "FEU": {
+      "name": "FAR EASTERN U",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "IPO": {
+      "name": "IPEOPLE",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "STI": {
+      "name": "STI HLDG",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "BEL": {
+      "name": "BELLE CORP",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "PLUS": {
+      "name": "DIGIPLUS",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "PGOLD": {
+      "name": "PUREGOLD",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "APC": {
+      "name": "APC GROUP",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "BC": {
+      "name": "BENGUET",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "FNI": {
+      "name": "FERRONICKEL",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "MAB": {
+      "name": "MANILA MINING B",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "NI": {
+      "name": "NIHAO",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "OPM": {
+      "name": "ORNTL PETROL A",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "OPMB": {
+      "name": "ORNTL PETROL B",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "OV": {
+      "name": "PHILODRILL",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "ACPB4": {
+      "name": "AC PREF B4R",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "SMC2W": {
+      "name": "SMC PREF 2W",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "SMC2X": {
+      "name": "SMC PREF 2X",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "X": {
+      "name": "XURPAS",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "MB": {
+      "name": "MANILA BULLETIN",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "MWP6B": {
+      "name": "MWIDE PREF 6B",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    },
+    "ACENB": {
+      "name": "ACEN PREF B",
+      "revenueGrowthTTM": null,
+      "earningsGrowthTTM": null
+    }
+  }
+}
