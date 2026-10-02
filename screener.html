@@ -2117,6 +2117,13 @@
     min-height: 0; width: 240px; padding: 5px 10px; gap: 6px; border-radius: 3px;
   }
   .listqa-refine-slot-wrap .wl-slot-name { font-size: 9px; }
+  /* Highlights whichever source (dropped file vs. My Picks) is currently on screen. */
+  #listqa-refine-mypicks-btn.refine-source-active,
+  .wl-slot.refine-source-active {
+    box-shadow: inset 0 0 0 2px var(--accent);
+  }
+  #listqa-refine-mypicks-btn.refine-source-active { opacity: 1; }
+  #listqa-refine-mypicks-btn:not(.refine-source-active) { background: var(--bg2); color: var(--text); }
   .refine-search-input {
     font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: var(--text);
     background: var(--bg2); border: 1px solid var(--border2); border-radius: 3px;
@@ -4696,8 +4703,8 @@
       </div>
       <div class="sectors-toolbar-right">
         <div class="listqa-refine-slot-wrap" id="listqa-refine-slot-wrap" style="display:none">
-          <button class="sectors-refresh-btn" id="listqa-refine-mypicks-btn" onclick="loadRefineFromMyPicks()" title="Load today's starred My Picks tickers instead of a .txt file">★ MY PICKS</button>
-          <div class="wl-slot" id="listqa-refine-slot" onclick="triggerRefineFileLoad()">
+          <button class="sectors-refresh-btn" id="listqa-refine-mypicks-btn" onclick="loadRefineFromMyPicks()" title="Switch to today's starred My Picks tickers">★ MY PICKS</button>
+          <div class="wl-slot" id="listqa-refine-slot" onclick="handleRefineSlotClick()">
             <input type="file" accept=".txt" id="refine-file-input" style="display:none" onchange="handleRefineFile(event)">
             <span class="wl-slot-name empty" id="listqa-refine-slot-name">empty — click or drop a .txt watchlist here</span>
             <span class="wl-slot-count" id="listqa-refine-slot-count"></span>
@@ -10860,7 +10867,7 @@ function _listQaOutlierSectionHtml(l, cap = LISTQA_OUTLIER_DISPLAY_CAP) {
 // ============================================================
 const REFINE_WL_STORE_KEY = 'cts_refine_wl';
 
-let refineWatchlist     = null; // {name, tickers: [{ticker, exchange}]} or null
+let refineWatchlist     = null; // {name, tickers: [{ticker, exchange}]} or null — the list currently on screen (whichever source is active)
 let _refineLastSectorMap   = null; // ticker -> Finviz sector name, from the last fetch
 let _refineLastIndustryMap = null; // ticker -> Finviz industry name, from the last fetch
 let _refineLastSectorPerf  = null; // Finviz sector name -> 1-week % change, from the last fetch
@@ -10874,19 +10881,76 @@ let _refineSectorSortDir   = 'desc';  // 'asc' | 'desc'
 let _refineTableSortKey    = 'sector'; // 'ticker' | 'sector' | 'industry' | 'rev' | 'earn' | 'perf1w' | 'perf1y'
 let _refineTableSortDir    = 'asc';
 
+// Refine can show either a dropped .txt file or today's My Picks. Each source
+// keeps its own snapshot (ticker list + whatever sector/returns data has been
+// fetched for it) so switching between the two is instant and never loses or
+// overwrites the other one — only the "file" snapshot is persisted to disk.
+let refineSource           = 'file'; // 'file' | 'picks' — which snapshot is currently live in the vars above
+let _refineFileSnapshot    = null;
+let _refineMyPicksSnapshot = null;
+
+function _captureRefineSnapshot() {
+  return {
+    watchlist:       refineWatchlist,
+    sectorMap:       _refineLastSectorMap,
+    industryMap:     _refineLastIndustryMap,
+    sectorPerf:      _refineLastSectorPerf,
+    returnsMap:      _refineLastReturnsMap,
+    fundMap:         _refineLastFundMap,
+    activeSector:    refineActiveSector,
+    sectorColors:    _refineSectorColors,
+    visibleLevels:   _refineVisibleLevels,
+    collapsedGroups: _refineCollapsedGroups,
+  };
+}
+
+function _applyRefineSnapshot(snap) {
+  refineWatchlist         = snap ? snap.watchlist       : null;
+  _refineLastSectorMap    = snap ? snap.sectorMap       : null;
+  _refineLastIndustryMap  = snap ? snap.industryMap     : null;
+  _refineLastSectorPerf   = snap ? snap.sectorPerf      : null;
+  _refineLastReturnsMap   = snap ? snap.returnsMap      : null;
+  _refineLastFundMap      = snap ? snap.fundMap         : null;
+  refineActiveSector      = snap ? snap.activeSector    : null;
+  _refineSectorColors     = snap ? snap.sectorColors    : {};
+  _refineVisibleLevels    = snap ? snap.visibleLevels   : { ticker: true, sector: true, industry: true };
+  _refineCollapsedGroups  = snap ? snap.collapsedGroups : new Set();
+  const searchInput = document.getElementById('refine-search-input');
+  if (searchInput) { searchInput.value = ''; searchInput.classList.remove('not-found'); }
+}
+
+function _blankRefineSnapshot(watchlist) {
+  return {
+    watchlist, sectorMap: null, industryMap: null, sectorPerf: null, returnsMap: null, fundMap: null,
+    activeSector: null, sectorColors: {},
+    visibleLevels: { ticker: true, sector: true, industry: true },
+    collapsedGroups: new Set(),
+  };
+}
+
+// Saves whatever's currently on screen back into its own source's snapshot —
+// call this before switching away from a source so nothing fetched while
+// viewing it (sector data, drill-down state) gets lost.
+function _stashLiveRefineSnapshot() {
+  if (refineSource === 'file') _refineFileSnapshot = _captureRefineSnapshot();
+  else _refineMyPicksSnapshot = _captureRefineSnapshot();
+}
+
 function loadRefineWatchlistFromStorage() {
   try {
     const raw = localStorage.getItem(REFINE_WL_STORE_KEY);
-    if (!raw) return;
-    const str = LZString.decompressFromBase64(raw) || raw;
-    refineWatchlist = JSON.parse(str);
+    if (raw) {
+      const str = LZString.decompressFromBase64(raw) || raw;
+      _refineFileSnapshot = _blankRefineSnapshot(JSON.parse(str));
+    }
   } catch (e) {}
+  if (refineSource === 'file') _applyRefineSnapshot(_refineFileSnapshot);
   _renderRefineSlot();
 }
 
 function saveRefineWatchlistToStorage() {
-  if (refineWatchlist) {
-    localStorage.setItem(REFINE_WL_STORE_KEY, LZString.compressToBase64(JSON.stringify(refineWatchlist)));
+  if (_refineFileSnapshot && _refineFileSnapshot.watchlist) {
+    localStorage.setItem(REFINE_WL_STORE_KEY, LZString.compressToBase64(JSON.stringify(_refineFileSnapshot.watchlist)));
   } else {
     localStorage.removeItem(REFINE_WL_STORE_KEY);
   }
@@ -10896,23 +10960,24 @@ function triggerRefineFileLoad() {
   document.getElementById('refine-file-input').click();
 }
 
+// Clicking the watchlist box switches back to the dropped .txt file (instantly,
+// with whatever was already fetched for it) when My Picks is the one showing —
+// only opens the file browser when there's no file loaded yet, or it's already active.
+function handleRefineSlotClick() {
+  if (refineSource === 'picks' && _refineFileSnapshot) {
+    _stashLiveRefineSnapshot();
+    refineSource = 'file';
+    _applyRefineSnapshot(_refineFileSnapshot);
+    renderRefineView();
+    return;
+  }
+  triggerRefineFileLoad();
+}
+
 function _setRefineWatchlist(name, parsedTickers) {
-  refineWatchlist        = { name, tickers: parsedTickers };
-  _refineLastSectorMap   = null;
-  _refineLastIndustryMap = null;
-  _refineLastSectorPerf  = null;
-  _refineLastReturnsMap  = null;
-  _refineLastFundMap     = null;
-  refineActiveSector     = null;
-  _refineSectorColors    = {};
-  _refineSectorSortKey   = 'count';
-  _refineSectorSortDir   = 'desc';
-  _refineTableSortKey    = 'sector';
-  _refineTableSortDir    = 'asc';
-  _refineVisibleLevels   = { ticker: true, sector: true, industry: true };
-  _refineCollapsedGroups = new Set();
-  const searchInput = document.getElementById('refine-search-input');
-  if (searchInput) { searchInput.value = ''; searchInput.classList.remove('not-found'); }
+  refineSource        = 'file';
+  _refineFileSnapshot = _blankRefineSnapshot({ name, tickers: parsedTickers });
+  _applyRefineSnapshot(_refineFileSnapshot);
   saveRefineWatchlistToStorage();
   renderRefineView();
 }
@@ -10934,7 +10999,9 @@ function handleRefineFile(e) {
 
 // Loads today's My Picks (the starred-chart tickers from setups A/B) into the
 // Refine view instead of a dropped .txt file — a quick way to run the same
-// sector/stats breakdown on whatever's already been starred today.
+// sector/stats breakdown on whatever's already been starred today. The dropped
+// file (if any) is left untouched in its own snapshot — click the watchlist
+// box again to switch straight back to it.
 function loadRefineFromMyPicks() {
   const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
   const todayMs = startOfToday.getTime();
@@ -10955,33 +11022,35 @@ function loadRefineFromMyPicks() {
   }
 
   picks.sort((a, b) => b.starredAt - a.starredAt);
-  const parsed = picks.map(p => ({ ticker: p.ticker, exchange: '—' }));
-  _setRefineWatchlist(`My Picks — ${startOfToday.toLocaleDateString()}`, parsed);
+  const tickers = picks.map(p => ({ ticker: p.ticker, exchange: '—' }));
+
+  _stashLiveRefineSnapshot();
+
+  // Reuse the cached snapshot as-is if today's picks haven't changed since it
+  // was last built, instead of refetching sector/returns data for no reason.
+  const prev = _refineMyPicksSnapshot;
+  const unchanged = prev && prev.watchlist && prev.watchlist.tickers.length === tickers.length &&
+    prev.watchlist.tickers.every((t, i) => t.ticker === tickers[i].ticker);
+
+  refineSource = 'picks';
+  if (!unchanged) _refineMyPicksSnapshot = _blankRefineSnapshot({ name: `My Picks — ${startOfToday.toLocaleDateString()}`, tickers });
+  _applyRefineSnapshot(_refineMyPicksSnapshot);
+  renderRefineView();
 }
 
 function clearRefineWatchlist() {
-  refineWatchlist        = null;
-  _refineLastSectorMap   = null;
-  _refineLastIndustryMap = null;
-  _refineLastSectorPerf  = null;
-  _refineLastReturnsMap  = null;
-  _refineLastFundMap     = null;
-  refineActiveSector     = null;
-  _refineSectorColors    = {};
-  _refineSectorSortKey   = 'count';
-  _refineSectorSortDir   = 'desc';
-  _refineTableSortKey    = 'sector';
-  _refineTableSortDir    = 'asc';
-  _refineVisibleLevels   = { ticker: true, sector: true, industry: true };
-  _refineCollapsedGroups = new Set();
-  const searchInput = document.getElementById('refine-search-input');
-  if (searchInput) { searchInput.value = ''; searchInput.classList.remove('not-found'); }
+  _refineFileSnapshot = null;
   saveRefineWatchlistToStorage();
+  if (refineSource === 'file') {
+    if (_refineMyPicksSnapshot) {
+      refineSource = 'picks';
+      _applyRefineSnapshot(_refineMyPicksSnapshot);
+    } else {
+      _applyRefineSnapshot(null);
+    }
+  }
   _renderRefineSlot();
-  const body  = document.getElementById('listqa-refine-body');
-  const empty = document.getElementById('listqa-refine-empty');
-  if (body) body.style.display = 'none';
-  if (empty) empty.style.display = '';
+  renderRefineView();
 }
 
 function searchRefineTicker() {
@@ -11164,11 +11233,15 @@ function _renderRefineSlot() {
   const countEl  = document.getElementById('listqa-refine-slot-count');
   const clearBtn = document.getElementById('listqa-refine-slot-clear');
   const slotEl   = document.getElementById('listqa-refine-slot');
+  const picksBtn = document.getElementById('listqa-refine-mypicks-btn');
   if (!nameEl) return;
-  if (refineWatchlist) {
-    nameEl.textContent = refineWatchlist.name.replace(/\.txt$/i, '');
+  // The box always shows the dropped .txt file's info, even while My Picks is
+  // the one on screen, so there's always something to click back to.
+  const fileWl = _refineFileSnapshot ? _refineFileSnapshot.watchlist : null;
+  if (fileWl) {
+    nameEl.textContent = fileWl.name.replace(/\.txt$/i, '');
     nameEl.classList.remove('empty');
-    countEl.textContent = refineWatchlist.tickers.length;
+    countEl.textContent = fileWl.tickers.length;
     clearBtn.style.display = '';
     slotEl.classList.add('has-data');
   } else {
@@ -11178,6 +11251,8 @@ function _renderRefineSlot() {
     clearBtn.style.display = 'none';
     slotEl.classList.remove('has-data');
   }
+  slotEl.classList.toggle('refine-source-active', refineSource === 'file');
+  if (picksBtn) picksBtn.classList.toggle('refine-source-active', refineSource === 'picks');
 }
 
 // Shows whatever's already been fetched (from cache/prior fetch) instantly,
