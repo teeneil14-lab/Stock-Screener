@@ -4696,6 +4696,7 @@
       </div>
       <div class="sectors-toolbar-right">
         <div class="listqa-refine-slot-wrap" id="listqa-refine-slot-wrap" style="display:none">
+          <button class="sectors-refresh-btn" id="listqa-refine-mypicks-btn" onclick="loadRefineFromMyPicks()" title="Load today's starred My Picks tickers instead of a .txt file">★ MY PICKS</button>
           <div class="wl-slot" id="listqa-refine-slot" onclick="triggerRefineFileLoad()">
             <input type="file" accept=".txt" id="refine-file-input" style="display:none" onchange="handleRefineFile(event)">
             <span class="wl-slot-name empty" id="listqa-refine-slot-name">empty — click or drop a .txt watchlist here</span>
@@ -10895,28 +10896,31 @@ function triggerRefineFileLoad() {
   document.getElementById('refine-file-input').click();
 }
 
+function _setRefineWatchlist(name, parsedTickers) {
+  refineWatchlist        = { name, tickers: parsedTickers };
+  _refineLastSectorMap   = null;
+  _refineLastIndustryMap = null;
+  _refineLastSectorPerf  = null;
+  _refineLastReturnsMap  = null;
+  _refineLastFundMap     = null;
+  refineActiveSector     = null;
+  _refineSectorColors    = {};
+  _refineSectorSortKey   = 'count';
+  _refineSectorSortDir   = 'desc';
+  _refineTableSortKey    = 'sector';
+  _refineTableSortDir    = 'asc';
+  _refineVisibleLevels   = { ticker: true, sector: true, industry: true };
+  _refineCollapsedGroups = new Set();
+  const searchInput = document.getElementById('refine-search-input');
+  if (searchInput) { searchInput.value = ''; searchInput.classList.remove('not-found'); }
+  saveRefineWatchlistToStorage();
+  renderRefineView();
+}
+
 function _loadRefineFile(file) {
   const reader = new FileReader();
   reader.onload = (ev) => {
-    const parsed = parseTradingViewTxt(ev.target.result);
-    refineWatchlist        = { name: file.name, tickers: parsed };
-    _refineLastSectorMap   = null;
-    _refineLastIndustryMap = null;
-    _refineLastSectorPerf  = null;
-    _refineLastReturnsMap  = null;
-    _refineLastFundMap     = null;
-    refineActiveSector     = null;
-    _refineSectorColors    = {};
-    _refineSectorSortKey   = 'count';
-    _refineSectorSortDir   = 'desc';
-    _refineTableSortKey    = 'sector';
-    _refineTableSortDir    = 'asc';
-    _refineVisibleLevels   = { ticker: true, sector: true, industry: true };
-    _refineCollapsedGroups = new Set();
-    const searchInput = document.getElementById('refine-search-input');
-    if (searchInput) { searchInput.value = ''; searchInput.classList.remove('not-found'); }
-    saveRefineWatchlistToStorage();
-    renderRefineView();
+    _setRefineWatchlist(file.name, parseTradingViewTxt(ev.target.result));
   };
   reader.readAsText(file);
 }
@@ -10926,6 +10930,33 @@ function handleRefineFile(e) {
   if (!file) return;
   _loadRefineFile(file);
   e.target.value = '';
+}
+
+// Loads today's My Picks (the starred-chart tickers from setups A/B) into the
+// Refine view instead of a dropped .txt file — a quick way to run the same
+// sector/stats breakdown on whatever's already been starred today.
+function loadRefineFromMyPicks() {
+  const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
+  const todayMs = startOfToday.getTime();
+
+  const seen = new Set();
+  const picks = [];
+  [1, 2].forEach(sid => {
+    loadLiked(sid).forEach(p => {
+      if (p.starredAt < todayMs || seen.has(p.ticker)) return;
+      seen.add(p.ticker);
+      picks.push(p);
+    });
+  });
+
+  if (!picks.length) {
+    showToast("No picks starred today yet — star some stocks from the scan results first.", 'error');
+    return;
+  }
+
+  picks.sort((a, b) => b.starredAt - a.starredAt);
+  const parsed = picks.map(p => ({ ticker: p.ticker, exchange: '—' }));
+  _setRefineWatchlist(`My Picks — ${startOfToday.toLocaleDateString()}`, parsed);
 }
 
 function clearRefineWatchlist() {
