@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-10-01T04:18:28.915Z",
-  "source": "TradingView scanner (philippines market) via MCP — trailing-twelve-month Y/Y growth. Partial coverage: 37 of 251 tickers fetched before TradingView's PH-market quota was hit.",
+  "generatedAt": "2026-10-02T00:00:00.000Z",
+  "source": "TradingView scanner (philippines market) via MCP \u2014 total_revenue_yoy_growth_ttm/fq and net_income_yoy_growth_ttm/fq columns. Preferred shares, warrants and a few thinly-traded issues return no quote data on the screener and stay null.",
   "coverage": {
-    "fetched": 37,
+    "fetched": 214,
     "total": 251
   },
   "data": {
@@ -10,68 +10,78 @@
       "name": "BANK COMMERCE",
       "revenueGrowthTTM": 14.712698629489696,
       "earningsGrowthTTM": 9.253824021802004,
-      "earningsGrowthQtr": null
+      "earningsGrowthQtr": 13.95696102202286,
+      "revenueGrowthQtr": 10.366388358993065
     },
     "FAF": {
       "name": "FIRST ABACUS",
       "revenueGrowthTTM": -23.049072872892793,
       "earningsGrowthTTM": -64.18505719831748,
-      "earningsGrowthQtr": null
+      "earningsGrowthQtr": 43.54572543016622,
+      "revenueGrowthQtr": -34.25310817395481
     },
     "ASLAG": {
       "name": "RASLAG",
       "revenueGrowthTTM": 69.97297241145341,
       "earningsGrowthTTM": 1646.6631061833305,
-      "earningsGrowthQtr": null
+      "earningsGrowthQtr": 212.29427072430184,
+      "revenueGrowthQtr": 55.54860727550241
     },
     "PPC": {
       "name": "PRYCE CORP",
       "revenueGrowthTTM": 3.8039355983015937,
       "earningsGrowthTTM": 7.852770554335731,
-      "earningsGrowthQtr": null
+      "earningsGrowthQtr": -3.549122740279411,
+      "revenueGrowthQtr": 8.040191252741815
     },
     "DELM": {
       "name": "DEL MONTE",
       "revenueGrowthTTM": -46.018416829965844,
       "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "earningsGrowthQtr": 211.63377280544574,
+      "revenueGrowthQtr": 16.07085430568367
     },
     "GSMI": {
       "name": "GINEBRA",
       "revenueGrowthTTM": 4.177452537983366,
       "earningsGrowthTTM": 12.549685116819745,
-      "earningsGrowthQtr": null
+      "earningsGrowthQtr": -2.1417596296995507,
+      "revenueGrowthQtr": -2.2432763219047405
     },
     "CROWN": {
       "name": "CROWN ASIA",
       "revenueGrowthTTM": 9.088421104549688,
       "earningsGrowthTTM": 43.490474790681155,
-      "earningsGrowthQtr": null
+      "earningsGrowthQtr": 117.48496472343624,
+      "revenueGrowthQtr": 53.33386395736079
     },
     "PMPC": {
       "name": "PANASONIC",
       "revenueGrowthTTM": -4.1487733117674095,
       "earningsGrowthTTM": -79.92742348121645,
-      "earningsGrowthQtr": null
+      "earningsGrowthQtr": -78.083838409454,
+      "revenueGrowthQtr": -7.034020204723346
     },
     "ABA": {
       "name": "ABACORE CAPITAL",
       "revenueGrowthTTM": -8.565816029441033,
       "earningsGrowthTTM": -65.12710372925025,
-      "earningsGrowthQtr": -62.6,
-      "revenueGrowthQtr": -13.6
+      "earningsGrowthQtr": 8.08021514891511,
+      "revenueGrowthQtr": 8.569964913414244
     },
     "ALLHC": {
       "name": "AYALA LAND LOG",
       "revenueGrowthTTM": -19.98296423248749,
       "earningsGrowthTTM": -74.67143897173905,
-      "earningsGrowthQtr": null
+      "earningsGrowthQtr": -91.36733776290154,
+      "revenueGrowthQtr": -10.424911920675068
     },
     "DDMPR": {
       "name": "DDMP RT",
       "revenueGrowthTTM": 8.271472976854744,
       "earningsGrowthTTM": 24.352733080389992,
-      "earningsGrowthQtr": null
+      "earningsGrowthQtr": 5.805966012101182,
+      "revenueGrowthQtr": 3.8721443454778
     },
     "DMW": {
       "name": "DM WENCESLAO",
@@ -83,55 +93,64 @@
       "name": "EVERWOODS",
       "revenueGrowthTTM": -4.292551934821321,
       "earningsGrowthTTM": -47.48281788712101,
-      "earningsGrowthQtr": null
+      "earningsGrowthQtr": 99.66753499514289,
+      "revenueGrowthQtr": -20.615459380094507
     },
     "ELI": {
       "name": "EMPIRE EAST",
       "revenueGrowthTTM": -5.734275663781144,
       "earningsGrowthTTM": 3.4180641373306786,
-      "earningsGrowthQtr": null
+      "earningsGrowthQtr": -53.463043682039746,
+      "revenueGrowthQtr": -47.5572209455888
     },
     "GERI": {
       "name": "GLOBAL ESTATE",
       "revenueGrowthTTM": -6.532633867462949,
       "earningsGrowthTTM": 6.94931339811803,
-      "earningsGrowthQtr": null
+      "earningsGrowthQtr": -19.06095869041376,
+      "revenueGrowthQtr": -29.64157121713289
     },
     "PHES": {
       "name": "PHIL ESTATES",
       "revenueGrowthTTM": -7.492035382704739,
       "earningsGrowthTTM": -159.61099245494202,
-      "earningsGrowthQtr": null
+      "earningsGrowthQtr": null,
+      "revenueGrowthQtr": 154.01856358042306
     },
     "PREIT": {
       "name": "PREMIERE RT",
       "revenueGrowthTTM": -36.96251265825492,
       "earningsGrowthTTM": -483.0462592805617,
-      "earningsGrowthQtr": null
+      "earningsGrowthQtr": -60.80064084568243,
+      "revenueGrowthQtr": -48.84641802976581
     },
     "DFNN": {
       "name": "DFNN INC",
       "revenueGrowthTTM": -54.394736353000404,
       "earningsGrowthTTM": -24.181014995973836,
-      "earningsGrowthQtr": null
+      "earningsGrowthQtr": 22.794804653864905,
+      "revenueGrowthQtr": -5.764905854989939
     },
     "IS": {
       "name": "ISLAND INFO",
       "revenueGrowthTTM": 5,
       "earningsGrowthTTM": 50.79766811171562,
-      "earningsGrowthQtr": null
+      "earningsGrowthQtr": null,
+      "revenueGrowthQtr": 4.9999999999999964
     },
     "WPI": {
       "name": "WATERFRONT",
       "revenueGrowthTTM": -6.520788037583902,
       "earningsGrowthTTM": -104.52383711624755,
-      "earningsGrowthQtr": null
+      "earningsGrowthQtr": 205.556356854838,
+      "revenueGrowthQtr": -9.755217227556207
     },
     "MEDIC": {
       "name": "MEDILINES",
       "revenueGrowthTTM": 20.554458322978512,
       "earningsGrowthTTM": 1544.131488702341,
-      "earningsGrowthQtr": null
+      "earningsGrowthQtr": 56.11229282670402,
+      "revenueGrowthQtr": 12.082503429047362
     },
     "CPGPB": {
       "name": "CPG PREF B",
@@ -155,19 +174,21 @@
       "name": "HAUS TALK",
       "revenueGrowthTTM": -20.854260210878593,
       "earningsGrowthTTM": -28.77367777960006,
-      "earningsGrowthQtr": null
+      "earningsGrowthQtr": -54.03769450504113,
+      "revenueGrowthQtr": -38.80459145424215
     },
     "MFIN": {
       "name": "MAKATI FINANCE",
       "revenueGrowthTTM": -43.621837607545636,
       "earningsGrowthTTM": -400.8332701001946,
-      "earningsGrowthQtr": null
+      "earningsGrowthQtr": -83.79798115619363,
+      "revenueGrowthQtr": -5.260811846369324
     },
     "AB": {
       "name": "ATOK",
       "revenueGrowthTTM": null,
       "earningsGrowthTTM": -1188.4837037363443,
-      "earningsGrowthQtr": -395.9,
+      "earningsGrowthQtr": 28.395097859886594,
       "revenueGrowthQtr": null
     },
     "BRNPB": {
@@ -198,13 +219,15 @@
       "name": "DISCOVERY WORLD",
       "revenueGrowthTTM": -0.6438692192568619,
       "earningsGrowthTTM": -85.39473297317758,
-      "earningsGrowthQtr": null
+      "earningsGrowthQtr": 41.37850875976942,
+      "revenueGrowthQtr": 6.572573827712466
     },
     "HI": {
       "name": "HOUSE OF INV",
       "revenueGrowthTTM": 46.44950043285785,
       "earningsGrowthTTM": 106.06485800291199,
-      "earningsGrowthQtr": null
+      "earningsGrowthQtr": 312.97046792704333,
+      "revenueGrowthQtr": 70.97538107319497
     },
     "BRNP": {
       "name": "BRN PREF A",
@@ -222,25 +245,29 @@
       "name": "TOP FRONTIER",
       "revenueGrowthTTM": 15.239302984394193,
       "earningsGrowthTTM": -91.14580831131396,
-      "earningsGrowthQtr": null
+      "earningsGrowthQtr": -72.46501986526171,
+      "revenueGrowthQtr": 50.3429566072581
     },
     "FDC": {
       "name": "FILINVEST DEV",
       "revenueGrowthTTM": 8.794819856567202,
       "earningsGrowthTTM": 6.500580794892001,
-      "earningsGrowthQtr": null
+      "earningsGrowthQtr": -9.652640667197153,
+      "revenueGrowthQtr": 13.661978786460486
     },
     "EMI": {
       "name": "EMPERADOR",
       "revenueGrowthTTM": -1.6186740289934805,
       "earningsGrowthTTM": -43.95183067559002,
-      "earningsGrowthQtr": null
+      "earningsGrowthQtr": -15.299770319583402,
+      "revenueGrowthQtr": 9.237204683684238
     },
     "KEP": {
       "name": "KEPPEL PROP",
       "revenueGrowthTTM": null,
       "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "earningsGrowthQtr": null,
+      "revenueGrowthQtr": null
     },
     "PRF4D": {
       "name": "PCOR PREF 4D",
@@ -252,7 +279,8 @@
       "name": "PNB HLDG",
       "revenueGrowthTTM": null,
       "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "earningsGrowthQtr": null,
+      "revenueGrowthQtr": null
     },
     "TOPA1": {
       "name": "TOP PREF A1",
@@ -264,25 +292,29 @@
       "name": "MANILA WATER",
       "revenueGrowthTTM": 10.77696627733998,
       "earningsGrowthTTM": 41.44054714465147,
-      "earningsGrowthQtr": null
+      "earningsGrowthQtr": -7.63477639487225,
+      "revenueGrowthQtr": 10.835393592152625
     },
     "LFM": {
       "name": "LIBERTY FLOUR",
       "revenueGrowthTTM": 17.16405296199823,
       "earningsGrowthTTM": 1262.4051971633087,
-      "earningsGrowthQtr": null
+      "earningsGrowthQtr": -44.83621293956862,
+      "revenueGrowthQtr": 17.585663985419266
     },
     "RLC": {
       "name": "ROBINSONS LAND",
       "revenueGrowthTTM": 14.202440562790262,
       "earningsGrowthTTM": 7.523899770718305,
-      "earningsGrowthQtr": null
+      "earningsGrowthQtr": 8.02965426105602,
+      "revenueGrowthQtr": 9.474894282090055
     },
     "PIZZA": {
       "name": "SHAKEYS PIZZA",
       "revenueGrowthTTM": 9.691566588629582,
       "earningsGrowthTTM": -37.47895957276048,
-      "earningsGrowthQtr": null
+      "earningsGrowthQtr": -40.74694382178509,
+      "revenueGrowthQtr": 5.940341013340646
     },
     "SMC2L": {
       "name": "SMC PREF 2L",
@@ -294,277 +326,323 @@
       "name": "ALLIANCE GLOBAL",
       "revenueGrowthTTM": -16.4362634189792,
       "earningsGrowthTTM": -22.75888488517896,
-      "earningsGrowthQtr": null
+      "earningsGrowthQtr": -0.6940523394642604,
+      "revenueGrowthQtr": 5.824137860310451
     },
     "RLT": {
       "name": "PHIL REALTY",
       "revenueGrowthTTM": -39.89387513612853,
       "earningsGrowthTTM": -0.16065936397540082,
-      "earningsGrowthQtr": null
+      "earningsGrowthQtr": -9.688826215354036,
+      "revenueGrowthQtr": 29.76708961965183
     },
     "MRC": {
       "name": "MRC ALLIED",
       "revenueGrowthTTM": null,
       "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "earningsGrowthQtr": -27.592443807810678,
+      "revenueGrowthQtr": 0
     },
     "CAT": {
       "name": "CNTRL AZUCARERA",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": -64.75971317112993,
+      "earningsGrowthTTM": -66.31775826679575,
+      "earningsGrowthQtr": 96.16872554887553,
+      "revenueGrowthQtr": 26.11497398244356
     },
     "AC": {
       "name": "AYALA CORP",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 5.0042594993109875,
+      "earningsGrowthTTM": 41.42906366970266,
+      "earningsGrowthQtr": 1.4007717963908504,
+      "revenueGrowthQtr": 10.358593744400672
     },
     "BLOOM": {
       "name": "BLOOMBERRY",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": -4.845937994985448,
+      "earningsGrowthTTM": -1041.6478836430147,
+      "earningsGrowthQtr": 76.07576039858203,
+      "revenueGrowthQtr": 10.887308583068352
     },
     "MWIDE": {
       "name": "MEGAWIDE",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": -7.727273268943646,
+      "earningsGrowthTTM": 50.055113101315825,
+      "earningsGrowthQtr": 21.083718383396636,
+      "revenueGrowthQtr": -11.474064598732694
     },
     "SHNG": {
       "name": "SHANG PROP",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 4.882111083206177,
+      "earningsGrowthTTM": -51.19669763215404,
+      "earningsGrowthQtr": 30.438392781226085,
+      "revenueGrowthQtr": 19.952209415650337
     },
     "FJP": {
       "name": "FJ PRINCE A",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 284.1040678096599,
+      "earningsGrowthTTM": 941.8026769948092,
+      "earningsGrowthQtr": 628.1631693966148,
+      "revenueGrowthQtr": 404.679270740994
     },
     "LBC": {
       "name": "LBC EXPRESS",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 0.8880808476345519,
+      "earningsGrowthTTM": -12.230515840969337,
+      "earningsGrowthQtr": 115.92869630735387,
+      "revenueGrowthQtr": 8.832184486186504
     },
     "PNB": {
       "name": "PHIL NATL BANK",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": -0.5586327228169878,
+      "earningsGrowthTTM": 17.404260575009463,
+      "earningsGrowthQtr": 28.338401891205674,
+      "revenueGrowthQtr": 2.054658256124794
     },
     "REDC": {
       "name": "REPOWER ENERGY",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 41.80911474886812,
+      "earningsGrowthTTM": 113.92556410734527,
+      "earningsGrowthQtr": 45.73644261531889,
+      "revenueGrowthQtr": 36.556014546312575
     },
     "CEBCP": {
       "name": "CEB PREF",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 7.152671011612953,
+      "earningsGrowthTTM": -123.90819376385869,
+      "earningsGrowthQtr": -164.55425458852818,
+      "revenueGrowthQtr": 7.074164210846602
     },
     "ALTER": {
       "name": "ALTERNERGY HLDG",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 31.094468655135287,
+      "earningsGrowthTTM": -46.07815492267275,
+      "earningsGrowthQtr": 0.5468302380624818,
+      "revenueGrowthQtr": 69.04524249901442
     },
     "MRSGI": {
       "name": "METRO RETAIL",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 4.291305786915438,
+      "earningsGrowthTTM": 14.251195542663364,
+      "earningsGrowthQtr": 40.27734915963237,
+      "revenueGrowthQtr": 0.9845957850581687
     },
     "LCB": {
       "name": "LEPANTO B",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 50.80135493064111,
+      "earningsGrowthTTM": 178.5272300774916,
+      "earningsGrowthQtr": 99.43163313547304,
+      "revenueGrowthQtr": 57.339050885148666
     },
     "SECB": {
       "name": "SECURITY BANK",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 5.392182122286217,
+      "earningsGrowthTTM": 1.7343382985696982,
+      "earningsGrowthQtr": 11.304706886468887,
+      "revenueGrowthQtr": -10.699192096703182
     },
     "MEG": {
       "name": "MEGAWORLD",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 1.5252493783688597,
+      "earningsGrowthTTM": 1.7180186474138233,
+      "earningsGrowthQtr": 0.9199053073299722,
+      "revenueGrowthQtr": 2.0022604412048355
     },
     "GEO": {
       "name": "GEOGRACE",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "earningsGrowthTTM": -160.48364813934725,
+      "earningsGrowthQtr": -113.98626578534503,
+      "revenueGrowthQtr": null
     },
     "MG": {
       "name": "MG HLDG",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": -10.347108863421784,
+      "earningsGrowthTTM": -41.975626434871074,
+      "earningsGrowthQtr": -150.40458110295032,
+      "revenueGrowthQtr": -69.68850246389792
     },
     "ION": {
       "name": "IONICS",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 27.277826374143523,
+      "earningsGrowthTTM": 92.32765446679274,
+      "earningsGrowthQtr": 156.89314012975183,
+      "revenueGrowthQtr": 56.22263182427712
     },
     "SGI": {
       "name": "SOLID GROUP",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 4.860756838098328,
+      "earningsGrowthTTM": -16.062026608667924,
+      "earningsGrowthQtr": -48.398461559768194,
+      "revenueGrowthQtr": -9.767911881019522
     },
     "FB": {
       "name": "SMC FOODANDBEV",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 3.4028202057723798,
+      "earningsGrowthTTM": 5.265017667844523,
+      "earningsGrowthQtr": -8.979701572792042,
+      "revenueGrowthQtr": -0.1661421786126151
     },
     "IMI": {
       "name": "INTEGRATED MICR",
-      "revenueGrowthTTM": null,
+      "revenueGrowthTTM": -3.939789005632238,
       "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "earningsGrowthQtr": 138.76588296375212,
+      "revenueGrowthQtr": 6.374047194515208
     },
     "ROCK": {
       "name": "ROCKWELL",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 19.088278858402298,
+      "earningsGrowthTTM": 50.5837436096676,
+      "earningsGrowthQtr": 24.736842105263158,
+      "revenueGrowthQtr": 37.22275795564127
     },
     "FOOD": {
       "name": "ALLIANCE SELECT",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": -1.3332992496640708,
+      "earningsGrowthTTM": -198.50292108790757,
+      "earningsGrowthQtr": -6812.8880490368165,
+      "revenueGrowthQtr": -6.035709713500418
     },
     "GREEN": {
       "name": "GREENERGY",
       "revenueGrowthTTM": null,
       "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "earningsGrowthQtr": null,
+      "revenueGrowthQtr": -18.996299132930048
     },
     "FLI": {
       "name": "FILINVEST LAND",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 3.921684138979955,
+      "earningsGrowthTTM": -5.327219917162025,
+      "earningsGrowthQtr": 3.3348070138394,
+      "revenueGrowthQtr": 1.8928807498157083
     },
     "PHA": {
       "name": "PRMIERE HORIZON",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": -13.170083594080351,
+      "earningsGrowthTTM": -91.46584604954862,
+      "earningsGrowthQtr": 26.49771313519621,
+      "revenueGrowthQtr": -309.6888597984126
     },
     "DITO": {
       "name": "DITO CME HLDG",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 22.819277818804387,
+      "earningsGrowthTTM": -259.7181656406175,
+      "earningsGrowthQtr": -166.34610835255842,
+      "revenueGrowthQtr": 17.553681999001594
     },
     "SEVN": {
       "name": "PHIL SEVEN CORP",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 10.912843141020193,
+      "earningsGrowthTTM": -4.0184091941081235,
+      "earningsGrowthQtr": 3.3154428277796195,
+      "revenueGrowthQtr": 15.341068160355897
     },
     "PRC": {
       "name": "PHIL RACING",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 35.665051657173265,
+      "earningsGrowthTTM": -782.4063445920544,
+      "earningsGrowthQtr": 7.130125870992646,
+      "revenueGrowthQtr": -33.266906430443115
     },
     "AEV": {
       "name": "ABOITIZ EQUITY",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 21.406550303316596,
+      "earningsGrowthTTM": 56.70671834694083,
+      "earningsGrowthQtr": 40.33453357335582,
+      "revenueGrowthQtr": 36.82425147371135
     },
     "COL": {
       "name": "COL FINANCIAL",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 1.8825037314369237,
+      "earningsGrowthTTM": 5.7038605013223425,
+      "earningsGrowthQtr": -1.9509152780371533,
+      "revenueGrowthQtr": 0.6254512951806215
     },
     "PSE": {
       "name": "PHIL STOCK EXCH",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 45.02964739143711,
+      "earningsGrowthTTM": 0.675132617290945,
+      "earningsGrowthQtr": -9.845903415837551,
+      "revenueGrowthQtr": 8.94719355075872
     },
     "ECVC": {
       "name": "EC VULCAN",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 40.36227304201571,
+      "earningsGrowthTTM": 66.36388097011483,
+      "earningsGrowthQtr": 148.82429778070025,
+      "revenueGrowthQtr": 90.44202891594705
     },
     "UPM": {
       "name": "UNITED PARAGON",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "earningsGrowthTTM": -214.26415801668114,
+      "earningsGrowthQtr": -174.92340956303843,
+      "revenueGrowthQtr": null
     },
     "UBP": {
       "name": "UNION BANK",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 0.14302638450286584,
+      "earningsGrowthTTM": 34.48614843493253,
+      "earningsGrowthQtr": 70.68355848533803,
+      "revenueGrowthQtr": 0.9634489290121976
     },
     "COSCO": {
       "name": "COSCO CAPITAL",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 9.323847025340429,
+      "earningsGrowthTTM": -0.4272609683959116,
+      "earningsGrowthQtr": -2.504993430760385,
+      "revenueGrowthQtr": 7.857268777549864
     },
     "LTG": {
       "name": "LT GROUP",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 2.139224641117673,
+      "earningsGrowthTTM": 6.276439943286856,
+      "earningsGrowthQtr": 23.474456426810885,
+      "revenueGrowthQtr": 6.315671587147655
     },
     "AREIT": {
       "name": "AREIT RT",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 23.453646771749245,
+      "earningsGrowthTTM": 28.642404975371605,
+      "earningsGrowthQtr": 47.253343684043806,
+      "revenueGrowthQtr": 39.14538830308127
     },
     "MAH": {
       "name": "METRO ALLIANCE",
-      "revenueGrowthTTM": null,
+      "revenueGrowthTTM": 15.8423877833204,
       "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "earningsGrowthQtr": null,
+      "revenueGrowthQtr": -0.5688308771618376
     },
     "BSC": {
       "name": "BASIC ENERGY",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 34.85141571857187,
+      "earningsGrowthTTM": -104.05599489690023,
+      "earningsGrowthQtr": -120.74921665552122,
+      "revenueGrowthQtr": 53.35725789264343
     },
     "FCG": {
       "name": "FIGARO GROUP",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 13.170578381788564,
+      "earningsGrowthTTM": -2.272906704594883,
+      "earningsGrowthQtr": 2.904695099283646,
+      "revenueGrowthQtr": 14.9134621175295
     },
     "SRDC": {
       "name": "SUPERCITY",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 123.05384199496025,
+      "earningsGrowthTTM": 91.05284392426624,
+      "earningsGrowthQtr": 34.36123961522197,
+      "revenueGrowthQtr": 185.2605059261354
     },
     "WLCON": {
       "name": "WILCON DEPOT",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 9.429037831402171,
+      "earningsGrowthTTM": 14.042298686233886,
+      "earningsGrowthQtr": 2.362696680235071,
+      "revenueGrowthQtr": 12.715618082234784
     },
     "BRNPC": {
       "name": "BRN PREF C",
@@ -574,129 +652,150 @@
     },
     "BCOR": {
       "name": "BERJAYA",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": -0.35528168172310026,
+      "earningsGrowthTTM": -296.2457143905442,
+      "earningsGrowthQtr": -91.35987122974115,
+      "revenueGrowthQtr": -10.1520848951803
     },
     "SHLPH": {
       "name": "SHELL PILIPINAS",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 13.603155455850438,
+      "earningsGrowthTTM": -434.7894855605274,
+      "earningsGrowthQtr": -2054.6759994227164,
+      "revenueGrowthQtr": 49.033100573237114
     },
     "NIKL": {
       "name": "NICKEL ASIA",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 40.351292817073386,
+      "earningsGrowthTTM": 228.67259479667962,
+      "earningsGrowthQtr": 130.69925524814,
+      "revenueGrowthQtr": 56.518049951100636
     },
     "PCOR": {
       "name": "PETRON",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 27.089622915254402,
+      "earningsGrowthTTM": 132.6898326898327,
+      "earningsGrowthQtr": null,
+      "revenueGrowthQtr": 87.41478707836204
     },
     "PXP": {
       "name": "PXP ENERGY",
       "revenueGrowthTTM": null,
       "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "earningsGrowthQtr": -70.82134867369767,
+      "revenueGrowthQtr": -98.28422961909897
     },
     "CIC": {
       "name": "CONCEPCION",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 0.3443956993021552,
+      "earningsGrowthTTM": -56.76639207672808,
+      "earningsGrowthQtr": -89.3825777932847,
+      "revenueGrowthQtr": -1.4170932942245575
     },
     "OGP": {
       "name": "OCEANAGOLD",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 57.66092960379277,
+      "earningsGrowthTTM": 372.73791031637273,
+      "earningsGrowthQtr": 142.7237609198837,
+      "revenueGrowthQtr": 42.95651287350689
     },
     "BDO": {
       "name": "BDO UNIBANK",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 9.314183478044063,
+      "earningsGrowthTTM": 4.91381590018511,
+      "earningsGrowthQtr": -1.4346516187652432,
+      "revenueGrowthQtr": 11.013427109974424
     },
     "SLI": {
       "name": "STA LUCIA LAND",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": -12.379999601098444,
+      "earningsGrowthTTM": -31.256564347453107,
+      "earningsGrowthQtr": -23.263428001806506,
+      "revenueGrowthQtr": -11.080334493730025
     },
     "PAL": {
       "name": "PAL HLDG",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 7.693472428994712,
+      "earningsGrowthTTM": -98.5755097626286,
+      "earningsGrowthQtr": -283.6548665317948,
+      "revenueGrowthQtr": 10.769626603712124
     },
     "PHR": {
       "name": "PH RESORTS GRP",
-      "revenueGrowthTTM": null,
+      "revenueGrowthTTM": -33.161309051843546,
       "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "earningsGrowthQtr": 99.34554260906806,
+      "revenueGrowthQtr": -47.61654810437455
     },
     "WEB": {
       "name": "PHILWEB",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 23.249456351815944,
+      "earningsGrowthTTM": 83.1503548570848,
+      "earningsGrowthQtr": null,
+      "revenueGrowthQtr": 95.9811533024114
     },
     "ALI": {
       "name": "AYALA LAND",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": -5.225829866035042,
+      "earningsGrowthTTM": 24.34450484969831,
+      "earningsGrowthQtr": -15.744779130303863,
+      "revenueGrowthQtr": -5.451148281717331
     },
     "APX": {
       "name": "APEX MINING",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 39.30029010610594,
+      "earningsGrowthTTM": 70.19564229651323,
+      "earningsGrowthQtr": 49.730564652051335,
+      "revenueGrowthQtr": 30.295118160263463
     },
     "SPNEC": {
       "name": "SP NEW ENERGY",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 82.52952396013903,
+      "earningsGrowthTTM": -84.99173829247268,
+      "earningsGrowthQtr": 59.74058089536636,
+      "revenueGrowthQtr": 139.79069310447264
     },
     "ATNB": {
       "name": "ATN HLDG B",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 84.75368493103718,
+      "earningsGrowthTTM": -53.151591812218754,
+      "earningsGrowthQtr": 273.85358695440914,
+      "revenueGrowthQtr": 296.2787229052212
     },
     "CDC": {
       "name": "CITYLAND DEVT",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 25.00306821684251,
+      "earningsGrowthTTM": 10.315645596059014,
+      "earningsGrowthQtr": 2.124839659961038,
+      "revenueGrowthQtr": 3.127283696879172
     },
     "CPG": {
       "name": "CENTURY PROP",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 8.4162959848801,
+      "earningsGrowthTTM": 5.173408271139198,
+      "earningsGrowthQtr": -2.754705904596699,
+      "revenueGrowthQtr": 3.2648953326905783
     },
     "CREIT": {
       "name": "CITICORE RT",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 0.04086910213699949,
+      "earningsGrowthTTM": 0.16187005956752343,
+      "earningsGrowthQtr": 4.240999432067852,
+      "revenueGrowthQtr": 3.2852929967668363
     },
     "IPM": {
       "name": "IPM HLDG",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 12.48237190564059,
+      "earningsGrowthTTM": -101.12805056449704,
+      "earningsGrowthQtr": -779.0392611117078,
+      "revenueGrowthQtr": 4.967841294794029
     },
     "MARC": {
       "name": "MARCVENTURES",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 51.13378763644363,
+      "earningsGrowthTTM": 137.17961347031206,
+      "earningsGrowthQtr": 122.05990748774155,
+      "revenueGrowthQtr": 62.358331299839875
     },
     "MWP7A": {
       "name": "MWIDE PREF 7A",
@@ -706,9 +805,10 @@
     },
     "SMC2S": {
       "name": "SMC PREF 2S",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 15.066102250287958,
+      "earningsGrowthTTM": -71.3831359094438,
+      "earningsGrowthQtr": -64.77567298105683,
+      "revenueGrowthQtr": 49.955218951339795
     },
     "AGIW": {
       "name": "AGI WARRANT",
@@ -718,45 +818,52 @@
     },
     "GPH": {
       "name": "GRAND PLAZA",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": -0.3528096827478412,
+      "earningsGrowthTTM": -186.65482751925262,
+      "earningsGrowthQtr": -38.907946499647196,
+      "revenueGrowthQtr": -10.505946039638111
     },
     "SMC2R": {
       "name": "SMC PREF 2R",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 15.066102250287958,
+      "earningsGrowthTTM": -71.3831359094438,
+      "earningsGrowthQtr": -64.77567298105683,
+      "revenueGrowthQtr": 49.955218951339795
     },
     "MVC": {
       "name": "MABUHAY VINYL",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 10.794413573778803,
+      "earningsGrowthTTM": 56.49557070749049,
+      "earningsGrowthQtr": 120.47714184980609,
+      "revenueGrowthQtr": 30.781894862968105
     },
     "MED": {
       "name": "MEDCO HLDG",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": -39.051541501123985,
+      "earningsGrowthTTM": -31.679608062963304,
+      "earningsGrowthQtr": -556.3554868817796,
+      "revenueGrowthQtr": -99.86377987458957
     },
     "REG": {
       "name": "REPUBLIC GLASS",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": -55.22408420568934,
+      "earningsGrowthTTM": -31.926910635881523,
+      "earningsGrowthQtr": -59.858812074001946,
+      "revenueGrowthQtr": -35.305035900942705
     },
     "WIN": {
       "name": "WELLEX INDUS",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": -41.74394853677873,
+      "earningsGrowthTTM": -108.01235455963496,
+      "earningsGrowthQtr": -313.51649214215405,
+      "revenueGrowthQtr": -48.889338138848
     },
     "ECP": {
       "name": "EASYCALL",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 4.094834752135556,
+      "earningsGrowthTTM": -184.5206372788641,
+      "earningsGrowthQtr": 265.43705442930116,
+      "revenueGrowthQtr": 18.675049815003874
     },
     "GLOBA": {
       "name": "GLO PREF ANV",
@@ -766,189 +873,220 @@
     },
     "ABSP": {
       "name": "ABS HLDG PDR",
-      "revenueGrowthTTM": null,
+      "revenueGrowthTTM": -41.542715521205324,
       "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "earningsGrowthQtr": null,
+      "revenueGrowthQtr": -51.2790460159456
     },
     "CTS": {
       "name": "CTS GLOBAL",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 9.541463268968133,
+      "earningsGrowthTTM": 40.07764167911205,
+      "earningsGrowthQtr": null,
+      "revenueGrowthQtr": 36.64866108335279
     },
     "KPPI": {
       "name": "KEPWEALTH",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 19.021292493524005,
+      "earningsGrowthTTM": 63.171491172738584,
+      "earningsGrowthQtr": 144.2958988914177,
+      "revenueGrowthQtr": 30.285869401803346
     },
     "AP": {
       "name": "ABOITIZ POWER",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 20.53671788392679,
+      "earningsGrowthTTM": -14.381742961568522,
+      "earningsGrowthQtr": 30.60771225419547,
+      "revenueGrowthQtr": 45.43103932742596
     },
     "SMC2U": {
       "name": "SMC PREF 2U",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 15.066102250287958,
+      "earningsGrowthTTM": -71.3831359094438,
+      "earningsGrowthQtr": -64.77567298105683,
+      "revenueGrowthQtr": 49.955218951339795
     },
     "LC": {
       "name": "LEPANTO A",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 50.80135493064111,
+      "earningsGrowthTTM": 178.5272300774916,
+      "earningsGrowthQtr": 99.43163313547304,
+      "revenueGrowthQtr": 57.339050885148666
     },
     "PSB": {
       "name": "PSBANK",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 3.886936763692942,
+      "earningsGrowthTTM": -45.348131273878735,
+      "earningsGrowthQtr": -63.607469599501485,
+      "revenueGrowthQtr": 0.04675839814083418
     },
     "BRN": {
       "name": "A BROWN",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": -3.3426496348477728,
+      "earningsGrowthTTM": 80.02829875500159,
+      "earningsGrowthQtr": -31.623062995415836,
+      "revenueGrowthQtr": 0.5454976638070049
     },
     "MYNLD": {
       "name": "MAYNILAD",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 6.330782051745257,
+      "earningsGrowthTTM": 16.331020652758728,
+      "earningsGrowthQtr": 17.44164650773074,
+      "revenueGrowthQtr": 2.3694423027761946
     },
     "ACR": {
       "name": "ALSONS CONS",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 47.50656487508089,
+      "earningsGrowthTTM": 53.25168623129485,
+      "earningsGrowthQtr": 101.50690874653792,
+      "revenueGrowthQtr": 108.43712369257854
     },
     "UPSON": {
       "name": "UPSON INTL CORP",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 7.061561973646602,
+      "earningsGrowthTTM": -7.844987338281769,
+      "earningsGrowthQtr": 47.433100522530914,
+      "revenueGrowthQtr": 11.446342088031187
     },
     "ORE": {
       "name": "ORNTL PENINSULA",
       "revenueGrowthTTM": null,
       "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "earningsGrowthQtr": -150.25970688224467,
+      "revenueGrowthQtr": 68.64568543392356
     },
     "IDC": {
       "name": "ITALPINAS",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 89.47318977132214,
+      "earningsGrowthTTM": -22.8214124554106,
+      "earningsGrowthQtr": 303.51100680843456,
+      "revenueGrowthQtr": 1299.1423062741494
     },
     "LPZ": {
       "name": "LOPEZ HLDG",
       "revenueGrowthTTM": null,
       "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "earningsGrowthQtr": 2.3323615160349855,
+      "revenueGrowthQtr": 84.67851542080503
     },
     "DD": {
       "name": "DOUBLEDRAGON",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 158.27437411045574,
+      "earningsGrowthTTM": -119.71698601139819,
+      "earningsGrowthQtr": -31.04649557264113,
+      "revenueGrowthQtr": 55.918062714982376
     },
     "TBGI": {
       "name": "TRANSPACIFIC BR",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 5.53518379182712,
+      "earningsGrowthTTM": -37.78432445804278,
+      "earningsGrowthQtr": null,
+      "revenueGrowthQtr": 15.63303483631731
     },
     "LOTO": {
       "name": "PACIFIC ONLINE",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": -0.5939923718286657,
+      "earningsGrowthTTM": -1.6894907000827286,
+      "earningsGrowthQtr": -416.4978030162503,
+      "revenueGrowthQtr": 0
     },
     "LODE": {
       "name": "LODESTAR",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "earningsGrowthTTM": -4.079327596557935,
+      "earningsGrowthQtr": -42.214285714285715,
+      "revenueGrowthQtr": null
     },
     "SM": {
       "name": "SM INVESTMENTS",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 3.754094511307906,
+      "earningsGrowthTTM": 10.357564042406988,
+      "earningsGrowthQtr": 8.141750409924004,
+      "revenueGrowthQtr": 7.214198061144403
     },
     "PX": {
       "name": "PX MINING",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 7.801799658179888,
+      "earningsGrowthTTM": -45.28860574027976,
+      "earningsGrowthQtr": 129.55571297266602,
+      "revenueGrowthQtr": 30.826420816484795
     },
     "DDPR": {
       "name": "DD PREF",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 158.27437411045574,
+      "earningsGrowthTTM": -119.71698601139819,
+      "earningsGrowthQtr": -31.04649557264113,
+      "revenueGrowthQtr": 55.918062714982376
     },
     "PBC": {
       "name": "PBCOM",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 8.95984766249904,
+      "earningsGrowthTTM": 25.322464482936297,
+      "earningsGrowthQtr": 32.28469603127919,
+      "revenueGrowthQtr": 10.40853773465478
     },
     "FRUIT": {
       "name": "FRUITAS HLDG",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 11.719294614518077,
+      "earningsGrowthTTM": -0.41302741830479206,
+      "earningsGrowthQtr": -9.180873166152047,
+      "revenueGrowthQtr": 20.339533615738407
     },
     "GTCAP": {
       "name": "GT CAPITAL",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": -7.237158770542528,
+      "earningsGrowthTTM": -5.2716610818573475,
+      "earningsGrowthQtr": -19.144580909286795,
+      "revenueGrowthQtr": -17.159763313609467
     },
     "APL": {
       "name": "APOLLO GLOBAL",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "earningsGrowthTTM": 4.227853283764675,
+      "earningsGrowthQtr": -18.74410963168705,
+      "revenueGrowthQtr": null
     },
     "NOW": {
       "name": "NOW CORP",
-      "revenueGrowthTTM": null,
+      "revenueGrowthTTM": -4.529117628026154,
       "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "earningsGrowthQtr": null,
+      "revenueGrowthQtr": -2.4992742210226
     },
     "MA": {
       "name": "MANILA MINING A",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "earningsGrowthTTM": -24.1265776242183,
+      "earningsGrowthQtr": 22.293064010268054,
+      "revenueGrowthQtr": null
     },
     "SPC": {
       "name": "SPC POWER",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 28.70487712988819,
+      "earningsGrowthTTM": 25.261576981692258,
+      "earningsGrowthQtr": -38.97816641443587,
+      "revenueGrowthQtr": 18.79779454859595
     },
     "TOP": {
       "name": "TOP LINE",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 59.908705050621755,
+      "earningsGrowthTTM": 45.04689083352854,
+      "earningsGrowthQtr": 58.798918170350674,
+      "revenueGrowthQtr": 113.6166235180443
     },
     "AUB": {
       "name": "ASIA UNITED",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 5.913896161061424,
+      "earningsGrowthTTM": 4.722654580365698,
+      "earningsGrowthQtr": 1.66574372933449,
+      "revenueGrowthQtr": 2.781434720043075
     },
     "TECH": {
       "name": "CIRTEK HLDG",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": -3.261079546707445,
+      "earningsGrowthTTM": -152.71781324473997,
+      "earningsGrowthQtr": -2638.187110324997,
+      "revenueGrowthQtr": -7.316339875559009
     },
     "TOPA2": {
       "name": "TOP PREF A2",
@@ -958,51 +1096,59 @@
     },
     "DNL": {
       "name": "DNL INDUS",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 14.99750186421763,
+      "earningsGrowthTTM": 11.356503890301791,
+      "earningsGrowthQtr": 9.963602591441907,
+      "revenueGrowthQtr": 13.00005957284777
     },
     "MAC": {
       "name": "MACROASIA",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 9.832389242124396,
+      "earningsGrowthTTM": 8.991628784819726,
+      "earningsGrowthQtr": -12.36523075138243,
+      "revenueGrowthQtr": 7.258976227542678
     },
     "FMETF": {
       "name": "ATR FAMI ETF",
       "revenueGrowthTTM": null,
       "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "earningsGrowthQtr": null,
+      "revenueGrowthQtr": null
     },
     "CREC": {
       "name": "CITICORE RE",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": -5.338009532668509,
+      "earningsGrowthTTM": 67.9350767163327,
+      "earningsGrowthQtr": 147.14676991029435,
+      "revenueGrowthQtr": 28.991669968327194
     },
     "SGP": {
       "name": "SYNERGY GRID",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 80.28603843269092,
+      "earningsGrowthTTM": 163.21239866751685,
+      "earningsGrowthQtr": -31.31466131764531,
+      "revenueGrowthQtr": -14.664164716128743
     },
     "EW": {
       "name": "EAST WEST BANK",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 18.057981617144026,
+      "earningsGrowthTTM": 3.0406075908140204,
+      "earningsGrowthQtr": -32.028664635776124,
+      "revenueGrowthQtr": 21.443913470218448
     },
     "AT": {
       "name": "ATLAS MINING",
-      "revenueGrowthTTM": null,
+      "revenueGrowthTTM": 56.40096297938221,
       "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "earningsGrowthQtr": null,
+      "revenueGrowthQtr": 122.73462693442437
     },
     "MREIT": {
       "name": "MREIT RT",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 23.164789943207435,
+      "earningsGrowthTTM": 12.762534863550687,
+      "earningsGrowthQtr": 29.398553536841288,
+      "revenueGrowthQtr": 24.154211726303465
     },
     "ACPB3": {
       "name": "AC PREF B3R",
@@ -1012,471 +1158,549 @@
     },
     "CNPF": {
       "name": "CENTURY FOOD",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 15.41790382498325,
+      "earningsGrowthTTM": 10.703493642821032,
+      "earningsGrowthQtr": 2.644663285256997,
+      "revenueGrowthQtr": 15.500332911699372
     },
     "TUGS": {
       "name": "HARBOR STAR",
-      "revenueGrowthTTM": null,
+      "revenueGrowthTTM": -1.4142183393303243,
       "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "earningsGrowthQtr": null,
+      "revenueGrowthQtr": 20.88456125377558
     },
     "KEEPR": {
       "name": "KEEPERS HLDG",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 2.6757542963617147,
+      "earningsGrowthTTM": -1.4007509091785524,
+      "earningsGrowthQtr": -0.5369585730342025,
+      "revenueGrowthQtr": -1.3307530878737173
     },
     "CLI": {
       "name": "CEB LANDMASTERS",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": -4.9345074839872165,
+      "earningsGrowthTTM": -1.5193295114259868,
+      "earningsGrowthQtr": -1.144371883858599,
+      "revenueGrowthQtr": -3.1480002211619738
     },
     "GMA7": {
       "name": "GMA NETWORK",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": -26.435312612682555,
+      "earningsGrowthTTM": -90.58518219799988,
+      "earningsGrowthQtr": -101.0745306044593,
+      "revenueGrowthQtr": -40.004776078124465
     },
     "SSI": {
       "name": "SSI GROUP",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 7.71529093625111,
+      "earningsGrowthTTM": -49.0748708515014,
+      "earningsGrowthQtr": 44.37042232301408,
+      "revenueGrowthQtr": 13.330364508753705
     },
     "LPC": {
       "name": "LFM PROP",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": -7.187682725812324,
+      "earningsGrowthTTM": -75.02086673925994,
+      "earningsGrowthQtr": null,
+      "revenueGrowthQtr": 8.620026664291121
     },
     "BKR": {
       "name": "BRIGHT KINDLE",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 23.32077847345312,
+      "earningsGrowthTTM": 286.8118527388254,
+      "earningsGrowthQtr": 150.866743691852,
+      "revenueGrowthQtr": 26.139471285323612
     },
     "SMC": {
       "name": "SAN MIGUEL CORP",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 15.066102250287958,
+      "earningsGrowthTTM": -71.3831359094438,
+      "earningsGrowthQtr": -64.77567298105683,
+      "revenueGrowthQtr": 49.955218951339795
     },
     "TEL": {
       "name": "PLDT",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 0.9121485760245678,
+      "earningsGrowthTTM": -15.797196465923635,
+      "earningsGrowthQtr": -13.975930971843779,
+      "revenueGrowthQtr": 2.09927877539005
     },
     "CNVRG": {
       "name": "CONVERGE",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 5.980304123931492,
+      "earningsGrowthTTM": -0.4215081496702719,
+      "earningsGrowthQtr": -15.834759096374759,
+      "revenueGrowthQtr": 2.4469143184671855
     },
     "C": {
       "name": "CHELSEA",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 10.081791599535075,
+      "earningsGrowthTTM": -135.62163275429367,
+      "earningsGrowthQtr": -34.776530299663996,
+      "revenueGrowthQtr": 15.475658143131025
     },
     "MER": {
       "name": "MERALCO",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 12.071013837993409,
+      "earningsGrowthTTM": 14.320022102735214,
+      "earningsGrowthQtr": 17.25942215818609,
+      "revenueGrowthQtr": 24.65266089298283
     },
     "PERC": {
       "name": "PETROENERGY",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 4.814264198473614,
+      "earningsGrowthTTM": -10.486471735487955,
+      "earningsGrowthQtr": 74.56395097247388,
+      "revenueGrowthQtr": 26.392574339659003
     },
     "RFM": {
       "name": "RFM CORP",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 4.925544205121443,
+      "earningsGrowthTTM": 7.014617234331588,
+      "earningsGrowthQtr": 1.079913606911447,
+      "revenueGrowthQtr": 4.921147634429033
     },
     "EURO": {
       "name": "EUROMED",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 5.923033507431611,
+      "earningsGrowthTTM": 32.2259410324951,
+      "earningsGrowthQtr": 25.366983046419566,
+      "revenueGrowthQtr": 5.169757817870325
     },
     "CEU": {
       "name": "CENTRO ESCOLAR",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": -3.502851414672819,
+      "earningsGrowthTTM": -0.8233932941178385,
+      "earningsGrowthQtr": -22.074730012812633,
+      "revenueGrowthQtr": -4.49403770993165
     },
     "ICT": {
       "name": "INTL CONTAINER",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 24.912485567208087,
+      "earningsGrowthTTM": 30.6997763130942,
+      "earningsGrowthQtr": 32.86998604966581,
+      "revenueGrowthQtr": 32.42056797227434
     },
     "FILRT": {
       "name": "FILINVEST RT",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 27.456566572515502,
+      "earningsGrowthTTM": -10.470254950142156,
+      "earningsGrowthQtr": 24.675630182200045,
+      "revenueGrowthQtr": 19.842324198519126
     },
     "PBB": {
       "name": "PB BANK",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": -3.36136127690876,
+      "earningsGrowthTTM": -19.289872152875805,
+      "earningsGrowthQtr": -13.162925334531591,
+      "revenueGrowthQtr": -11.476221499383673
     },
     "CHP": {
       "name": "CONCREAT HLDG",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 11.14600464358543,
+      "earningsGrowthTTM": 89.63539884259704,
+      "earningsGrowthQtr": 85.99005572414367,
+      "revenueGrowthQtr": 16.465589135468157
     },
     "APO": {
       "name": "ANGLO PHIL HLDG",
       "revenueGrowthTTM": null,
       "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "earningsGrowthQtr": null,
+      "revenueGrowthQtr": null
     },
     "RCR": {
       "name": "RL COMM RT",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 35.152974541657066,
+      "earningsGrowthTTM": 68.79119632580111,
+      "earningsGrowthQtr": 46.609043879199,
+      "revenueGrowthQtr": 50.23730156910482
     },
     "CBC": {
       "name": "CHINABANK",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": -0.663003194960193,
+      "earningsGrowthTTM": 11.53960684962019,
+      "earningsGrowthQtr": 17.989778257804346,
+      "revenueGrowthQtr": -8.780889099658019
     },
     "APVI": {
       "name": "ALTUS PROP",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": -12.91075620931837,
+      "earningsGrowthTTM": -18.07789522367983,
+      "earningsGrowthQtr": -24.767916283597657,
+      "revenueGrowthQtr": -11.022372682172955
     },
     "MAXS": {
       "name": "MAXS GROUP",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": -0.520800960149793,
+      "earningsGrowthTTM": -14.85925525643545,
+      "earningsGrowthQtr": -24.894101346001584,
+      "revenueGrowthQtr": 3.075125421466058
     },
     "ANS": {
       "name": "ANSCOR",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 16.767235432233548,
+      "earningsGrowthTTM": 378.2009335452541,
+      "earningsGrowthQtr": 183.98375677609792,
+      "revenueGrowthQtr": 21.244744316420057
     },
     "RCI": {
       "name": "ROXAS AND CO",
       "revenueGrowthTTM": null,
       "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "earningsGrowthQtr": -198.00824964448802,
+      "revenueGrowthQtr": 0.5455220387675721
     },
     "JGS": {
       "name": "JG SUMMIT",
       "revenueGrowthTTM": null,
       "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "earningsGrowthQtr": 26.36775232179894,
+      "revenueGrowthQtr": 2.764551526030239
     },
     "SMPH": {
       "name": "SM PRIME HLDG",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 0.6791395237390756,
+      "earningsGrowthTTM": 1.8948768503824591,
+      "earningsGrowthQtr": 0.5949257860096557,
+      "revenueGrowthQtr": 8.818186767012456
     },
     "CEB": {
       "name": "CEBU AIR",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 7.152671011612953,
+      "earningsGrowthTTM": -123.90819376385869,
+      "earningsGrowthQtr": -164.55425458852818,
+      "revenueGrowthQtr": 7.074164210846602
     },
     "URC": {
       "name": "UNIV ROBINA",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 2.66793617577356,
+      "earningsGrowthTTM": -4.486209575987671,
+      "earningsGrowthQtr": 32.578553471945256,
+      "revenueGrowthQtr": 2.0820227157144275
     },
     "OM": {
       "name": "OMICO CORP",
-      "revenueGrowthTTM": null,
+      "revenueGrowthTTM": 7.725077150711693,
       "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "earningsGrowthQtr": -59.65154149731593,
+      "revenueGrowthQtr": 8.90025269798738
     },
     "BPI": {
       "name": "BANK PH ISLANDS",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 12.462889583504104,
+      "earningsGrowthTTM": 3.177018476386949,
+      "earningsGrowthQtr": -2.4983401703056054,
+      "revenueGrowthQtr": 10.746194178199982
     },
     "MBT": {
       "name": "METROBANK",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 3.318593309916339,
+      "earningsGrowthTTM": 0.7856159390945169,
+      "earningsGrowthQtr": -2.4121240974371183,
+      "revenueGrowthQtr": 5.203930292918057
     },
     "RCB": {
       "name": "RCBC",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 4.211517165005537,
+      "earningsGrowthTTM": -10.520253407563832,
+      "earningsGrowthQtr": -51.95205479452055,
+      "revenueGrowthQtr": 6.397884996695308
     },
     "FERRO": {
       "name": "FERRONOUX HLDG",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": -78.28495682248918,
+      "earningsGrowthTTM": -1442.5518078844866,
+      "earningsGrowthQtr": -604.112138661083,
+      "revenueGrowthQtr": -65.42239392976323
     },
     "MFC": {
       "name": "MANULIFE",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 23.65383307047521,
+      "earningsGrowthTTM": 19.12983483901707,
+      "earningsGrowthQtr": 23.271683180917435,
+      "revenueGrowthQtr": 33.98407334216809
     },
     "NRCP": {
       "name": "NTL REINSURANCE",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": -15.007762872606905,
+      "earningsGrowthTTM": 78.39015480065716,
+      "earningsGrowthQtr": 41.45158332121151,
+      "revenueGrowthQtr": -15.148288435545219
     },
     "SLF": {
       "name": "SUN LIFE",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 3.904226935864679,
+      "earningsGrowthTTM": 6.887694117329694,
+      "earningsGrowthQtr": 46.467442013722234,
+      "revenueGrowthQtr": 58.79377904564127
     },
     "V": {
       "name": "VANTAGE",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": -55.01359051109292,
+      "earningsGrowthTTM": -95.3585888430155,
+      "earningsGrowthQtr": -46.93895689459489,
+      "revenueGrowthQtr": -31.31711273372825
     },
     "ACEN": {
       "name": "ACEN CORP",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 17.65057635833901,
+      "earningsGrowthTTM": 80.55053701437454,
+      "earningsGrowthQtr": null,
+      "revenueGrowthQtr": 52.09571162148331
     },
     "FGEN": {
       "name": "FIRST GEN",
       "revenueGrowthTTM": null,
       "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "earningsGrowthQtr": 0.33912531574866583,
+      "revenueGrowthQtr": -23.66810561654606
     },
     "FPH": {
       "name": "FIRST PHIL HLDG",
       "revenueGrowthTTM": null,
       "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "earningsGrowthQtr": -4.6764765168312845,
+      "revenueGrowthQtr": 84.67851542080503
     },
     "SCC": {
       "name": "SEMIRARA MINING",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": -8.358837533178612,
+      "earningsGrowthTTM": -14.50237957410708,
+      "earningsGrowthQtr": 16.858338605858652,
+      "revenueGrowthQtr": 25.454061513293862
     },
     "AXLM": {
       "name": "AXELUM",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 16.697182526629785,
+      "earningsGrowthTTM": 48.60723975571569,
+      "earningsGrowthQtr": 75.59518060652888,
+      "revenueGrowthQtr": -11.843669785685208
     },
     "JFC": {
       "name": "JOLLIBEE",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 10.523048283121474,
+      "earningsGrowthTTM": -1.4863939544171556,
+      "earningsGrowthQtr": 5.7242144380086994,
+      "revenueGrowthQtr": 10.669302344808933
     },
     "MONDE": {
       "name": "MONDE NISSIN",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 5.779453125523663,
+      "earningsGrowthTTM": 1207.7040566322967,
+      "earningsGrowthQtr": 27.570070610234115,
+      "revenueGrowthQtr": 4.581744107115406
     },
     "SFI": {
       "name": "SWIFT FOODS",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": -37.466347968297896,
+      "earningsGrowthTTM": -118.4182899801703,
+      "earningsGrowthQtr": -161.74496644295303,
+      "revenueGrowthQtr": -52.36227336122734
     },
     "VITA": {
       "name": "VITARICH",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": -3.6088643648294743,
+      "earningsGrowthTTM": -198.7333610629622,
+      "earningsGrowthQtr": -4741.4570501253675,
+      "revenueGrowthQtr": -8.437606235187953
     },
     "ATN": {
       "name": "ATN HLDG A",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 84.75368493103718,
+      "earningsGrowthTTM": -53.151591812218754,
+      "earningsGrowthQtr": 273.85358695440914,
+      "revenueGrowthQtr": 296.2787229052212
     },
     "EEI": {
       "name": "EEI CORP",
-      "revenueGrowthTTM": null,
+      "revenueGrowthTTM": 17.72200676172714,
       "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "earningsGrowthQtr": 192.15172866957911,
+      "revenueGrowthQtr": 0.5152326920300476
     },
     "PHN": {
       "name": "PHINMA",
-      "revenueGrowthTTM": null,
+      "revenueGrowthTTM": -10.898937458137981,
       "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "earningsGrowthQtr": 40.07485305562303,
+      "revenueGrowthQtr": -2.94737595242389
     },
     "ABG": {
       "name": "ASIABEST GROUP",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "earningsGrowthTTM": -115.48303541364633,
+      "earningsGrowthQtr": -245.70458299561912,
+      "revenueGrowthQtr": null
     },
     "DMC": {
       "name": "DMCI HLDG",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 5.567803274172359,
+      "earningsGrowthTTM": 2.25439190447652,
+      "earningsGrowthQtr": 62.03662140448948,
+      "revenueGrowthQtr": 22.21156828672457
     },
     "PA": {
       "name": "PACIFICA HLDG",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "earningsGrowthTTM": 97.66963691645677,
+      "earningsGrowthQtr": -25.79537301376255,
+      "revenueGrowthQtr": null
     },
     "PRIM": {
       "name": "PRIME MEDIA",
-      "revenueGrowthTTM": null,
+      "revenueGrowthTTM": 410.27329340526524,
       "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "earningsGrowthQtr": -134.39227928982004,
+      "revenueGrowthQtr": -84.9139655862345
     },
     "ZHI": {
       "name": "ZEUS HLDG",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "earningsGrowthTTM": -3.8957945125860296,
+      "earningsGrowthQtr": -19.6934424622623,
+      "revenueGrowthQtr": null
     },
     "CEI": {
       "name": "CROWN EQUITIES",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 17.336085042196757,
+      "earningsGrowthTTM": 1.5449951859728475,
+      "earningsGrowthQtr": 17.221853482729323,
+      "revenueGrowthQtr": 3.821770463195031
     },
     "ABS": {
       "name": "ABS CBN",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": -18.846998798845995,
+      "earningsGrowthTTM": -71.63077753959315,
+      "earningsGrowthQtr": -209.65165681310677,
+      "revenueGrowthQtr": -12.29350046955742
     },
     "GLO": {
       "name": "GLOBE TELECOM",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 3.0802915439558247,
+      "earningsGrowthTTM": -3.085065120209741,
+      "earningsGrowthQtr": -6.0965344282005205,
+      "revenueGrowthQtr": 8.01600468479174
     },
     "LSC": {
       "name": "LORENZO SHIPPNG",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": -25.21819922626578,
+      "earningsGrowthTTM": 34.33380877998828,
+      "earningsGrowthQtr": 43.68324442653708,
+      "revenueGrowthQtr": -8.678663472278577
     },
     "BHI": {
       "name": "BOULEVARD HLDG",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 35.781754697217615,
+      "earningsGrowthTTM": 74.80868065554655,
+      "earningsGrowthQtr": 68.53058306828827,
+      "revenueGrowthQtr": 119.47285359504795
     },
     "FEU": {
       "name": "FAR EASTERN U",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 3.826955512085305,
+      "earningsGrowthTTM": -6.423268727193822,
+      "earningsGrowthQtr": -13.299375149234221,
+      "revenueGrowthQtr": -0.3417605519270675
     },
     "IPO": {
       "name": "IPEOPLE",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 17.429990405414333,
+      "earningsGrowthTTM": 15.375693168423751,
+      "earningsGrowthQtr": -15.330742024722484,
+      "revenueGrowthQtr": 10.431582340905681
     },
     "STI": {
       "name": "STI HLDG",
       "revenueGrowthTTM": null,
       "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "earningsGrowthQtr": -15.271674002640555,
+      "revenueGrowthQtr": -14.005663142622252
     },
     "BEL": {
       "name": "BELLE CORP",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": -1.5779780049753185,
+      "earningsGrowthTTM": -0.7783996377559607,
+      "earningsGrowthQtr": 39.293769084257946,
+      "revenueGrowthQtr": 11.901424064125523
     },
     "PLUS": {
       "name": "DIGIPLUS",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": -23.439648824507046,
+      "earningsGrowthTTM": -11.381159927408238,
+      "earningsGrowthQtr": 66.22447944521141,
+      "revenueGrowthQtr": -36.84374426298151
     },
     "PGOLD": {
       "name": "PUREGOLD",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 10.196988753857797,
+      "earningsGrowthTTM": 10.556477739931802,
+      "earningsGrowthQtr": -1.8621839305315901,
+      "revenueGrowthQtr": 9.12347990540201
     },
     "APC": {
       "name": "APC GROUP",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "earningsGrowthTTM": 40.32057311271218,
+      "earningsGrowthQtr": -1.6729420611265196,
+      "revenueGrowthQtr": null
     },
     "BC": {
       "name": "BENGUET",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 32.76752752771433,
+      "earningsGrowthTTM": 36.99575780461653,
+      "earningsGrowthQtr": 6.26900957259329,
+      "revenueGrowthQtr": 24.18912257324087
     },
     "FNI": {
       "name": "FERRONICKEL",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 29.500514166044617,
+      "earningsGrowthTTM": 75.98156250997677,
+      "earningsGrowthQtr": 71.28497397677582,
+      "revenueGrowthQtr": 51.79023332714727
     },
     "MAB": {
       "name": "MANILA MINING B",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "earningsGrowthTTM": -24.1265776242183,
+      "earningsGrowthQtr": 22.293064010268054,
+      "revenueGrowthQtr": null
     },
     "NI": {
       "name": "NIHAO",
       "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "earningsGrowthTTM": 25.033763469258098,
+      "earningsGrowthQtr": 47.56323112297132,
+      "revenueGrowthQtr": null
     },
     "OPM": {
       "name": "ORNTL PETROL A",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": -56.38195235690042,
+      "earningsGrowthTTM": -113.98738255613772,
+      "earningsGrowthQtr": -95.02127917938188,
+      "revenueGrowthQtr": -100
     },
     "OPMB": {
       "name": "ORNTL PETROL B",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": -56.38195235690042,
+      "earningsGrowthTTM": -113.98738255613772,
+      "earningsGrowthQtr": -95.02127917938188,
+      "revenueGrowthQtr": -100
     },
     "OV": {
       "name": "PHILODRILL",
-      "revenueGrowthTTM": null,
+      "revenueGrowthTTM": 9.482469434561095,
       "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "earningsGrowthQtr": null,
+      "revenueGrowthQtr": 61.15775072906702
     },
     "ACPB4": {
       "name": "AC PREF B4R",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": 5.0042594993109875,
+      "earningsGrowthTTM": 41.42906366970266,
+      "earningsGrowthQtr": 1.4007717963908504,
+      "revenueGrowthQtr": 10.358593744400672
     },
     "SMC2W": {
       "name": "SMC PREF 2W",
@@ -1492,15 +1716,17 @@
     },
     "X": {
       "name": "XURPAS",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": -6.517583222767613,
+      "earningsGrowthTTM": -138.5445345567484,
+      "earningsGrowthQtr": -52.98554473374957,
+      "revenueGrowthQtr": -21.78200602612209
     },
     "MB": {
       "name": "MANILA BULLETIN",
-      "revenueGrowthTTM": null,
-      "earningsGrowthTTM": null,
-      "earningsGrowthQtr": null
+      "revenueGrowthTTM": -7.041814269212911,
+      "earningsGrowthTTM": 554.5527605623885,
+      "earningsGrowthQtr": 104.22878302211348,
+      "revenueGrowthQtr": -8.508330501661822
     },
     "MWP6B": {
       "name": "MWIDE PREF 6B",
@@ -1516,7 +1742,7 @@
     }
   },
   "coverageQtrEarnings": {
-    "fetched": 2,
+    "fetched": 209,
     "total": 251
   }
 }
