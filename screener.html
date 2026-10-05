@@ -12342,6 +12342,113 @@ function _expandBars(bars) {
   return bars.map(b => Array.isArray(b) ? { t:b[0], o:b[1], h:b[2], l:b[3], c:b[4] } : b);
 }
 
+// How many bars each timeframe normally keeps for a pick's frozen chart — matches
+// the .slice(-N) used wherever a snapshot is first captured (toggleStar, etc.).
+const PICK_BAR_WINDOW = { dailyBars: 252, weeklyBars: 52, monthlyBars: 36 };
+
+// Starring the same ticker on different days produces almost-identical chart data —
+// every candle is shared except the very last one, which may still have been mid-
+// formation (today's still-moving daily candle, this week's candle, this month's
+// candle) at the exact moment of that particular star. Candles that are already
+// CLOSED never change again, so they're kept once per ticker here — one localStorage
+// key per ticker — instead of once per pick. Only each pick's own last candle (the
+// possibly-still-forming one) is stored with the pick itself, which is what keeps
+// "frozen at the moment you starred it" exactly true for every pick.
+const _tickerHistoryCache = new Map(); // ticker -> { daily:[...], weekly:[...], monthly:[...] }
+const _tickerHistoryDirty = new Set(); // tickers whose history has unsaved changes
+function _tickerHistKey(ticker) { return `cts_tkh_${ticker}`; }
+const _TF_OF_FIELD = { dailyBars: 'daily', weeklyBars: 'weekly', monthlyBars: 'monthly' };
+
+function _loadTickerHistory(ticker) {
+  if (_tickerHistoryCache.has(ticker)) return _tickerHistoryCache.get(ticker);
+  let hist = { daily: [], weekly: [], monthly: [] };
+  try {
+    const raw = localStorage.getItem(_tickerHistKey(ticker));
+    if (raw) {
+      const str = LZString.decompressFromBase64(raw) || raw;
+      const parsed = JSON.parse(str);
+      hist = {
+        daily:   _expandBars(parsed.daily   || []),
+        weekly:  _expandBars(parsed.weekly  || []),
+        monthly: _expandBars(parsed.monthly || []),
+      };
+    }
+  } catch {}
+  _tickerHistoryCache.set(ticker, hist);
+  return hist;
+}
+
+function _saveTickerHistory(ticker) {
+  const hist = _tickerHistoryCache.get(ticker);
+  if (!hist) return true;
+  try {
+    const compact = {
+      daily:   _compactBars(hist.daily),
+      weekly:  _compactBars(hist.weekly),
+      monthly: _compactBars(hist.monthly),
+    };
+    localStorage.setItem(_tickerHistKey(ticker), LZString.compressToBase64(JSON.stringify(compact)));
+    return true;
+  } catch (e) {
+    console.error('[saveTickerHistory]', ticker, 'localStorage write failed:', e);
+    return false;
+  }
+}
+
+// Each ticker gets its own localStorage key specifically so that touching one
+// ticker's history never requires re-saving every OTHER ticker you've ever starred —
+// the same mistake the picks pool itself made before the recent/archive split.
+function _flushTickerHistory() {
+  if (!_tickerHistoryDirty.size) return;
+  _tickerHistoryDirty.forEach(ticker => _saveTickerHistory(ticker));
+  _tickerHistoryDirty.clear();
+}
+
+// Merges newly-seen closed candles into a ticker's history. Dedupes by timestamp and
+// never overwrites a candle that's already recorded — once a day/week/month has
+// closed its OHLC is final, so the first copy seen is always trusted.
+function _mergeClosedBars(existingBars, freshClosedBars) {
+  if (!freshClosedBars.length) return existingBars;
+  const byT = new Map(existingBars.map(b => [b.t, b]));
+  let changed = false;
+  freshClosedBars.forEach(b => { if (!byT.has(b.t)) { byT.set(b.t, b); changed = true; } });
+  if (!changed) return existingBars;
+  return Array.from(byT.values()).sort((a, b) => a.t - b.t);
+}
+
+// Records the CLOSED portion of a freshly captured bar array (everything except the
+// last bar, which may still have been forming) into that ticker's shared history.
+function _recordTickerBars(ticker, field, bars) {
+  if (!bars || bars.length < 2) return;
+  const tf   = _TF_OF_FIELD[field];
+  const hist = _loadTickerHistory(ticker);
+  const merged = _mergeClosedBars(hist[tf], bars.slice(0, -1));
+  if (merged !== hist[tf]) {
+    hist[tf] = merged;
+    _tickerHistoryDirty.add(ticker);
+  }
+}
+
+// Rebuilds a pick's full bars array from the shared ticker history plus its own
+// privately-kept last bar. lastBar is whatever that pick stored on disk for this
+// field — either a single-bar "tail" (the normal, slimmed-down case) or, for a
+// genuinely tiny history (a ticker with under 2 bars of data total), simply absent.
+function _expandFromHistory(ticker, field, lastBar) {
+  if (!lastBar) return [];
+  const tf     = _TF_OF_FIELD[field];
+  const window = PICK_BAR_WINDOW[field];
+  const closed = _loadTickerHistory(ticker)[tf].filter(b => b.t < lastBar.t);
+  return [...closed.slice(-(window - 1)), lastBar];
+}
+
+// bars as read from disk is either the new slimmed-down tail (0-1 bars — expand it
+// using the shared history) or, for data saved before this change, a still-full
+// array (use it as-is; it'll be slimmed down the next time this pick is saved).
+function _reconstructBars(ticker, field, bars) {
+  if (!bars || bars.length <= 1) return _expandFromHistory(ticker, field, bars && bars[0]);
+  return bars;
+}
+
 // In-memory cache so repeated loadLiked calls (e.g. once per pick during rendering)
 // don't decompress + parse the localStorage blob every time.
 const _likedCache = {};
@@ -12393,6 +12500,19 @@ function _readBarsBucket(key, map, originSet) {
     const str = LZString.decompressFromBase64(raw) || raw;
     JSON.parse(str).forEach(e => {
       const refKey = _pickRefKey(e.ticker, e.starredAt);
+      const rawDaily   = _expandBars(e.dailyBars)   || [];
+      const rawWeekly  = _expandBars(e.weeklyBars)  || [];
+      const rawMonthly = _expandBars(e.monthlyBars) || [];
+
+      // Entries saved before the per-ticker history split still carry their full bar
+      // arrays on disk. Fold the closed portion into the shared history once, here,
+      // so this (and every other) star of the same ticker can be slimmed down next save.
+      let legacy = false;
+      if (rawDaily.length   > 1) { _recordTickerBars(e.ticker, 'dailyBars',   rawDaily);   legacy = true; }
+      if (rawWeekly.length  > 1) { _recordTickerBars(e.ticker, 'weeklyBars',  rawWeekly);  legacy = true; }
+      if (rawMonthly.length > 1) { _recordTickerBars(e.ticker, 'monthlyBars', rawMonthly); legacy = true; }
+      if (legacy) _markSharedBarsDirty(e.starredAt);
+
       map.set(refKey, {
         ticker:      e.ticker,
         name:        e.name,
@@ -12400,9 +12520,9 @@ function _readBarsBucket(key, map, originSet) {
         price:       e.price,
         sectorBonus: e.sectorBonus || 0,
         sectorName:  e.sectorName  || '',
-        dailyBars:   _expandBars(e.dailyBars),
-        weeklyBars:  _expandBars(e.weeklyBars),
-        monthlyBars: _expandBars(e.monthlyBars),
+        dailyBars:   _reconstructBars(e.ticker, 'dailyBars',   rawDaily),
+        weeklyBars:  _reconstructBars(e.ticker, 'weeklyBars',  rawWeekly),
+        monthlyBars: _reconstructBars(e.ticker, 'monthlyBars', rawMonthly),
       });
       if (originSet) originSet.add(refKey);
     });
@@ -12445,15 +12565,21 @@ function _loadSharedBarsMap() {
 }
 
 function _saveSharedBarsMap(map) {
+  // Independent of the pick pool below: each ticker touched this round gets its own
+  // key written, never the whole ticker-history store.
+  _flushTickerHistory();
   if (!_sharedBarsDirty.recent && !_sharedBarsDirty.archive) { _sharedBarsCache = map; return true; }
   try {
     const recent = [], archive = [];
     map.forEach(e => (_isArchivedPick(e.starredAt) ? archive : recent).push(e));
+    // Only each pick's own last candle is stored here — everything before it is
+    // recoverable from that ticker's shared history (see _recordTickerBars above),
+    // which is what keeps a repeat-starred ticker from storing its chart over and over.
     const compact = (list) => list.map(e => ({
       ...e,
-      dailyBars:   _compactBars(e.dailyBars),
-      weeklyBars:  _compactBars(e.weeklyBars),
-      monthlyBars: _compactBars(e.monthlyBars),
+      dailyBars:   _compactBars(e.dailyBars?.slice(-1)),
+      weeklyBars:  _compactBars(e.weeklyBars?.slice(-1)),
+      monthlyBars: _compactBars(e.monthlyBars?.slice(-1)),
     }));
 
     if (_sharedBarsDirty.recent) {
@@ -12489,6 +12615,9 @@ function loadLiked(setupId) {
         migrated = true;
         const key = _pickRefKey(e.ticker, e.starredAt);
         if (!sharedMap.has(key)) {
+          const dailyBars   = _expandBars(e.dailyBars)   || [];
+          const weeklyBars  = _expandBars(e.weeklyBars)  || [];
+          const monthlyBars = _expandBars(e.monthlyBars) || [];
           sharedMap.set(key, {
             ticker:      e.ticker,
             name:        e.name,
@@ -12496,10 +12625,11 @@ function loadLiked(setupId) {
             price:       e.price,
             sectorBonus: e.sectorBonus || 0,
             sectorName:  e.sectorName  || '',
-            dailyBars:   _expandBars(e.dailyBars),
-            weeklyBars:  _expandBars(e.weeklyBars),
-            monthlyBars: _expandBars(e.monthlyBars),
+            dailyBars, weeklyBars, monthlyBars,
           });
+          _recordTickerBars(e.ticker, 'dailyBars',   dailyBars);
+          _recordTickerBars(e.ticker, 'weeklyBars',  weeklyBars);
+          _recordTickerBars(e.ticker, 'monthlyBars', monthlyBars);
           _markSharedBarsDirty(e.starredAt);
         }
       }
@@ -12559,6 +12689,9 @@ function saveLiked(setupId, arr, { gc = false } = {}) {
       };
       if (_sharedEntryChanged(sharedMap.get(key), next)) {
         sharedMap.set(key, next);
+        _recordTickerBars(e.ticker, 'dailyBars',   next.dailyBars);
+        _recordTickerBars(e.ticker, 'weeklyBars',  next.weeklyBars);
+        _recordTickerBars(e.ticker, 'monthlyBars', next.monthlyBars);
         _markSharedBarsDirty(e.starredAt);
       }
     });
@@ -12630,6 +12763,9 @@ function saveLikedBatch(entries) {
         };
         if (_sharedEntryChanged(sharedMap.get(key), next)) {
           sharedMap.set(key, next);
+          _recordTickerBars(e.ticker, 'dailyBars',   next.dailyBars);
+          _recordTickerBars(e.ticker, 'weeklyBars',  next.weeklyBars);
+          _recordTickerBars(e.ticker, 'monthlyBars', next.monthlyBars);
           _markSharedBarsDirty(e.starredAt);
         }
       });
