@@ -8547,7 +8547,7 @@ function removeStarredFromTab(ticker, starredAt) {
   // Remove from all active setup pools — match by ticker + starredAt so duplicate
   // entries for the same ticker are removed individually, not all at once.
   getActiveSetupIds().forEach(sid => {
-    saveLiked(sid, loadLiked(sid).filter(l => !(l.ticker === ticker && l.starredAt === starredAt)));
+    saveLiked(sid, loadLiked(sid).filter(l => !(l.ticker === ticker && l.starredAt === starredAt)), { gc: true });
   });
   picksSelectedKeys.delete(_pickKey(ticker, starredAt));
   _syncPicksToolbar();
@@ -8620,8 +8620,7 @@ async function _addSinglePickWorker(ticker, starredAt) {
     weeklyBars:  (r.weekly  || []).slice(-52) .map(b => ({ t:b.t, o:b.o, h:b.h, l:b.l, c:b.c })),
     monthlyBars: (r.monthly || []).slice(-36) .map(b => ({ t:b.t, o:b.o, h:b.h, l:b.l, c:b.c })),
   };
-  let saveOk = false;
-  getActiveSetupIds().forEach(sid => {
+  const entries = getActiveSetupIds().map(sid => {
     // Only drop an exact duplicate (same ticker + same date) — every other dated
     // entry for this ticker is a separate pick and must be kept.
     const existing = loadLiked(sid).filter(l => !(l.ticker === ticker && l.starredAt === starredAt));
@@ -8629,9 +8628,9 @@ async function _addSinglePickWorker(ticker, starredAt) {
     const criteriaVector = {};
     SETUPS[sid].criteria.forEach(c => { criteriaVector[c.id] = scored.criteriaScores?.[c.id]?.raw ?? 0; });
     existing.push({ ...sharedBase, score: scored.score, tfNorm: { ...scored.tfNorm }, setupId: sid, criteriaVector });
-    if (saveLiked(sid, existing)) saveOk = true;
+    return { setupId: sid, arr: existing };
   });
-  if (!saveOk) throw new Error('storage may be full');
+  if (!saveLikedBatch(entries)) throw new Error('storage may be full');
 }
 
 async function addPickByTicker(rawInput, dateStr) {
@@ -8690,11 +8689,13 @@ async function switchPicksChart(ticker, tf) {
     try {
       const { bars } = await fetchYF(toYFTicker(ticker), '2y', '1wk');
       const weeklyBars = bars.slice(-52).map(b => ({ t:b.t, o:b.o, h:b.h, l:b.l, c:b.c }));
-      getActiveSetupIds().forEach(sid => {
+      const entries = getActiveSetupIds().map(sid => {
         const pool = loadLiked(sid);
         const e = pool.find(l => l.ticker === ticker);
-        if (e) { e.weeklyBars = weeklyBars; saveLiked(sid, pool); }
+        if (e) e.weeklyBars = weeklyBars;
+        return { setupId: sid, arr: pool };
       });
+      saveLikedBatch(entries);
       entry.weeklyBars = weeklyBars;
     } catch (err) {
       container.innerHTML = '<div style="height:100%;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--red);font-family:\'IBM Plex Mono\',monospace">Could not load weekly data</div>';
@@ -8708,11 +8709,13 @@ async function switchPicksChart(ticker, tf) {
     try {
       const { bars } = await fetchYF(toYFTicker(ticker), 'max', '1mo');
       const monthlyBars = bars.slice(-36).map(b => ({ t:b.t, o:b.o, h:b.h, l:b.l, c:b.c }));
-      getActiveSetupIds().forEach(sid => {
+      const entries = getActiveSetupIds().map(sid => {
         const pool = loadLiked(sid);
         const e = pool.find(l => l.ticker === ticker);
-        if (e) { e.monthlyBars = monthlyBars; saveLiked(sid, pool); }
+        if (e) e.monthlyBars = monthlyBars;
+        return { setupId: sid, arr: pool };
       });
+      saveLikedBatch(entries);
       entry.monthlyBars = monthlyBars;
     } catch (err) {
       container.innerHTML = '<div style="height:100%;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--red);font-family:\'IBM Plex Mono\',monospace">Could not load monthly data</div>';
@@ -8948,7 +8951,7 @@ function deleteSelectedPicks() {
   const keysToRemove = picksSelectedKeys;
   getActiveSetupIds().forEach(sid => {
     const remaining = loadLiked(sid).filter(l => !keysToRemove.has(_pickKey(l.ticker, l.starredAt)));
-    saveLiked(sid, remaining);
+    saveLiked(sid, remaining, { gc: true });
   });
 
   picksSelectedKeys = new Set();
@@ -8989,7 +8992,7 @@ function deletePicksByDateRange() {
   const keysToRemove = new Set(matches.map(e => _pickKey(e.ticker, e.starredAt)));
   getActiveSetupIds().forEach(sid => {
     const remaining = loadLiked(sid).filter(l => !keysToRemove.has(_pickKey(l.ticker, l.starredAt)));
-    saveLiked(sid, remaining);
+    saveLiked(sid, remaining, { gc: true });
   });
 
   keysToRemove.forEach(k => picksSelectedKeys.delete(k));
@@ -12393,21 +12396,6 @@ function _saveSharedBarsMap(map) {
   }
 }
 
-// Drops any shared chart snapshot no longer referenced by ANY setup's pick list
-// (e.g. after a pick was removed), then persists the shared pool.
-function _gcSharedBars(map) {
-  const referenced = new Set();
-  [1, 2, 'ph'].forEach(sid => {
-    try {
-      const raw = localStorage.getItem(`cts_liked_setup_${sid}`) || '[]';
-      const str = LZString.decompressFromBase64(raw) || raw;
-      JSON.parse(str).forEach(e => referenced.add(_pickRefKey(e.ticker, e.starredAt)));
-    } catch {}
-  });
-  Array.from(map.keys()).forEach(k => { if (!referenced.has(k)) map.delete(k); });
-  return _saveSharedBarsMap(map);
-}
-
 function loadLiked(setupId) {
   if (_likedCache[setupId]) return _likedCache[setupId];
   try {
@@ -12471,7 +12459,13 @@ function loadLiked(setupId) {
   } catch { return []; }
 }
 
-function saveLiked(setupId, arr) {
+// gc:true also prunes shared chart snapshots no longer referenced by ANY setup's
+// pick list (checking the OTHER setups' storage too) — only needed after a removal,
+// since adding a pick can never orphan one. Skipping it on every add avoids extra
+// localStorage reads, and folding the prune into this same pass (instead of a
+// separate pass afterward) means the shared pool gets compressed once per call,
+// not twice.
+function saveLiked(setupId, arr, { gc = false } = {}) {
   try {
     const sharedMap = _loadSharedBarsMap();
     arr.forEach(e => {
@@ -12487,6 +12481,19 @@ function saveLiked(setupId, arr) {
         monthlyBars: e.monthlyBars || [],
       });
     });
+
+    if (gc) {
+      const referenced = new Set();
+      arr.forEach(e => referenced.add(_pickRefKey(e.ticker, e.starredAt)));
+      [1, 2, 'ph'].filter(sid => sid !== setupId).forEach(sid => {
+        try {
+          const raw = localStorage.getItem(`cts_liked_setup_${sid}`) || '[]';
+          const str = LZString.decompressFromBase64(raw) || raw;
+          JSON.parse(str).forEach(e => referenced.add(_pickRefKey(e.ticker, e.starredAt)));
+        } catch {}
+      });
+      Array.from(sharedMap.keys()).forEach(k => { if (!referenced.has(k)) sharedMap.delete(k); });
+    }
 
     // Save the (heavier) shared chart-bar pool BEFORE the pick-list entry itself.
     // This is the write most likely to hit the storage quota, and if it fails we
@@ -12505,12 +12512,58 @@ function saveLiked(setupId, arr) {
     }));
     localStorage.setItem(`cts_liked_setup_${setupId}`, LZString.compressToBase64(JSON.stringify(slim)));
 
-    _gcSharedBars(sharedMap); // best-effort cleanup of now-unreferenced snapshots
-
     _likedCache[setupId] = arr; // only sync the in-memory copy once the write actually succeeded
     return true;
   } catch (e) {
     console.error('[saveLiked] localStorage write failed:', e);
+    return false;
+  }
+}
+
+// Saving a single star normally means writing the SAME ticker into every active
+// setup's pick list (Setup A and Setup B both track it). Calling saveLiked() once
+// per setup recompressed the entire shared chart-bar pool once per setup — with
+// two setups active that's the full pool compressed twice for one star click, and
+// that compression is what made the UI freeze as the pool grew. This does it once,
+// no matter how many setups are being written to.
+// entries: [{ setupId, arr }, ...]. Never used for removals (gc:false) — adding a
+// pick can't orphan a shared snapshot, so there's nothing to prune.
+function saveLikedBatch(entries) {
+  try {
+    const sharedMap = _loadSharedBarsMap();
+    entries.forEach(({ arr }) => {
+      arr.forEach(e => {
+        sharedMap.set(_pickRefKey(e.ticker, e.starredAt), {
+          ticker:      e.ticker,
+          name:        e.name,
+          starredAt:   e.starredAt,
+          price:       e.price,
+          sectorBonus: e.sectorBonus || 0,
+          sectorName:  e.sectorName  || '',
+          dailyBars:   e.dailyBars   || [],
+          weeklyBars:  e.weeklyBars  || [],
+          monthlyBars: e.monthlyBars || [],
+        });
+      });
+    });
+
+    if (!_saveSharedBarsMap(sharedMap)) return false;
+
+    entries.forEach(({ setupId, arr }) => {
+      const slim = arr.map(e => ({
+        ticker:         e.ticker,
+        starredAt:      e.starredAt,
+        setupId:        e.setupId,
+        score:          e.score,
+        tfNorm:         e.tfNorm || {},
+        criteriaVector: e.criteriaVector || {},
+      }));
+      localStorage.setItem(`cts_liked_setup_${setupId}`, LZString.compressToBase64(JSON.stringify(slim)));
+      _likedCache[setupId] = arr;
+    });
+    return true;
+  } catch (e) {
+    console.error('[saveLikedBatch] localStorage write failed:', e);
     return false;
   }
 }
@@ -12730,15 +12783,15 @@ function toggleStar(ticker) {
 
     let saveOk = false;
     try {
-      getActiveSetupIds().forEach(sid => {
+      const entries = getActiveSetupIds().map(sid => {
         const liked = loadLiked(sid);
         const scored = scoreStock(r, sid);
         const criteriaVector = {};
         SETUPS[sid].criteria.forEach(c => { criteriaVector[c.id] = scored.criteriaScores?.[c.id]?.raw ?? 0; });
         liked.push({ ...sharedBase, setupId: sid, criteriaVector });
-        const ok = saveLiked(sid, liked);
-        if (ok) saveOk = true;
+        return { setupId: sid, arr: liked };
       });
+      saveOk = saveLikedBatch(entries);
     } catch (e) {
       console.error('[toggleStar] save failed:', e);
       showToast(`Could not save ${ticker} to My Picks: ${e.message}`, 'error');
@@ -12800,7 +12853,7 @@ async function sgoStarPick(ticker) {
 }
 
 function clearLiked() {
-  getActiveSetupIds().forEach(sid => saveLiked(sid, []));
+  getActiveSetupIds().forEach(sid => saveLiked(sid, [], { gc: true }));
   results.forEach(r => { r.isStarred = false; r.prefBonus = 0; r.prefSim = 0; });
   // Also reset adapted weights if active
   if (_weightsAdapted) {
