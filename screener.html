@@ -12355,14 +12355,45 @@ const _likedCache = {};
 let _sharedBarsCache = null;
 function _pickRefKey(ticker, starredAt) { return `${ticker}|${starredAt}`; }
 
-function _loadSharedBarsMap() {
-  if (_sharedBarsCache) return _sharedBarsCache;
-  const map = new Map();
+// Picks older than this are "archived" — their chart snapshot lives in a separate
+// localStorage key from recent picks (see below) so that starring a new stock never
+// has to re-save months of old chart data just to add one entry.
+const PICKS_ARCHIVE_AGE_MS = 31 * 24 * 60 * 60 * 1000;
+function _isArchivedPick(starredAt) { return (Date.now() - starredAt) > PICKS_ARCHIVE_AGE_MS; }
+
+// Which bucket(s) actually changed since the map was last persisted. A new star only
+// ever touches 'recent' (its starredAt is "now"), so _saveSharedBarsMap below only
+// re-compresses and re-writes 'archive' when something genuinely changed there
+// (a removal, or a pick aging past the 1-month mark) — not on every save.
+let _sharedBarsDirty = { recent: false, archive: false };
+function _markSharedBarsDirty(starredAt) {
+  if (_isArchivedPick(starredAt)) _sharedBarsDirty.archive = true;
+  else _sharedBarsDirty.recent = true;
+}
+
+// saveLiked/saveLikedBatch receive the FULL per-setup pick list every time (existing
+// picks plus whatever's new), so this tells apart an entry that actually needs
+// writing from the many unchanged ones just passing through — otherwise every save
+// would mark 'archive' dirty as soon as a single pick in the list was over a month
+// old, re-compressing the whole archive on every star again.
+function _sharedEntryChanged(existing, next) {
+  if (!existing) return true;
+  return existing.name        !== next.name
+      || existing.price       !== next.price
+      || existing.sectorBonus !== next.sectorBonus
+      || existing.sectorName  !== next.sectorName
+      || (existing.dailyBars?.length   || 0) !== (next.dailyBars?.length   || 0)
+      || (existing.weeklyBars?.length  || 0) !== (next.weeklyBars?.length  || 0)
+      || (existing.monthlyBars?.length || 0) !== (next.monthlyBars?.length || 0);
+}
+
+function _readBarsBucket(key, map, originSet) {
   try {
-    const raw = localStorage.getItem('cts_picks_bars') || '[]';
+    const raw = localStorage.getItem(key) || '[]';
     const str = LZString.decompressFromBase64(raw) || raw;
     JSON.parse(str).forEach(e => {
-      map.set(_pickRefKey(e.ticker, e.starredAt), {
+      const refKey = _pickRefKey(e.ticker, e.starredAt);
+      map.set(refKey, {
         ticker:      e.ticker,
         name:        e.name,
         starredAt:   e.starredAt,
@@ -12373,21 +12404,65 @@ function _loadSharedBarsMap() {
         weeklyBars:  _expandBars(e.weeklyBars),
         monthlyBars: _expandBars(e.monthlyBars),
       });
+      if (originSet) originSet.add(refKey);
     });
   } catch {}
+}
+
+function _loadSharedBarsMap() {
+  if (_sharedBarsCache) return _sharedBarsCache;
+  const map = new Map();
+
+  // One-time migration from the old single-pool key into the recent/archive split.
+  if (localStorage.getItem('cts_picks_bars') !== null) {
+    _readBarsBucket('cts_picks_bars', map);
+    localStorage.removeItem('cts_picks_bars');
+    _sharedBarsCache = map;
+    _sharedBarsDirty = { recent: true, archive: true };
+    _saveSharedBarsMap(map);
+    return map;
+  }
+
+  const recentOrigin = new Set();
+  _readBarsBucket('cts_picks_bars_recent', map, recentOrigin);
+  _readBarsBucket('cts_picks_bars_archive', map);
   _sharedBarsCache = map;
+
+  // A pick saved while "recent" may have aged past the 1-month mark since the last
+  // save — reconcile that once per page load so the recent bucket doesn't just grow
+  // forever with picks that should have moved to archive.
+  let aged = false;
+  recentOrigin.forEach(k => {
+    const e = map.get(k);
+    if (e && _isArchivedPick(e.starredAt)) aged = true;
+  });
+  if (aged) {
+    _sharedBarsDirty = { recent: true, archive: true };
+    _saveSharedBarsMap(map);
+  }
+
   return map;
 }
 
 function _saveSharedBarsMap(map) {
+  if (!_sharedBarsDirty.recent && !_sharedBarsDirty.archive) { _sharedBarsCache = map; return true; }
   try {
-    const compact = Array.from(map.values()).map(e => ({
+    const recent = [], archive = [];
+    map.forEach(e => (_isArchivedPick(e.starredAt) ? archive : recent).push(e));
+    const compact = (list) => list.map(e => ({
       ...e,
       dailyBars:   _compactBars(e.dailyBars),
       weeklyBars:  _compactBars(e.weeklyBars),
       monthlyBars: _compactBars(e.monthlyBars),
     }));
-    localStorage.setItem('cts_picks_bars', LZString.compressToBase64(JSON.stringify(compact)));
+
+    if (_sharedBarsDirty.recent) {
+      localStorage.setItem('cts_picks_bars_recent', LZString.compressToBase64(JSON.stringify(compact(recent))));
+    }
+    if (_sharedBarsDirty.archive) {
+      localStorage.setItem('cts_picks_bars_archive', LZString.compressToBase64(JSON.stringify(compact(archive))));
+    }
+    _sharedBarsDirty = { recent: false, archive: false };
     _sharedBarsCache = map;
     return true;
   } catch (e) {
@@ -12425,6 +12500,7 @@ function loadLiked(setupId) {
             weeklyBars:  _expandBars(e.weeklyBars),
             monthlyBars: _expandBars(e.monthlyBars),
           });
+          _markSharedBarsDirty(e.starredAt);
         }
       }
     });
@@ -12469,7 +12545,8 @@ function saveLiked(setupId, arr, { gc = false } = {}) {
   try {
     const sharedMap = _loadSharedBarsMap();
     arr.forEach(e => {
-      sharedMap.set(_pickRefKey(e.ticker, e.starredAt), {
+      const key  = _pickRefKey(e.ticker, e.starredAt);
+      const next = {
         ticker:      e.ticker,
         name:        e.name,
         starredAt:   e.starredAt,
@@ -12479,7 +12556,11 @@ function saveLiked(setupId, arr, { gc = false } = {}) {
         dailyBars:   e.dailyBars   || [],
         weeklyBars:  e.weeklyBars  || [],
         monthlyBars: e.monthlyBars || [],
-      });
+      };
+      if (_sharedEntryChanged(sharedMap.get(key), next)) {
+        sharedMap.set(key, next);
+        _markSharedBarsDirty(e.starredAt);
+      }
     });
 
     if (gc) {
@@ -12492,7 +12573,9 @@ function saveLiked(setupId, arr, { gc = false } = {}) {
           JSON.parse(str).forEach(e => referenced.add(_pickRefKey(e.ticker, e.starredAt)));
         } catch {}
       });
-      Array.from(sharedMap.keys()).forEach(k => { if (!referenced.has(k)) sharedMap.delete(k); });
+      Array.from(sharedMap.entries()).forEach(([k, v]) => {
+        if (!referenced.has(k)) { sharedMap.delete(k); _markSharedBarsDirty(v.starredAt); }
+      });
     }
 
     // Save the (heavier) shared chart-bar pool BEFORE the pick-list entry itself.
@@ -12533,7 +12616,8 @@ function saveLikedBatch(entries) {
     const sharedMap = _loadSharedBarsMap();
     entries.forEach(({ arr }) => {
       arr.forEach(e => {
-        sharedMap.set(_pickRefKey(e.ticker, e.starredAt), {
+        const key  = _pickRefKey(e.ticker, e.starredAt);
+        const next = {
           ticker:      e.ticker,
           name:        e.name,
           starredAt:   e.starredAt,
@@ -12543,7 +12627,11 @@ function saveLikedBatch(entries) {
           dailyBars:   e.dailyBars   || [],
           weeklyBars:  e.weeklyBars  || [],
           monthlyBars: e.monthlyBars || [],
-        });
+        };
+        if (_sharedEntryChanged(sharedMap.get(key), next)) {
+          sharedMap.set(key, next);
+          _markSharedBarsDirty(e.starredAt);
+        }
       });
     });
 
