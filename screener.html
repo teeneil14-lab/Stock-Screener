@@ -7870,8 +7870,10 @@ const DEFAULT_STUDIES = [
   "STD;Moving_Average_Ribbon",
 ];
 
+let currentChartStock = null; // whichever stock the chart is showing (incl. filtered-out ones)
 function loadChart(stock) {
   if (!stock) return;
+  currentChartStock = stock;
   const defaultExch = marketMode === 'PH' ? 'PSE' : '';
   const exchange = (stock.exchange && stock.exchange !== '—') ? stock.exchange : defaultExch;
   const symbol   = exchange ? `${exchange}:${stock.ticker}` : stock.ticker;
@@ -7974,7 +7976,8 @@ function setChartMode(mode) {
       if (el) el.classList.toggle('active', t === mode);
     });
   }
-  if (activeRow >= 0 && sortedResults[activeRow]) loadChart(sortedResults[activeRow]);
+  const cs = currentChartStock || (activeRow >= 0 && sortedResults[activeRow]);
+  if (cs) loadChart(cs);
 }
 
 function setChartRange(range) {
@@ -7983,7 +7986,8 @@ function setChartRange(range) {
     const el = document.getElementById('btn-range-' + r.toLowerCase());
     if (el) el.classList.toggle('active', r === range);
   });
-  if (activeRow >= 0 && sortedResults[activeRow]) loadChart(sortedResults[activeRow]);
+  const cs = currentChartStock || (activeRow >= 0 && sortedResults[activeRow]);
+  if (cs) loadChart(cs);
 }
 
 // ============================================================
