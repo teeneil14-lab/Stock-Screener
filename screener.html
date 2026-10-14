@@ -4901,6 +4901,8 @@ let marketMode    = 'US'; // 'US' | 'PH'
 
 // Returns the setup IDs that are active for the current market
 function getActiveSetupIds() { return marketMode === 'PH' ? ['ph'] : [1, 2]; }
+// Which pick list(s) a star/remove/clear applies to: only the setup you are on (A and B keep separate lists).
+function getPickSetupIds() { return [currentSetup]; }
 // Yahoo Finance uses .PS suffix for PSE-listed stocks. Accepts an optional mode
 // override so an in-flight scan keeps using the market it started on even if
 // the user switches US/PH mid-scan.
@@ -8550,7 +8552,7 @@ function calcBollingerBands(bars, period = 20, mult = 2) {
 function removeStarredFromTab(ticker, starredAt) {
   // Remove from all active setup pools — match by ticker + starredAt so duplicate
   // entries for the same ticker are removed individually, not all at once.
-  getActiveSetupIds().forEach(sid => {
+  getPickSetupIds().forEach(sid => {
     saveLiked(sid, loadLiked(sid).filter(l => !(l.ticker === ticker && l.starredAt === starredAt)), { gc: true });
   });
   picksSelectedKeys.delete(_pickKey(ticker, starredAt));
@@ -8624,7 +8626,7 @@ async function _addSinglePickWorker(ticker, starredAt) {
     weeklyBars:  (r.weekly  || []).slice(-52) .map(b => ({ t:b.t, o:b.o, h:b.h, l:b.l, c:b.c })),
     monthlyBars: (r.monthly || []).slice(-36) .map(b => ({ t:b.t, o:b.o, h:b.h, l:b.l, c:b.c })),
   };
-  const entries = getActiveSetupIds().map(sid => {
+  const entries = getPickSetupIds().map(sid => {
     // Only drop an exact duplicate (same ticker + same date) — every other dated
     // entry for this ticker is a separate pick and must be kept.
     const existing = loadLiked(sid).filter(l => !(l.ticker === ticker && l.starredAt === starredAt));
@@ -8693,7 +8695,7 @@ async function switchPicksChart(ticker, tf) {
     try {
       const { bars } = await fetchYF(toYFTicker(ticker), '2y', '1wk');
       const weeklyBars = bars.slice(-52).map(b => ({ t:b.t, o:b.o, h:b.h, l:b.l, c:b.c }));
-      const entries = getActiveSetupIds().map(sid => {
+      const entries = getPickSetupIds().map(sid => {
         const pool = loadLiked(sid);
         const e = pool.find(l => l.ticker === ticker);
         if (e) e.weeklyBars = weeklyBars;
@@ -8713,7 +8715,7 @@ async function switchPicksChart(ticker, tf) {
     try {
       const { bars } = await fetchYF(toYFTicker(ticker), 'max', '1mo');
       const monthlyBars = bars.slice(-36).map(b => ({ t:b.t, o:b.o, h:b.h, l:b.l, c:b.c }));
-      const entries = getActiveSetupIds().map(sid => {
+      const entries = getPickSetupIds().map(sid => {
         const pool = loadLiked(sid);
         const e = pool.find(l => l.ticker === ticker);
         if (e) e.monthlyBars = monthlyBars;
@@ -8953,7 +8955,7 @@ function deleteSelectedPicks() {
   if (!confirm(`Remove ${n} pick${n === 1 ? '' : 's'} from My Picks? This can't be undone.`)) return;
 
   const keysToRemove = picksSelectedKeys;
-  getActiveSetupIds().forEach(sid => {
+  getPickSetupIds().forEach(sid => {
     const remaining = loadLiked(sid).filter(l => !keysToRemove.has(_pickKey(l.ticker, l.starredAt)));
     saveLiked(sid, remaining, { gc: true });
   });
@@ -8994,7 +8996,7 @@ function deletePicksByDateRange() {
   if (!confirm(`Remove ${n} pick${n === 1 ? '' : 's'} added between ${rangeLabel}? This can't be undone.`)) return;
 
   const keysToRemove = new Set(matches.map(e => _pickKey(e.ticker, e.starredAt)));
-  getActiveSetupIds().forEach(sid => {
+  getPickSetupIds().forEach(sid => {
     const remaining = loadLiked(sid).filter(l => !keysToRemove.has(_pickKey(l.ticker, l.starredAt)));
     saveLiked(sid, remaining, { gc: true });
   });
@@ -13011,7 +13013,7 @@ function toggleStar(ticker) {
 
     let saveOk = false;
     try {
-      const entries = getActiveSetupIds().map(sid => {
+      const entries = getPickSetupIds().map(sid => {
         const liked = loadLiked(sid);
         const scored = scoreStock(r, sid);
         const criteriaVector = {};
@@ -13081,7 +13083,7 @@ async function sgoStarPick(ticker) {
 }
 
 function clearLiked() {
-  getActiveSetupIds().forEach(sid => saveLiked(sid, [], { gc: true }));
+  getPickSetupIds().forEach(sid => saveLiked(sid, [], { gc: true }));
   results.forEach(r => { r.isStarred = false; r.prefBonus = 0; r.prefSim = 0; });
   // Also reset adapted weights if active
   if (_weightsAdapted) {
@@ -15690,7 +15692,7 @@ function renderSgoGrid() {
     `<span class="sgo-ema-badge ${ok ? 'sgo-ema-ok' : 'sgo-ema-fail'}">${label}</span>`;
 
   const starredSet = new Set(
-    getActiveSetupIds().flatMap(sid => loadLiked(sid).map(l => l.ticker))
+    getPickSetupIds().flatMap(sid => loadLiked(sid).map(l => l.ticker))
   );
 
   sgoStocks.forEach((r, idx) => {
