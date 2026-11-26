@@ -31,3 +31,9 @@ create index if not exists picks_starred_idx on picks (starred_at desc);
 -- The browser never talks to Supabase directly, so your key stays private.
 alter table picks     enable row level security;
 alter table pick_bars enable row level security;
+
+-- Newer Supabase projects don't give the server's key access to new tables automatically.
+grant usage on schema public to service_role;
+grant all on table public.picks to service_role;
+grant all on table public.pick_bars to service_role;
+grant usage, select on all sequences in schema public to service_role;
