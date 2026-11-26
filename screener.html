@@ -8559,9 +8559,9 @@ function removeStarredFromTab(ticker, starredAt) {
   _syncPicksToolbar();
 
   // Destroy chart instance
-  if (_lwCharts[ticker]) {
-    try { _lwCharts[ticker].remove(); } catch {}
-    delete _lwCharts[ticker];
+  if (_lwCharts[_pickDomId(ticker, starredAt)]) {
+    try { _lwCharts[_pickDomId(ticker, starredAt)].remove(); } catch {}
+    delete _lwCharts[_pickDomId(ticker, starredAt)];
   }
 
   // Remove card/row from DOM (works in both chart grid and list view)
@@ -8678,16 +8678,24 @@ async function addPickByTicker(rawInput, dateStr) {
   if (errors.length) alert('Could not add:\n' + errors.join('\n'));
 }
 
-async function switchPicksChart(ticker, tf) {
+// One card per pick: the same stock starred on two different days has two cards, so cards (and their
+// charts) are identified by ticker AND star time, not ticker alone.
+function _pickDomId(ticker, starredAt) { return `${ticker}_${starredAt}`; }
+
+async function switchPicksChart(ticker, tf, starredAt) {
+  const liked     = loadLiked(currentSetup);
+  let entry       = liked.find(l => l.ticker === ticker && (starredAt === undefined || l.starredAt === starredAt));
+  if (!entry) return;
+  starredAt       = entry.starredAt;
+  const domId     = _pickDomId(ticker, starredAt);
+
   ['D','W','M'].forEach(t => {
-    const btn = document.getElementById(`picks-btn-${t}-${ticker}`);
+    const btn = document.getElementById(`picks-btn-${t}-${domId}`);
     if (btn) btn.classList.toggle('active', t === tf);
   });
 
-  const container = document.getElementById(`picks-chart-${ticker}`);
-  const liked     = loadLiked(currentSetup);
-  let entry       = liked.find(l => l.ticker === ticker);
-  if (!container || !entry) return;
+  const container = document.getElementById(`picks-chart-${domId}`);
+  if (!container) return;
 
   // Old picks have their chart history stored in the cloud only (see cloudEvictOldHistory).
   // Pull it in for display — a copy, so nothing is written back into browser storage.
@@ -8701,7 +8709,7 @@ async function switchPicksChart(ticker, tf) {
       const weeklyBars = bars.slice(-52).map(b => ({ t:b.t, o:b.o, h:b.h, l:b.l, c:b.c }));
       const entries = getPickSetupIds().map(sid => {
         const pool = loadLiked(sid);
-        const e = pool.find(l => l.ticker === ticker);
+        const e = pool.find(l => l.ticker === ticker && l.starredAt === starredAt);
         if (e) e.weeklyBars = weeklyBars;
         return { setupId: sid, arr: pool };
       });
@@ -8721,7 +8729,7 @@ async function switchPicksChart(ticker, tf) {
       const monthlyBars = bars.slice(-36).map(b => ({ t:b.t, o:b.o, h:b.h, l:b.l, c:b.c }));
       const entries = getPickSetupIds().map(sid => {
         const pool = loadLiked(sid);
-        const e = pool.find(l => l.ticker === ticker);
+        const e = pool.find(l => l.ticker === ticker && l.starredAt === starredAt);
         if (e) e.monthlyBars = monthlyBars;
         return { setupId: sid, arr: pool };
       });
@@ -8733,7 +8741,7 @@ async function switchPicksChart(ticker, tf) {
     }
   }
 
-  if (_lwCharts[ticker]) { try { _lwCharts[ticker].remove(); } catch {} delete _lwCharts[ticker]; }
+  if (_lwCharts[domId]) { try { _lwCharts[domId].remove(); } catch {} delete _lwCharts[domId]; }
   container.innerHTML = '';
   createStarredChart(container, entry, tf);
 }
@@ -8776,7 +8784,7 @@ function createStarredChart(container, entry, tf = 'D') {
     handleScroll:    true,
     handleScale:     true,
   });
-  _lwCharts[entry.ticker] = chart;
+  _lwCharts[_pickDomId(entry.ticker, entry.starredAt)] = chart;
 
   // Candlesticks
   const candles = chart.addCandlestickSeries({
@@ -8833,7 +8841,7 @@ function createStarredChart(container, entry, tf = 'D') {
   }
 
   } catch (err) {
-    if (chart) { try { chart.remove(); } catch {} delete _lwCharts[entry.ticker]; }
+    if (chart) { try { chart.remove(); } catch {} delete _lwCharts[_pickDomId(entry.ticker, entry.starredAt)]; }
     container.innerHTML = `<div style="height:100%;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--red);font-family:'IBM Plex Mono',monospace">Chart error: ${err.message}</div>`;
   }
 }
@@ -9113,7 +9121,7 @@ async function switchAllPicksCharts(tf) {
   const gen = ++_switchGen;
   if (_picksObserver) { _picksObserver.disconnect(); _picksObserver = null; }
   const entries  = _picksPageEntries; // only tickers actually mounted on the current page
-  const byTicker = new Map(entries.map(e => [e.ticker, e]));
+  const byKey    = new Map(entries.map(e => [_pickDomId(e.ticker, e.starredAt), e]));
 
   // Charts are drawn only for cards on (or near) the screen, and the rest are drawn as you scroll to them.
   // At most 4 are drawn / fetched at a time — keeps Yahoo Finance happy and the UI responsive.
@@ -9122,13 +9130,13 @@ async function switchAllPicksCharts(tf) {
   const pump = () => {
     while (running < MAX_AT_ONCE && queue.length) {
       if (gen !== _switchGen) { queue.length = 0; return; }  // user switched TF again — drop stale work
-      const ticker = queue.shift(); running++;
-      switchPicksChart(ticker, tf).catch(() => {}).finally(() => { running--; pump(); });
+      const e = queue.shift(); running++;
+      switchPicksChart(e.ticker, tf, e.starredAt).catch(() => {}).finally(() => { running--; pump(); });
     }
   };
 
   if (typeof IntersectionObserver === 'undefined') {       // very old browser: draw everything as before
-    entries.forEach(e => queue.push(e.ticker)); pump(); return;
+    entries.forEach(e => queue.push(e)); pump(); return;
   }
   _picksObserver = new IntersectionObserver((hits) => {
     if (gen !== _switchGen) return;
@@ -9136,16 +9144,16 @@ async function switchAllPicksCharts(tf) {
     hits.forEach(h => {
       if (!h.isIntersecting) return;
       _picksObserver.unobserve(h.target);
-      const e = byTicker.get(h.target.id.replace('picks-chart-', ''));
+      const e = byKey.get(h.target.id.replace('picks-chart-', ''));
       if (e) visible.push(e);
     });
     if (!visible.length) return;
     cloudPrefetchBars(visible);                            // old picks: fetch their cloud charts in parallel (not awaited)
-    visible.forEach(e => queue.push(e.ticker));
+    visible.forEach(e => queue.push(e));
     pump();
   }, { rootMargin: '500px 0px' });
   entries.forEach(e => {
-    const wrap = document.getElementById(`picks-chart-${e.ticker}`);
+    const wrap = document.getElementById(`picks-chart-${_pickDomId(e.ticker, e.starredAt)}`);
     if (wrap) _picksObserver.observe(wrap);
   });
 }
@@ -9208,11 +9216,11 @@ function renderStarredCharts() {
         </div>
       </div>
       <div class="picks-chart-controls">
-        <button class="picks-chart-btn${tf0==='D'?' active':''}" id="picks-btn-D-${entry.ticker}" onclick="switchPicksChart('${entry.ticker}','D')">DAILY</button>
-        <button class="picks-chart-btn${tf0==='W'?' active':''}" id="picks-btn-W-${entry.ticker}" onclick="switchPicksChart('${entry.ticker}','W')">WEEKLY</button>
-        <button class="picks-chart-btn${tf0==='M'?' active':''}" id="picks-btn-M-${entry.ticker}" onclick="switchPicksChart('${entry.ticker}','M')">MONTHLY</button>
+        <button class="picks-chart-btn${tf0==='D'?' active':''}" id="picks-btn-D-${entry.ticker}_${entry.starredAt}" onclick="switchPicksChart('${entry.ticker}','D',${entry.starredAt})">DAILY</button>
+        <button class="picks-chart-btn${tf0==='W'?' active':''}" id="picks-btn-W-${entry.ticker}_${entry.starredAt}" onclick="switchPicksChart('${entry.ticker}','W',${entry.starredAt})">WEEKLY</button>
+        <button class="picks-chart-btn${tf0==='M'?' active':''}" id="picks-btn-M-${entry.ticker}_${entry.starredAt}" onclick="switchPicksChart('${entry.ticker}','M',${entry.starredAt})">MONTHLY</button>
       </div>
-      <div class="picks-chart-wrap" id="picks-chart-${entry.ticker}"></div>
+      <div class="picks-chart-wrap" id="picks-chart-${entry.ticker}_${entry.starredAt}"></div>
       <div class="picks-card-tf-bar">
         ${(currentSetup === 'ph' ? ['MONTHLY','WEEKLY','DAILY'] : ['MONTHLY','WEEKLY','DAILY','YEARLY']).map(tf => {
           const v  = entry.tfNorm?.[tf] || 0;
