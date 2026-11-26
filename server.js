@@ -679,10 +679,10 @@ function sb(method, restPath, body, extraHeaders = {}) {
 }
 
 // Reads every row of a table, 500 at a time (Supabase caps one request at ~1000 rows).
-async function sbSelectAll(table, query = '') {
+async function sbSelectAll(table, query = '', columns = '*') {
   const out = [];
   for (let offset = 0; ; offset += 500) {
-    const page = await sb('GET', `${table}?select=*${query}&limit=500&offset=${offset}`);
+    const page = await sb('GET', `${table}?select=${columns}${query}&limit=500&offset=${offset}`);
     out.push(...page);
     if (page.length < 500) break;
   }
@@ -799,7 +799,7 @@ async function handlePicksApi(req, res, reqUrl) {
       // Safety: an empty list would wipe everything (e.g. a fresh browser with no picks yet), so refuse.
       if (!Array.isArray(keep) || keep.length === 0) return send(200, { deleted: 0, skipped: 'empty list' });
       const keepKeys = new Set(keep.map(k => `${k.setupId}|${k.ticker}|${msOf(iso(k.starredAt))}`));
-      const stored = await sbSelectAll('picks');
+      const stored = await sbSelectAll('picks', '&order=id.asc', 'id,setup_id,ticker,starred_at');
       let deleted = 0;
       for (const p of stored) {
         if (keepKeys.has(`${p.setup_id}|${p.ticker}|${msOf(p.starred_at)}`)) continue;
@@ -807,8 +807,8 @@ async function handlePicksApi(req, res, reqUrl) {
         deleted++;
       }
       // Drop chart data no remaining pick points at.
-      const livePicks = new Set((await sbSelectAll('picks')).map(p => `${p.ticker}|${msOf(p.starred_at)}`));
-      for (const b of await sbSelectAll('pick_bars')) {
+      const livePicks = new Set((await sbSelectAll('picks', '&order=id.asc', 'ticker,starred_at')).map(p => `${p.ticker}|${msOf(p.starred_at)}`));
+      for (const b of await sbSelectAll('pick_bars', '&order=ticker.asc,starred_at.asc', 'ticker,starred_at')) {   // ids only: never download chart data here
         if (!livePicks.has(`${b.ticker}|${msOf(b.starred_at)}`)) {
           await sb('DELETE', `pick_bars?ticker=eq.${encodeURIComponent(b.ticker)}&starred_at=eq.${encodeURIComponent(b.starred_at)}`);
         }
