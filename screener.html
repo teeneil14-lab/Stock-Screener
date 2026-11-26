@@ -13032,7 +13032,7 @@ async function cloudSyncPull() {
 // The chart is fetched from the cloud only when you open that pick (cloudBarsFor).
 // Switch for the "remove old charts from this browser" step. Left OFF in the first release so
 // the cloud backup can be checked before anything is ever deleted locally.
-const CLOUD_EVICT_ENABLED = false;
+const CLOUD_EVICT_ENABLED = true;
 
 function cloudEvictOldHistory() {
   if (!CLOUD_EVICT_ENABLED) return 0;
