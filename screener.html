@@ -3923,7 +3923,12 @@
   .m-pop.off { color: #9ca3af; }
   @keyframes mpop { 0% { opacity: 0; transform: translate(-50%,-50%) scale(0.5); } 25% { opacity: 0.95; transform: translate(-50%,-50%) scale(1.1); } 100% { opacity: 0; transform: translate(-50%,-50%) scale(1); } }
   #m-bar { flex: none; background: #fff; border-top: 1px solid var(--border); padding: 8px 14px calc(env(safe-area-inset-bottom) + 10px); }
-  #m-status { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--text3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-height: 14px; margin-bottom: 6px; }
+  #m-bar { position: relative; }
+  #m-hide { position: absolute; top: 6px; right: 10px; width: 34px; height: 24px; border: 1px solid var(--border2); border-radius: 12px; background: #fff; color: var(--text3); font-size: 13px; line-height: 1; padding: 0; }
+  #m-fab { display: none; position: fixed; right: 14px; bottom: calc(env(safe-area-inset-bottom) + 14px); z-index: 10; min-width: 44px; height: 44px; padding: 0 12px; border: 0; border-radius: 22px; background: rgba(10,124,78,0.92); color: #fff; font-family: 'IBM Plex Mono', monospace; font-size: 15px; font-weight: 700; box-shadow: 0 2px 10px rgba(0,0,0,0.25); }
+  html.mobile-app #m-app.menu-hidden #m-bar { display: none; }
+  html.mobile-app #m-app.menu-hidden #m-fab { display: block; }
+  #m-status { margin-right: 44px; font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--text3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-height: 14px; margin-bottom: 6px; }
   #m-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
   .m-chip { border: 1px solid var(--border2); background: #fff; color: var(--text3); border-radius: 16px; padding: 6px 11px; font-size: 12px; font-family: inherit; }
   .m-chip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
@@ -4813,10 +4818,12 @@
     <div id="m-list"></div>
   </div>
   <div id="m-bar">
+    <button id="m-hide" onclick="mMenu(false)" title="Hide menu">▾</button>
     <div id="m-status"></div>
     <div id="m-chips"></div>
     <button id="m-run" onclick="mRun()"><span id="m-run-fill"></span><span id="m-run-label">▶ RUN SCAN</span></button>
   </div>
+  <button id="m-fab" onclick="mMenu(true)" title="Show menu">☰</button>
 </div>
 
 
@@ -17841,6 +17848,12 @@ function _mtlCalcEMASeries(closes, period) {
 // ============================================================
 const M = { slots: [null, null, null], sel: [true, true, true], scanning: false, todaySet: new Set(), obs: null, poll: null, wake: null };
 
+// Show / hide the whole bottom menu (lists, setup, RUN SCAN); the small round button at the lower right brings it back.
+function mMenu(show) {
+  document.getElementById('m-app').classList.toggle('menu-hidden', !show);
+  try { localStorage.setItem('cts_m_menu_hidden', show ? '0' : '1'); } catch {}
+}
+
 function mSavePrefs() { try { localStorage.setItem('cts_m_prefs', JSON.stringify({ sel: M.sel, setup: currentSetup })); } catch {} }
 
 function mRenderChips() {
@@ -17861,6 +17874,7 @@ function mSetSetup(n) { if (M.scanning) return; setSetup(n); mSavePrefs(); mRend
 
 async function mInit() {
   if (!window.MOBILE_APP) return;
+  try { if (localStorage.getItem('cts_m_menu_hidden') === '1') mMenu(false); } catch {}
   try {
     const p = JSON.parse(localStorage.getItem('cts_m_prefs') || 'null');
     if (p && Array.isArray(p.sel)) M.sel = [0, 1, 2].map(i => p.sel[i] !== false);
@@ -17895,6 +17909,7 @@ async function mRun() {
     const pct = parseInt((document.getElementById('scan-pct').textContent || '0'), 10) || 0;
     label.textContent = `SCANNING… ${pct}%`; fill.style.width = pct + '%';
     status.textContent = (document.getElementById('scan-meta').textContent || '').replace(/\s+/g, ' ');
+    document.getElementById('m-fab').textContent = pct + '%';
   }, 300);
   try {
     await runScan();
@@ -17907,6 +17922,7 @@ async function mRun() {
     try { if (M.wake) { M.wake.release(); M.wake = null; } } catch {}
     M.scanning = false; btn.disabled = false; label.textContent = '▶ RUN SCAN'; fill.style.width = '0%';
     status.textContent = '';
+    document.getElementById('m-fab').textContent = '☰';
   }
 }
 
@@ -17917,6 +17933,8 @@ function mRender() {
   _destroyAllGlanceCharts();
   if (M.obs) { M.obs.disconnect(); M.obs = null; }
 
+  // Always ordered by taste match (how closely each stock resembles your starred picks); ties fall back to the normal score.
+  sortedResults.sort((a, b) => ((b.prefSim ?? 0) - (a.prefSim ?? 0)) || ((b.rankScore ?? b.score) - (a.rankScore ?? a.score)));
   M.todaySet = new Set(loadLiked(currentSetup).filter(l => mSameDay(l.starredAt)).map(l => l.ticker));
   const n = sortedResults.length;
   document.getElementById('m-count').textContent = n ? `${n} ranked` : '';
@@ -17933,7 +17951,7 @@ function mRender() {
     return `<section class="m-card${starred ? ' starred' : ''}" id="m-card-${i}">
       <div class="m-card-hd"><span class="m-rank">#${i + 1}</span><span class="m-tkr">${r.ticker}</span>
         <span class="m-score ${cls}">${sc}%</span><span class="m-star" id="m-star-${i}">${starred ? '★' : '☆'}</span></div>
-      <div class="m-card-sub"><span>${r.sectorName || ''}</span><span>$${Number(r.price).toFixed(2)} <b style="color:${up ? 'var(--green)' : 'var(--red)'}">${up ? '+' : ''}${r.change}%</b></span></div>
+      <div class="m-card-sub"><span>${[r.prefSim > 0 ? 'taste ' + Math.round(r.prefSim * 100) + '%' : '', r.sectorName || ''].filter(Boolean).join(' · ')}</span><span>$${Number(r.price).toFixed(2)} <b style="color:${up ? 'var(--green)' : 'var(--red)'}">${up ? '+' : ''}${r.change}%</b></span></div>
       <div class="m-chart-wrap"><div class="m-chart" id="m-chart-${i}" data-idx="${i}"></div>
         <div class="m-tap" onclick="mTap(${i})"></div><div class="m-pop" id="m-pop-${i}">★</div></div>
     </section>`;
