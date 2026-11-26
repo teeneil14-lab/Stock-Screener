@@ -3912,7 +3912,7 @@
   .m-star { font-size: 22px; line-height: 1; color: #c7c9cf; width: 26px; text-align: center; }
   .m-card.starred .m-star { color: #e0a100; }
   .m-card-sub { display: flex; justify-content: space-between; padding: 0 14px 8px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--text3); }
-  .m-chart-wrap { position: relative; width: 100%; aspect-ratio: 4 / 3; background: #fff; }
+  .m-chart-wrap { position: relative; width: 100%; aspect-ratio: 4 / 3; background: #fff; overflow: hidden; }
   .m-chart { position: absolute; inset: 0; }
   .m-tap { position: absolute; inset: 0; z-index: 2; touch-action: pan-y; }
   .m-tf { position: absolute; left: 10px; top: 8px; z-index: 3; pointer-events: none; font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; color: var(--text3); background: rgba(255,255,255,0.85); border: 1px solid var(--border); border-radius: 8px; padding: 2px 7px; }
@@ -17996,22 +17996,56 @@ function mSwipe(i, dir) {
   el.innerHTML = '';
   mBuildChart(el, r);
 }
+// The chart follows your finger while you drag; let go past a quarter of the width (or flick) and it slides to the next timeframe,
+// otherwise it springs back.
+function mCanGo(i, dir) {
+  const r = sortedResults[i]; if (!r) return false;
+  const cur = M_TFS.indexOf(M.tf[r.ticker] || 'W'); const n = cur + dir;
+  return n >= 0 && n <= 2;
+}
 (function () {
-  let down = null;
+  let down = null, busy = false;
+  const slide = (el, x, ms) => { el.style.transition = ms ? `transform ${ms}ms ease-out` : 'none'; el.style.transform = `translateX(${x}px)`; };
   window.addEventListener('DOMContentLoaded', () => {
     const list = document.getElementById('m-list');
     if (!list) return;
     list.addEventListener('pointerdown', e => {
       const t = e.target.closest('.m-tap');
-      down = t ? { i: +t.dataset.i, x: e.clientX, y: e.clientY } : null;
+      if (!t || busy) { down = null; return; }
+      down = { i: +t.dataset.i, x: e.clientX, y: e.clientY, t0: Date.now(), drag: false, el: t };
+      try { t.setPointerCapture(e.pointerId); } catch {}
     });
-    list.addEventListener('pointercancel', () => { down = null; });
-    list.addEventListener('pointerup', e => {
+    list.addEventListener('pointermove', e => {
       if (!down) return;
-      const dx = e.clientX - down.x, dy = e.clientY - down.y, i = down.i; down = null;
-      if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.5) mSwipe(i, dx < 0 ? 1 : -1);   // swipe
-      else if (Math.abs(dx) < 12 && Math.abs(dy) < 12) mTap(i);                                   // tap
+      const dx = e.clientX - down.x, dy = e.clientY - down.y;
+      if (!down.drag) { if (Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy)) down.drag = true; else return; }
+      const chart = document.getElementById('m-chart-' + down.i);
+      const shown = mCanGo(down.i, dx < 0 ? 1 : -1) ? dx : dx * 0.25;     // no further timeframe that way: drag feels stiff
+      slide(chart, shown, 0);
     });
+    const finish = e => {
+      if (!down) return;
+      const d = down; down = null;
+      const dx = e.clientX - d.x, dy = e.clientY - d.y, i = d.i;
+      if (!d.drag) { if (Math.abs(dx) < 12 && Math.abs(dy) < 12 && e.type === 'pointerup') mTap(i); return; }
+      const chart = document.getElementById('m-chart-' + i), W = chart.offsetWidth || 360, dir = dx < 0 ? 1 : -1;
+      const fast = Math.abs(dx) / Math.max(1, Date.now() - d.t0) > 0.5 && Math.abs(dx) > 30;
+      if (e.type === 'pointerup' && mCanGo(i, dir) && (Math.abs(dx) > W * 0.25 || fast)) {
+        busy = true;
+        slide(chart, -dir * W, 150);                                         // carry it off the side
+        setTimeout(() => {
+          mSwipe(i, dir);                                                    // switch timeframe (rebuilds the chart)
+          const c2 = document.getElementById('m-chart-' + i);
+          slide(c2, dir * W, 0); void c2.offsetWidth;                        // new chart waits on the other side...
+          slide(c2, 0, 220);                                                 // ...and slides in
+          setTimeout(() => { c2.style.transition = ''; busy = false; }, 240);
+        }, 160);
+      } else {
+        slide(chart, 0, 200);                                                // spring back
+      }
+    };
+    list.addEventListener('pointerup', finish);
+    list.addEventListener('pointercancel', finish);
   });
 })();
 
