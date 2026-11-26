@@ -723,9 +723,14 @@ async function handlePicksApi(req, res, reqUrl) {
     }
 
     if (route === '/api/picks' && req.method === 'GET') {
+      // Charts of picks older than ~a month are left out: the page loads them on demand
+      // (/api/picks/bars), which keeps a restore into a fresh browser small and quick.
+      // ?full=1 returns everything.
+      const full = reqUrl.searchParams.get('full') === '1';
+      const recentCut = encodeURIComponent(new Date(Date.now() - 31 * 24 * 60 * 60 * 1000).toISOString());
       const [pickRows, barRows] = await Promise.all([
         sbSelectAll('picks', '&order=starred_at.asc'),
-        sbSelectAll('pick_bars'),
+        sbSelectAll('pick_bars', full ? '' : `&starred_at=gte.${recentCut}`),
       ]);
       const barsByKey = new Map(barRows.map(b => [`${b.ticker}|${msOf(b.starred_at)}`, b.bars || {}]));
       const picks = { 1: [], 2: [], ph: [] };
