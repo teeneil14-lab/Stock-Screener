@@ -648,19 +648,34 @@ const SUPABASE_KEY = process.env.SUPABASE_SECRET_KEY || '';
 
 function sbReady() { return !!(SUPABASE_URL && SUPABASE_KEY); }
 
-async function sb(method, restPath, body, extraHeaders = {}) {
-  const r = await fetch(`${SUPABASE_URL}/rest/v1/${restPath}`, {
-    method,
-    headers: {
-      apikey: SUPABASE_KEY,
-      'Content-Type': 'application/json',
-      ...extraHeaders,
-    },
-    body: body === undefined ? undefined : JSON.stringify(body),
+function sb(method, restPath, body, extraHeaders = {}) {
+  // Uses Node's built-in https module (Railway runs Node 16, which has no global fetch).
+  return new Promise((resolve, reject) => {
+    const u = new URL(`${SUPABASE_URL}/rest/v1/${restPath}`);
+    const payload = body === undefined ? null : Buffer.from(JSON.stringify(body));
+    const lib = u.protocol === 'http:' ? http : https;
+    const req = lib.request({
+      method, hostname: u.hostname, port: u.port || undefined, path: u.pathname + u.search,
+      headers: {
+        apikey: SUPABASE_KEY,
+        'Content-Type': 'application/json',
+        ...(payload ? { 'Content-Length': payload.length } : {}),
+        ...extraHeaders,
+      },
+    }, (r) => {
+      const chunks = [];
+      r.on('data', c => chunks.push(c));
+      r.on('end', () => {
+        const text = Buffer.concat(chunks).toString('utf8');
+        if (r.statusCode < 200 || r.statusCode >= 300) return reject(new Error(`Supabase ${r.statusCode}: ${text.slice(0, 300)}`));
+        try { resolve(text ? JSON.parse(text) : null); } catch (e) { reject(e); }
+      });
+    });
+    req.setTimeout(30000, () => req.destroy(new Error('Supabase request timed out')));
+    req.on('error', reject);
+    if (payload) req.write(payload);
+    req.end();
   });
-  const text = await r.text();
-  if (!r.ok) throw new Error(`Supabase ${r.status}: ${text.slice(0, 300)}`);
-  return text ? JSON.parse(text) : null;
 }
 
 // Reads every row of a table, 500 at a time (Supabase caps one request at ~1000 rows).
