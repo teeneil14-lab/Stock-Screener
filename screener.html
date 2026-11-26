@@ -12973,6 +12973,8 @@ async function cloudSyncPush() {
       });
       if (!r.ok) throw new Error(`upsert ${r.status}`);
       chunk.forEach(p => synced.add(_cloudKey(p.setupId, p)));
+      // Save progress after every batch so an interrupted upload resumes where it stopped.
+      try { localStorage.setItem(CLOUD_SYNCED_KEY, JSON.stringify([...synced])); } catch {}
     }
 
     // Tell the cloud which picks still exist, so ones you removed here are removed there too.

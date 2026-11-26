@@ -780,10 +780,10 @@ async function handlePicksApi(req, res, reqUrl) {
       const merge = { Prefer: 'resolution=merge-duplicates,return=minimal' };
       // Never let a trimmed copy from the browser replace fuller chart data already in the cloud.
       const barsSize = x => (x?.dailyBars?.length || 0) + (x?.weeklyBars?.length || 0) + (x?.monthlyBars?.length || 0);
-      for (const [k, row] of [...barMap.entries()]) {
+      await Promise.all([...barMap.entries()].map(async ([k, row]) => {
         const have = await sb('GET', `pick_bars?select=bars&ticker=eq.${encodeURIComponent(row.ticker)}&starred_at=eq.${encodeURIComponent(row.starred_at)}&limit=1`);
         if (have.length && barsSize(have[0].bars) > barsSize(row.bars)) barMap.delete(k);
-      }
+      }));
       if (barMap.size) await sb('POST', 'pick_bars?on_conflict=ticker,starred_at', [...barMap.values()], merge);
       if (pickRows.length) await sb('POST', 'picks?on_conflict=setup_id,ticker,starred_at', pickRows, merge);
       return send(200, { saved: pickRows.length });
