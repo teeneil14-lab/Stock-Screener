@@ -18020,8 +18020,7 @@ function mCanGo(i, dir) {
       const dx = e.clientX - down.x, dy = e.clientY - down.y;
       if (!down.drag) { if (Math.abs(dx) > 8 && Math.abs(dx) > Math.abs(dy)) down.drag = true; else return; }
       const chart = document.getElementById('m-chart-' + down.i);
-      const shown = mCanGo(down.i, dx < 0 ? 1 : -1) ? dx : dx * 0.25;     // no further timeframe that way: drag feels stiff
-      slide(chart, shown, 0);
+      slide(chart, mCanGo(down.i, dx < 0 ? 1 : -1) ? dx : 0, 0);          // no further timeframe that way: chart doesn't move
     });
     const finish = e => {
       if (!down) return;
@@ -18041,7 +18040,7 @@ function mCanGo(i, dir) {
           setTimeout(() => { c2.style.transition = ''; busy = false; }, 170);
         }, 110);
       } else {
-        slide(chart, 0, 140);                                                // spring back
+        slide(chart, 0, 0);                                                  // let go early: back in place, no animation
       }
     };
     list.addEventListener('pointerup', finish);
