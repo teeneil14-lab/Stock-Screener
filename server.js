@@ -641,7 +641,9 @@ function parseYFBars(body) {
 //   POST /api/picks/upsert    -> save/update a batch of picks   { picks: [ {setupId, ticker, starredAt, ...} ] }
 //   POST /api/picks/reconcile -> delete stored picks that were removed in the browser
 //                                { keep: [ {setupId, ticker, starredAt} ] }
-const SUPABASE_URL = (process.env.SUPABASE_URL || '').replace(/\/+$/, '');
+// Accepts the full address (https://xxxx.supabase.co) or just the project ID (xxxx).
+const _sbRaw = (process.env.SUPABASE_URL || '').trim().replace(/\/+$/, '');
+const SUPABASE_URL = !_sbRaw ? '' : /^https?:\/\//i.test(_sbRaw) ? _sbRaw : `https://${_sbRaw}.supabase.co`;
 const SUPABASE_KEY = process.env.SUPABASE_SECRET_KEY || '';
 
 function sbReady() { return !!(SUPABASE_URL && SUPABASE_KEY); }
