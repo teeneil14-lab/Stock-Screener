@@ -12990,6 +12990,7 @@ async function cloudSyncPush() {
     const liveKeys = new Set(all.map(({ sid, p }) => _cloudKey(sid, p)));
     try { localStorage.setItem(CLOUD_SYNCED_KEY, JSON.stringify([...synced].filter(k => liveKeys.has(k)))); } catch {}
     console.log(`[cloud picks] backed up ${fresh.length} new pick(s)`);
+    await cloudRehydrateNewest();
     cloudEvictOldHistory();
   } catch (e) {
     console.warn('[cloud picks] backup failed (will retry on the next change):', e.message);
@@ -13036,8 +13037,20 @@ async function cloudSyncPull() {
 // the cloud backup can be checked before anything is ever deleted locally.
 const CLOUD_EVICT_ENABLED = true;
 
+// The newest picks of each setup always stay stored in the browser (never cleaned out, even once
+// they pass a month old), so the top of My Picks opens instantly.
+const CLOUD_KEEP_LOCAL = 100;
+function cloudProtectedPicks() {
+  const keep = [];                                    // [{ sid, p }]
+  MY_PICKS_SETUP_IDS.forEach(sid => {
+    [...loadLiked(sid)].sort((a, b) => b.starredAt - a.starredAt).slice(0, CLOUD_KEEP_LOCAL).forEach(p => keep.push({ sid, p }));
+  });
+  return keep;
+}
+
 function cloudEvictOldHistory() {
   if (!CLOUD_EVICT_ENABLED) return 0;
+  const protectedTickers = new Set(cloudProtectedPicks().map(({ p }) => p.ticker));
   let synced = new Set();
   try { synced = new Set(JSON.parse(localStorage.getItem(CLOUD_SYNCED_KEY) || '[]')); } catch { return 0; }
   const byTicker = new Map();
@@ -13047,6 +13060,7 @@ function cloudEvictOldHistory() {
   }));
   let removed = 0;
   byTicker.forEach((list, ticker) => {
+    if (protectedTickers.has(ticker)) return;
     const allOldAndBackedUp = list.every(({ sid, p }) => _isArchivedPick(p.starredAt) && synced.has(_cloudKey(sid, p)));
     if (!allOldAndBackedUp) return;
     const key = _tickerHistKey(ticker);
@@ -13060,6 +13074,33 @@ function cloudEvictOldHistory() {
   });
   if (removed) console.log(`[cloud picks] freed browser storage: removed chart history for ${removed} old ticker(s)`);
   return removed;
+}
+
+// Brings any of the newest picks whose charts were moved to the cloud back into browser storage.
+async function cloudRehydrateNewest() {
+  try {
+    const bySetup = new Map();
+    cloudProtectedPicks().forEach(({ sid, p }) => {
+      if ((p.dailyBars || []).length >= 5 || !_isArchivedPick(p.starredAt)) return;   // already local (or recent: always local)
+      if (!bySetup.has(sid)) bySetup.set(sid, []);
+      bySetup.get(sid).push(p);
+    });
+    for (const [sid, picks] of bySetup) {
+      let changed = false, next = 0;
+      const worker = async () => {
+        while (next < picks.length) {
+          const p = picks[next++];
+          const filled = await cloudBarsFor(p, null);
+          if (filled !== p && (filled.dailyBars || []).length >= 5) {
+            p.dailyBars = filled.dailyBars; p.weeklyBars = filled.weeklyBars; p.monthlyBars = filled.monthlyBars;
+            changed = true;
+          }
+        }
+      };
+      await Promise.all(Array.from({ length: Math.min(8, picks.length) }, worker));
+      if (changed) _origSaveLikedRef(sid, loadLiked(sid));   // writes the charts back into browser storage
+    }
+  } catch (e) { console.warn('[cloud picks] could not restore newest charts:', e.message); }
 }
 
 const _cloudBarsCache = new Map(); // "ticker|starredAt" -> { dailyBars, weeklyBars, monthlyBars }
@@ -13091,9 +13132,11 @@ async function cloudPrefetchBars(entries) {
   await Promise.all(Array.from({ length: Math.min(12, need.length) }, worker));
 }
 
+let _origSaveLikedRef = (...a) => saveLiked(...a);
 // Every successful save of picks also schedules a cloud backup.
 {
   const _origSaveLiked = saveLiked, _origSaveLikedBatch = saveLikedBatch;
+  _origSaveLikedRef = _origSaveLiked;
   // If the browser says "full", free the space old picks use (when they're safely in the cloud) and try once more.
   saveLiked = function () {
     let ok = _origSaveLiked.apply(this, arguments);
