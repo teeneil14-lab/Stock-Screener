@@ -9103,28 +9103,51 @@ document.addEventListener('click', (e) => {
   if (wrap && !wrap.contains(e.target)) closePicksTabDropdown();
 });
 
+let _picksObserver = null;
 async function switchAllPicksCharts(tf) {
   picksGlobalTF = tf;
   ['D','W','M'].forEach(t => {
     const btn = document.getElementById(`picks-global-${t}`);
     if (btn) btn.classList.toggle('active', t === tf);
   });
-  const gen     = ++_switchGen;
-  const entries = _picksPageEntries; // only tickers actually mounted on the current page
-  const BATCH   = 4; // max concurrent API fetches — keeps Yahoo Finance happy and UI responsive
-  // Picks whose charts are stored in the browser draw first; old picks' charts are fetched from
-  // the cloud in the background at the same time, then drawn once they arrive.
-  const needsCloud = e => (e.dailyBars || []).length < 5 && _isArchivedPick(e.starredAt);
-  const local = entries.filter(e => !needsCloud(e));
-  const remote = entries.filter(needsCloud);
-  const prefetch = cloudPrefetchBars(remote);
-  for (const group of [local, remote]) {
-    if (group === remote) await prefetch;
-    for (let i = 0; i < group.length; i += BATCH) {
-      if (gen !== _switchGen) return; // user switched TF again — abort stale run
-      await Promise.all(group.slice(i, i + BATCH).map(e => switchPicksChart(e.ticker, tf)));
+  const gen = ++_switchGen;
+  if (_picksObserver) { _picksObserver.disconnect(); _picksObserver = null; }
+  const entries  = _picksPageEntries; // only tickers actually mounted on the current page
+  const byTicker = new Map(entries.map(e => [e.ticker, e]));
+
+  // Charts are drawn only for cards on (or near) the screen, and the rest are drawn as you scroll to them.
+  // At most 4 are drawn / fetched at a time — keeps Yahoo Finance happy and the UI responsive.
+  const MAX_AT_ONCE = 4;
+  const queue = []; let running = 0;
+  const pump = () => {
+    while (running < MAX_AT_ONCE && queue.length) {
+      if (gen !== _switchGen) { queue.length = 0; return; }  // user switched TF again — drop stale work
+      const ticker = queue.shift(); running++;
+      switchPicksChart(ticker, tf).catch(() => {}).finally(() => { running--; pump(); });
     }
+  };
+
+  if (typeof IntersectionObserver === 'undefined') {       // very old browser: draw everything as before
+    entries.forEach(e => queue.push(e.ticker)); pump(); return;
   }
+  _picksObserver = new IntersectionObserver((hits) => {
+    if (gen !== _switchGen) return;
+    const visible = [];
+    hits.forEach(h => {
+      if (!h.isIntersecting) return;
+      _picksObserver.unobserve(h.target);
+      const e = byTicker.get(h.target.id.replace('picks-chart-', ''));
+      if (e) visible.push(e);
+    });
+    if (!visible.length) return;
+    cloudPrefetchBars(visible);                            // old picks: fetch their cloud charts in parallel (not awaited)
+    visible.forEach(e => queue.push(e.ticker));
+    pump();
+  }, { rootMargin: '500px 0px' });
+  entries.forEach(e => {
+    const wrap = document.getElementById(`picks-chart-${e.ticker}`);
+    if (wrap) _picksObserver.observe(wrap);
+  });
 }
 
 function renderStarredCharts() {
@@ -13111,6 +13134,7 @@ async function cloudRehydrateNewest() {
 }
 
 const _cloudBarsCache = new Map(); // "ticker|starredAt" -> { dailyBars, weeklyBars, monthlyBars }
+const _cloudBarsInflight = new Map(); // requests currently on the way
 async function cloudBarsFor(entry, container) {
   if ((entry.dailyBars || []).length >= 5 || !_isArchivedPick(entry.starredAt)) return entry;
   const key = `${entry.ticker}|${entry.starredAt}`;
@@ -13118,10 +13142,17 @@ async function cloudBarsFor(entry, container) {
   if (!bars) {
     if (container) container.innerHTML = '<div style="height:100%;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace">Loading chart from cloud…</div>';
     try {
-      const r = await fetch(`/api/picks/bars?ticker=${encodeURIComponent(entry.ticker)}&starredAt=${entry.starredAt}`);
-      if (r.status === 404) { _cloudBarsCache.set(key, { dailyBars: [], weeklyBars: [], monthlyBars: [] }); return entry; } // nothing stored: don't ask again
-      if (!r.ok) return entry;
-      bars = await r.json();
+      let pending = _cloudBarsInflight.get(key);          // share one request between prefetch and drawing
+      if (!pending) {
+        pending = (async () => {
+          const r = await fetch(`/api/picks/bars?ticker=${encodeURIComponent(entry.ticker)}&starredAt=${entry.starredAt}`);
+          if (r.status === 404) return { dailyBars: [], weeklyBars: [], monthlyBars: [] };   // nothing stored: don't ask again
+          if (!r.ok) throw new Error(`bars ${r.status}`);
+          return r.json();
+        })();
+        _cloudBarsInflight.set(key, pending);
+      }
+      try { bars = await pending; } finally { _cloudBarsInflight.delete(key); }
       _cloudBarsCache.set(key, bars);
     } catch { return entry; }
   }
