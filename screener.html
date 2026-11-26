@@ -3898,6 +3898,13 @@
   }
   #m-title { font-weight: 700; font-size: 15px; letter-spacing: 0.08em; color: var(--accent); }
   #m-title .logo-copyright { font-size: 10px; margin-left: 6px; letter-spacing: 0; }
+  #m-ph { margin-left: 10px; height: 26px; min-width: 40px; padding: 0 11px; border: 1px solid var(--accent); border-radius: 13px; background: #fff; color: var(--accent); font-family: 'IBM Plex Mono', monospace; font-weight: 700; font-size: 12px; letter-spacing: 0.06em; }
+  #m-ph.on { background: var(--accent); color: #fff; }
+  #m-head-right { display: flex; align-items: center; }
+  .m-badges { margin-left: auto; display: flex; gap: 5px; }
+  .m-badge { font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 700; color: var(--blue); background: var(--blue-dim); border-radius: 8px; padding: 2px 7px; }
+  .m-badge.amber { color: var(--amber); background: var(--amber-dim); } .m-badge.red { color: var(--red); background: rgba(200,41,58,0.08); }
+  #m-app.ph-view #m-chips { display: none; }
   #m-count { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--text3); }
   #m-scroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; padding: 10px 0 24px; }
   #m-empty { padding: 56px 28px; text-align: center; color: var(--text3); font-size: 14px; line-height: 1.6; }
@@ -4813,7 +4820,7 @@
 
 <!-- MOBILE APP (/mobile): simple phone version — scan + one chart per stock; tap a chart to star / un-star -->
 <div id="m-app">
-  <div id="m-head"><span id="m-title">Stock Screener<span class="logo-copyright">© Neil Tee</span></span><span id="m-count"></span></div>
+  <div id="m-head"><span id="m-title">Stock Screener<span class="logo-copyright">© Neil Tee</span></span><span id="m-head-right"><span id="m-count"></span><button id="m-ph" onclick="mTogglePH()">PH</button></span></div>
   <div id="m-scroll">
     <div id="m-empty">Choose your lists below, then tap <b>RUN SCAN</b>.<br><br>Each stock that passes shows as one big chart.<br><b>Tap a chart</b> to ★ it into My Picks. <b>Tap again</b> to remove it.</div>
     <div id="m-list"></div>
@@ -17847,13 +17854,15 @@ function _mtlCalcEMASeries(closes, period) {
 //  Reuses the exact same scan + scoring + chart code as the desktop page.
 //  Only runs when the page is opened at /mobile; the desktop page never touches any of this.
 // ============================================================
-const M = { tf: {}, slots: [null, null, null], sel: [true, true, true], scanning: false, todaySet: new Set(), obs: null, poll: null, wake: null };
+const M = { view: 'us', phItems: [], phBars: {}, dirty: false, tf: {}, slots: [null, null, null], sel: [true, true, true], scanning: false, todaySet: new Set(), obs: null, poll: null, wake: null };
 
 // Show / hide the whole bottom menu (lists, setup, RUN SCAN); the small round button at the lower right brings it back.
 function mMenu(show) {
   document.getElementById('m-app').classList.toggle('menu-hidden', !show);
   try { localStorage.setItem('cts_m_menu_hidden', show ? '0' : '1'); } catch {}
 }
+
+function mItems() { return M.view === 'ph' ? M.phItems : sortedResults; }
 
 function mSavePrefs() { try { localStorage.setItem('cts_m_prefs', JSON.stringify({ sel: M.sel, setup: currentSetup })); } catch {} }
 
@@ -17897,6 +17906,7 @@ window.addEventListener('DOMContentLoaded', () => setTimeout(mInit, 300));
 
 async function mRun() {
   if (M.scanning) return;
+  if (M.view === 'ph') { mLoadPH(true); return; }
   const seen = new Set(), combined = [];
   M.slots.forEach((s, i) => { if (s && M.sel[i]) s.tickers.forEach(t => { if (!seen.has(t.ticker)) { seen.add(t.ticker); combined.push(t); } }); });
   if (!combined.length) { showToast('Select at least one list first.', 'error'); return; }
@@ -17914,14 +17924,14 @@ async function mRun() {
   }, 300);
   try {
     await runScan();
-    mRender();
+    if (M.view === 'us') mRender(); else M.dirty = true;
   } catch (e) {
     console.error('[mobile scan]', e);
     showToast('Scan failed: ' + e.message, 'error');
   } finally {
     clearInterval(M.poll); M.poll = null;
     try { if (M.wake) { M.wake.release(); M.wake = null; } } catch {}
-    M.scanning = false; btn.disabled = false; label.textContent = '▶ RUN SCAN'; fill.style.width = '0%';
+    M.scanning = false; btn.disabled = false; mSetViewUI(); fill.style.width = '0%';
     status.textContent = '';
     document.getElementById('m-fab').textContent = '☰';
   }
@@ -17959,10 +17969,15 @@ function mRender() {
     </section>`;
   }).join('');
 
-  // Draw each chart only while it is near the screen (and free it again when far away) so a long list stays smooth.
+  mObserve();
+}
+
+// Draw each chart only while it is near the screen (and free it again when far away) so a long list stays smooth.
+function mObserve() {
+  if (M.obs) { M.obs.disconnect(); M.obs = null; }
   M.obs = new IntersectionObserver(entries => {
     entries.forEach(en => {
-      const r = sortedResults[parseInt(en.target.dataset.idx, 10)];
+      const r = mItems()[parseInt(en.target.dataset.idx, 10)];
       if (!r) return;
       if (en.isIntersecting) {
         if (!_glanceCharts[r.ticker]) mBuildChart(en.target, r);
@@ -17973,19 +17988,20 @@ function mRender() {
       }
     });
   }, { root: document.getElementById('m-scroll'), rootMargin: '700px 0px', threshold: 0 });
-  sortedResults.forEach((_, i) => M.obs.observe(document.getElementById('m-chart-' + i)));
+  mItems().forEach((_, i) => M.obs.observe(document.getElementById('m-chart-' + i)));
   document.getElementById('m-scroll').scrollTop = 0;
 }
 
 // Each chart has its own timeframe: swipe left = monthly candles, swipe right = daily candles (starts on weekly).
 const M_TFS = ['D', 'W', 'M'], M_TF_NAME = { D: 'DAILY', W: 'WEEKLY', M: 'MONTHLY' };
 function mBuildChart(el, r) {
+  if (r._ph) return mBuildPH(el, r);
   const tf = M.tf[r.ticker] || 'W', pTF = glanceTF, pRange = glanceRange;
   glanceTF = tf; glanceRange = tf === 'D' ? '6M' : '12M';
   try { _buildGlanceChart(el, r); } finally { glanceTF = pTF; glanceRange = pRange; }
 }
 function mSwipe(i, dir) {
-  const r = sortedResults[i];
+  const r = mItems()[i];
   if (!r) return;
   const cur = M_TFS.indexOf(M.tf[r.ticker] || 'W'), next = Math.max(0, Math.min(2, cur + dir));
   if (next === cur) return;
@@ -17999,7 +18015,7 @@ function mSwipe(i, dir) {
 // The chart follows your finger while you drag; let go past a quarter of the width (or flick) and it slides to the next timeframe,
 // otherwise it springs back.
 function mCanGo(i, dir) {
-  const r = sortedResults[i]; if (!r) return false;
+  const r = mItems()[i]; if (!r) return false;
   const cur = M_TFS.indexOf(M.tf[r.ticker] || 'W'); const n = cur + dir;
   return n >= 0 && n <= 2;
 }
@@ -18047,9 +18063,74 @@ function mCanGo(i, dir) {
   });
 })();
 
+// ---- PH button: glance view of the PSE "Priority List" (same list as the desktop PH tab) ----
+async function mBuildPH(el, r) {
+  const tf = M.tf[r.ticker] || 'W', iv = tf.toLowerCase();
+  const key = r.ticker + '|' + iv;
+  try {
+    if (!M.phBars[key]) M.phBars[key] = await fetchPSEBars(r.ticker, iv);
+  } catch { el.innerHTML = '<div style="padding:40px 16px;text-align:center;color:var(--text3);font-size:12px">No chart data</div>'; return; }
+  if (M.view !== 'ph' || !el.isConnected || (M.tf[r.ticker] || 'W') !== tf || _glanceCharts[r.ticker]) return;   // moved on while loading
+  const pseudo = { ticker: r.ticker, daily: [], weekly: [], monthly: [] };
+  pseudo[tf === 'D' ? 'daily' : tf === 'W' ? 'weekly' : 'monthly'] = M.phBars[key];
+  const pTF = glanceTF, pRange = glanceRange;
+  glanceTF = tf; glanceRange = tf === 'D' ? '6M' : '12M';
+  try { _buildGlanceChart(el, pseudo); } finally { glanceTF = pTF; glanceRange = pRange; }
+}
+
+function mSetViewUI() {
+  const ph = M.view === 'ph';
+  document.getElementById('m-app').classList.toggle('ph-view', ph);
+  document.getElementById('m-ph').classList.toggle('on', ph);
+  document.getElementById('m-run-label').textContent = ph ? '↻ REFRESH PRIORITY LIST' : '▶ RUN SCAN';
+}
+
+function mTogglePH() {
+  if (M.view === 'ph') {                       // back to the scan results
+    M.view = 'us'; mSetViewUI();
+    if (sortedResults.length && !M.dirty) mRender();
+    else if (M.dirty) { M.dirty = false; mRender(); }
+    else { document.getElementById('m-list').innerHTML = ''; document.getElementById('m-count').textContent = ''; const e = document.getElementById('m-empty'); e.style.display = ''; e.innerHTML = 'Choose your lists below, then tap <b>RUN SCAN</b>.'; }
+    return;
+  }
+  M.view = 'ph'; mSetViewUI();
+  mLoadPH(false);
+}
+
+async function mLoadPH(force) {
+  const list = document.getElementById('m-list'), empty = document.getElementById('m-empty'), status = document.getElementById('m-status');
+  _destroyAllGlanceCharts();
+  if (M.obs) { M.obs.disconnect(); M.obs = null; }
+  list.innerHTML = ''; document.getElementById('m-count').textContent = '';
+  empty.style.display = ''; empty.textContent = 'Loading the PH priority list…';
+  try {
+    if (force || Date.now() - pseDailyLoadedAt > 60000 || !prlRows.length) await runPSEScan();
+    else buildPriorityList();
+  } catch (e) { console.error('[mobile PH]', e); }
+  if (M.view !== 'ph') return;                  // switched away while loading
+  M.tf = {}; M.phBars = {};
+  M.phItems = prlRows.map(r => ({ _ph: true, ticker: r.symbol, name: r.name || '', rangePos: r.rangePos, volumeRatio: r.volumeRatio }));
+  if (!M.phItems.length) { empty.textContent = 'No issues on today\'s PH priority list.'; return; }
+  empty.style.display = 'none';
+  document.getElementById('m-count').textContent = `${M.phItems.length} PH issues`;
+  list.innerHTML = M.phItems.map((r, i) => {
+    const badges = [];
+    if (r.rangePos != null) badges.push(`<span class="m-badge">${r.rangePos}% WK</span>`);
+    if (r.volumeRatio != null) badges.push(`<span class="m-badge${r.volumeRatio >= 5 ? ' red' : r.volumeRatio >= 3 ? ' amber' : ''}">${r.volumeRatio}× VOL</span>`);
+    return `<section class="m-card" id="m-card-${i}">
+      <div class="m-card-hd"><span class="m-rank">#${i + 1}</span><span class="m-tkr">${r.ticker}</span><span class="m-badges">${badges.join('')}</span></div>
+      <div class="m-card-sub"><span>${r.name}</span><span></span></div>
+      <div class="m-chart-wrap"><div class="m-chart" id="m-chart-${i}" data-idx="${i}"></div>
+        <div class="m-tf" id="m-tf-${i}">WEEKLY</div><div class="m-tap" data-i="${i}"></div><div class="m-pop" id="m-pop-${i}">★</div></div>
+    </section>`;
+  }).join('');
+  mObserve();
+}
+
 // Tap a chart: first tap stars it into My Picks, tapping again removes that pick.
 // (Entry format matches the desktop toggleStar so both sides read the same picks.)
 function mTap(i) {
+  if (M.view === 'ph') return;   // PH priority list is for looking only (no pick scoring data there)
   const r = sortedResults[i];
   if (!r) return;
   if (!window._cloudPullDone) { showToast('Still syncing your picks — try again in a moment.', 'error'); return; }
