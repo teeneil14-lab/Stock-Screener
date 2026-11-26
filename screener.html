@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script>window.MOBILE_APP = /^\/mobile\/?$/.test(location.pathname); if (window.MOBILE_APP) document.documentElement.classList.add("mobile-app");</script>
 <title>Stock Market Screener © Neil Tee</title>
 <link rel="preload" href="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js" as="script">
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
@@ -3882,6 +3883,55 @@
     color: var(--text3);
     margin-top: 2px;
   }
+  /* ============ MOBILE APP (/mobile) — only active when the page is opened at /mobile ============ */
+  #m-app { display: none; }
+  html.mobile-app body > *:not(#m-app):not(#app-toast):not(script):not(style) { display: none !important; }
+  html.mobile-app, html.mobile-app body { height: 100%; overflow: hidden; background: #fff; }
+  html.mobile-app #m-app {
+    display: flex; flex-direction: column; position: fixed; inset: 0; background: #f3f4f6;
+    font-family: 'Inter', sans-serif; -webkit-user-select: none; user-select: none;
+    -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+  }
+  #m-head {
+    flex: none; display: flex; align-items: center; justify-content: space-between;
+    padding: calc(env(safe-area-inset-top) + 10px) 16px 10px; background: #fff; border-bottom: 1px solid var(--border);
+  }
+  #m-title { font-weight: 700; font-size: 15px; letter-spacing: 0.08em; color: var(--accent); }
+  #m-count { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--text3); }
+  #m-scroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; padding: 10px 0 24px; }
+  #m-empty { padding: 56px 28px; text-align: center; color: var(--text3); font-size: 14px; line-height: 1.6; }
+  #m-empty b { color: var(--text); }
+  .m-card { background: #fff; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); margin-bottom: 10px; }
+  .m-card.starred { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .m-card-hd { display: flex; align-items: center; gap: 10px; padding: 10px 14px 2px; }
+  .m-rank { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--text3); }
+  .m-tkr { font-family: 'IBM Plex Mono', monospace; font-weight: 700; font-size: 17px; color: var(--text); letter-spacing: 0.03em; }
+  .m-score { margin-left: auto; font-family: 'IBM Plex Mono', monospace; font-weight: 700; font-size: 15px; }
+  .m-score.hi { color: var(--green); } .m-score.mid { color: var(--amber); } .m-score.lo { color: var(--red); }
+  .m-star { font-size: 22px; line-height: 1; color: #c7c9cf; width: 26px; text-align: center; }
+  .m-card.starred .m-star { color: #e0a100; }
+  .m-card-sub { display: flex; justify-content: space-between; padding: 0 14px 8px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--text3); }
+  .m-chart-wrap { position: relative; width: 100%; aspect-ratio: 4 / 3; background: #fff; }
+  .m-chart { position: absolute; inset: 0; }
+  .m-tap { position: absolute; inset: 0; z-index: 2; }
+  .m-pop {
+    position: absolute; left: 50%; top: 50%; z-index: 3; pointer-events: none; opacity: 0;
+    transform: translate(-50%, -50%) scale(0.6); font-size: 84px; line-height: 1; color: #e0a100;
+  }
+  .m-pop.go { animation: mpop 0.7s ease-out; }
+  .m-pop.off { color: #9ca3af; }
+  @keyframes mpop { 0% { opacity: 0; transform: translate(-50%,-50%) scale(0.5); } 25% { opacity: 0.95; transform: translate(-50%,-50%) scale(1.1); } 100% { opacity: 0; transform: translate(-50%,-50%) scale(1); } }
+  #m-bar { flex: none; background: #fff; border-top: 1px solid var(--border); padding: 8px 14px calc(env(safe-area-inset-bottom) + 10px); }
+  #m-status { font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--text3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-height: 14px; margin-bottom: 6px; }
+  #m-chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+  .m-chip { border: 1px solid var(--border2); background: #fff; color: var(--text3); border-radius: 16px; padding: 6px 11px; font-size: 12px; font-family: inherit; }
+  .m-chip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .m-chip small { opacity: 0.75; margin-left: 4px; font-family: 'IBM Plex Mono', monospace; }
+  .m-chip-gap { width: 100%; height: 0; }
+  #m-run { position: relative; overflow: hidden; width: 100%; height: 58px; border: 0; border-radius: 14px; background: var(--accent); color: #fff; font-family: inherit; font-weight: 700; font-size: 18px; letter-spacing: 0.08em; }
+  #m-run:disabled { background: #6b8f80; }
+  #m-run-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: rgba(255,255,255,0.22); transition: width 0.3s; }
+  #m-run-label { position: relative; }
 </style>
 <script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
 <script>var LZString=function(){var r=String.fromCharCode,o="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=",n="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+-$",e={};function t(r,o){if(!e[r]){e[r]={};for(var n=0;n<r.length;n++)e[r][r.charAt(n)]=n}return e[r][o]}var i={compressToBase64:function(r){if(null==r)return"";var n=i._compress(r,6,function(r){return o.charAt(r)});switch(n.length%4){default:case 0:return n;case 1:return n+"===";case 2:return n+"==";case 3:return n+"="}},decompressFromBase64:function(r){return null==r?"":""==r?null:i._decompress(r.length,32,function(n){return t(o,r.charAt(n))})},compressToUTF16:function(o){return null==o?"":i._compress(o,15,function(o){return r(o+32)})+" "},decompressFromUTF16:function(r){return null==r?"":""==r?null:i._decompress(r.length,16384,function(o){return r.charCodeAt(o)-32})},compressToUint8Array:function(r){for(var o=i.compress(r),n=new Uint8Array(2*o.length),e=0,t=o.length;e<t;e++){var s=o.charCodeAt(e);n[2*e]=s>>>8,n[2*e+1]=s%256}return n},decompressFromUint8Array:function(o){if(null==o)return i.decompress(o);for(var n=new Array(o.length/2),e=0,t=n.length;e<t;e++)n[e]=256*o[2*e]+o[2*e+1];var s=[];return n.forEach(function(o){s.push(r(o))}),i.decompress(s.join(""))},compressToEncodedURIComponent:function(r){return null==r?"":i._compress(r,6,function(r){return n.charAt(r)})},decompressFromEncodedURIComponent:function(r){return null==r?"":""==r?null:(r=r.replace(/ /g,"+"),i._decompress(r.length,32,function(o){return t(n,r.charAt(o))}))},compress:function(o){return i._compress(o,16,function(o){return r(o)})},_compress:function(r,o,n){if(null==r)return"";var e,t,i,s={},u={},a="",p="",c="",l=2,f=3,h=2,d=[],m=0,v=0;for(i=0;i<r.length;i+=1)if(a=r.charAt(i),Object.prototype.hasOwnProperty.call(s,a)||(s[a]=f++,u[a]=!0),p=c+a,Object.prototype.hasOwnProperty.call(s,p))c=p;else{if(Object.prototype.hasOwnProperty.call(u,c)){if(c.charCodeAt(0)<256){for(e=0;e<h;e++)m<<=1,v==o-1?(v=0,d.push(n(m)),m=0):v++;for(t=c.charCodeAt(0),e=0;e<8;e++)m=m<<1|1&t,v==o-1?(v=0,d.push(n(m)),m=0):v++,t>>=1}else{for(t=1,e=0;e<h;e++)m=m<<1|t,v==o-1?(v=0,d.push(n(m)),m=0):v++,t=0;for(t=c.charCodeAt(0),e=0;e<16;e++)m=m<<1|1&t,v==o-1?(v=0,d.push(n(m)),m=0):v++,t>>=1}0==--l&&(l=Math.pow(2,h),h++),delete u[c]}else for(t=s[c],e=0;e<h;e++)m=m<<1|1&t,v==o-1?(v=0,d.push(n(m)),m=0):v++,t>>=1;0==--l&&(l=Math.pow(2,h),h++),s[p]=f++,c=String(a)}if(""!==c){if(Object.prototype.hasOwnProperty.call(u,c)){if(c.charCodeAt(0)<256){for(e=0;e<h;e++)m<<=1,v==o-1?(v=0,d.push(n(m)),m=0):v++;for(t=c.charCodeAt(0),e=0;e<8;e++)m=m<<1|1&t,v==o-1?(v=0,d.push(n(m)),m=0):v++,t>>=1}else{for(t=1,e=0;e<h;e++)m=m<<1|t,v==o-1?(v=0,d.push(n(m)),m=0):v++,t=0;for(t=c.charCodeAt(0),e=0;e<16;e++)m=m<<1|1&t,v==o-1?(v=0,d.push(n(m)),m=0):v++,t>>=1}0==--l&&(l=Math.pow(2,h),h++),delete u[c]}else for(t=s[c],e=0;e<h;e++)m=m<<1|1&t,v==o-1?(v=0,d.push(n(m)),m=0):v++,t>>=1;0==--l&&(l=Math.pow(2,h),h++)}for(t=2,e=0;e<h;e++)m=m<<1|1&t,v==o-1?(v=0,d.push(n(m)),m=0):v++,t>>=1;for(;;){if(m<<=1,v==o-1){d.push(n(m));break}v++}return d.join("")},decompress:function(r){return null==r?"":""==r?null:i._decompress(r.length,32768,function(o){return r.charCodeAt(o)})},_decompress:function(o,n,e){var t,i,s,u,a,p,c,l=[],f=4,h=4,d=3,m="",v=[],g={val:e(0),position:n,index:1};for(t=0;t<3;t+=1)l[t]=t;for(s=0,a=Math.pow(2,2),p=1;p!=a;)u=g.val&g.position,g.position>>=1,0==g.position&&(g.position=n,g.val=e(g.index++)),s|=(u>0?1:0)*p,p<<=1;switch(s){case 0:for(s=0,a=Math.pow(2,8),p=1;p!=a;)u=g.val&g.position,g.position>>=1,0==g.position&&(g.position=n,g.val=e(g.index++)),s|=(u>0?1:0)*p,p<<=1;c=r(s);break;case 1:for(s=0,a=Math.pow(2,16),p=1;p!=a;)u=g.val&g.position,g.position>>=1,0==g.position&&(g.position=n,g.val=e(g.index++)),s|=(u>0?1:0)*p,p<<=1;c=r(s);break;case 2:return""}for(l[3]=c,i=c,v.push(c);;){if(g.index>o)return"";for(s=0,a=Math.pow(2,d),p=1;p!=a;)u=g.val&g.position,g.position>>=1,0==g.position&&(g.position=n,g.val=e(g.index++)),s|=(u>0?1:0)*p,p<<=1;switch(c=s){case 0:for(s=0,a=Math.pow(2,8),p=1;p!=a;)u=g.val&g.position,g.position>>=1,0==g.position&&(g.position=n,g.val=e(g.index++)),s|=(u>0?1:0)*p,p<<=1;l[h++]=r(s),c=h-1,f--;break;case 1:for(s=0,a=Math.pow(2,16),p=1;p!=a;)u=g.val&g.position,g.position>>=1,0==g.position&&(g.position=n,g.val=e(g.index++)),s|=(u>0?1:0)*p,p<<=1;l[h++]=r(s),c=h-1,f--;break;case 2:return v.join("")}if(0==f&&(f=Math.pow(2,d),d++),l[c])m=l[c];else{if(c!==h)return null;m=i+i.charAt(0)}v.push(m),l[h++]=i+m.charAt(0),i=m,0==--f&&(f=Math.pow(2,d),d++)}}};return i}();"function"==typeof define&&define.amd?define(function(){return LZString}):"undefined"!=typeof module&&null!=module?module.exports=LZString:"undefined"!=typeof angular&&null!=angular&&angular.module("LZString",[]).factory("LZString",function(){return LZString});</script>
@@ -4754,6 +4804,21 @@
 <!-- MODAL -->
 <div class="toast" id="app-toast"></div>
 
+<!-- MOBILE APP (/mobile): simple phone version — scan + one chart per stock; tap a chart to star / un-star -->
+<div id="m-app">
+  <div id="m-head"><span id="m-title">CTS SCREENER</span><span id="m-count"></span></div>
+  <div id="m-scroll">
+    <div id="m-empty">Choose your lists below, then tap <b>RUN SCAN</b>.<br><br>Each stock that passes shows as one big chart.<br><b>Tap a chart</b> to ★ it into My Picks. <b>Tap again</b> to remove it.</div>
+    <div id="m-list"></div>
+  </div>
+  <div id="m-bar">
+    <div id="m-status"></div>
+    <div id="m-chips"></div>
+    <button id="m-run" onclick="mRun()"><span id="m-run-fill"></span><span id="m-run-label">▶ RUN SCAN</span></button>
+  </div>
+</div>
+
+
 <div class="modal-overlay" id="modal" onclick="if(event.target===this)closeModal()">
   <div class="modal">
     <div class="modal-header">
@@ -5067,7 +5132,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
   // Pre-fetch sector/imap data in the background so tabs open instantly
   setTimeout(() => {
-    if (marketMode !== 'PH') {
+    if (marketMode !== 'PH' && !window.MOBILE_APP) {
       if (!sectorsLoaded) loadSectors();
       if (!imapLoaded)    loadIndustryMap(false);
     }
@@ -5075,8 +5140,8 @@ window.addEventListener('DOMContentLoaded', () => {
 
   // PSEi/sector rolling snapshot: render whatever's cached immediately, then
   // fetch today's live values from pse.com.ph and store them (once per day).
-  renderPSESectorStripFromStorage();
-  refreshPSESectorRolling();
+  if (!window.MOBILE_APP) { renderPSESectorStripFromStorage();
+  refreshPSESectorRolling(); }
   initHoverChartPreview();
 });
 
@@ -7879,7 +7944,7 @@ const DEFAULT_STUDIES = [
 
 let currentChartStock = null; // whichever stock the chart is showing (incl. filtered-out ones)
 function loadChart(stock) {
-  if (!stock) return;
+  if (!stock || window.MOBILE_APP) return;   // phone version has no TradingView pane
   currentChartStock = stock;
   const defaultExch = marketMode === 'PH' ? 'PSE' : '';
   const exchange = (stock.exchange && stock.exchange !== '—') ? stock.exchange : defaultExch;
@@ -13118,6 +13183,7 @@ async function cloudSyncPull() {
       importMyPicks(payload, { quiet: true });
     }
     const after = MY_PICKS_SETUP_IDS.reduce((n, sid) => n + loadLiked(sid).length, 0);
+    window._cloudPullDone = true;            // the phone page only allows starring once this has finished
     if (after > before) showToast(`Restored ${after - before} pick(s) from your cloud backup.`);
     cloudSyncSoon();
   } catch (e) {
@@ -17765,6 +17831,168 @@ function _mtlCalcEMASeries(closes, period) {
     result[i] = ema;
   }
   return result;
+}
+
+// ============================================================
+//  MOBILE APP (/mobile) — a trimmed phone version of the screener.
+//  Reuses the exact same scan + scoring + chart code as the desktop page.
+//  Only runs when the page is opened at /mobile; the desktop page never touches any of this.
+// ============================================================
+const M = { slots: [null, null, null], sel: [true, true, true], scanning: false, todaySet: new Set(), obs: null, poll: null, wake: null };
+
+function mSavePrefs() { try { localStorage.setItem('cts_m_prefs', JSON.stringify({ sel: M.sel, setup: currentSetup })); } catch {} }
+
+function mRenderChips() {
+  const el = document.getElementById('m-chips');
+  if (!el) return;
+  let html = '';
+  M.slots.forEach((s, i) => {
+    if (!s) return;
+    html += `<button class="m-chip${M.sel[i] ? ' on' : ''}" onclick="mToggleSlot(${i})">${String(s.name).replace(/\.txt$/i, '')}<small>${s.tickers.length}</small></button>`;
+  });
+  html += '<span class="m-chip-gap"></span>';
+  html += `<button class="m-chip${currentSetup === 1 ? ' on' : ''}" onclick="mSetSetup(1)">Setup A</button>`;
+  html += `<button class="m-chip${currentSetup === 2 ? ' on' : ''}" onclick="mSetSetup(2)">Setup B</button>`;
+  el.innerHTML = html;
+}
+function mToggleSlot(i) { if (M.scanning) return; M.sel[i] = !M.sel[i]; mSavePrefs(); mRenderChips(); }
+function mSetSetup(n) { if (M.scanning) return; setSetup(n); mSavePrefs(); mRenderChips(); }
+
+async function mInit() {
+  if (!window.MOBILE_APP) return;
+  try {
+    const p = JSON.parse(localStorage.getItem('cts_m_prefs') || 'null');
+    if (p && Array.isArray(p.sel)) M.sel = [0, 1, 2].map(i => p.sel[i] !== false);
+    if (p && (p.setup === 1 || p.setup === 2)) setSetup(p.setup);
+  } catch {}
+  // Lists come from the cloud backup (so the phone always has them); fall back to anything already saved in this browser.
+  try {
+    const r = await fetch('/api/watchlists');
+    if (r.ok) {
+      const { watchlists } = await r.json();
+      (watchlists || []).forEach(w => { const i = Number(w.slot); if (i >= 0 && i <= 2 && Array.isArray(w.tickers)) M.slots[i] = { name: w.name, tickers: w.tickers }; });
+    }
+  } catch {}
+  for (let i = 0; i < 3; i++) if (!M.slots[i] && savedWatchlists[i]) M.slots[i] = savedWatchlists[i];
+  mRenderChips();
+  if (!M.slots.some(Boolean)) document.getElementById('m-status').textContent = 'No watchlists found — load a .txt on the desktop site first.';
+}
+window.addEventListener('DOMContentLoaded', () => setTimeout(mInit, 300));
+
+async function mRun() {
+  if (M.scanning) return;
+  const seen = new Set(), combined = [];
+  M.slots.forEach((s, i) => { if (s && M.sel[i]) s.tickers.forEach(t => { if (!seen.has(t.ticker)) { seen.add(t.ticker); combined.push(t); } }); });
+  if (!combined.length) { showToast('Select at least one list first.', 'error'); return; }
+  tickers = combined;
+
+  M.scanning = true;
+  const btn = document.getElementById('m-run'), label = document.getElementById('m-run-label'), fill = document.getElementById('m-run-fill'), status = document.getElementById('m-status');
+  btn.disabled = true; label.textContent = 'SCANNING… 0%'; fill.style.width = '0%';
+  try { if (navigator.wakeLock) M.wake = await navigator.wakeLock.request('screen'); } catch {}   // keep the screen on while scanning
+  M.poll = setInterval(() => {
+    const pct = parseInt((document.getElementById('scan-pct').textContent || '0'), 10) || 0;
+    label.textContent = `SCANNING… ${pct}%`; fill.style.width = pct + '%';
+    status.textContent = (document.getElementById('scan-meta').textContent || '').replace(/\s+/g, ' ');
+  }, 300);
+  try {
+    await runScan();
+    mRender();
+  } catch (e) {
+    console.error('[mobile scan]', e);
+    showToast('Scan failed: ' + e.message, 'error');
+  } finally {
+    clearInterval(M.poll); M.poll = null;
+    try { if (M.wake) { M.wake.release(); M.wake = null; } } catch {}
+    M.scanning = false; btn.disabled = false; label.textContent = '▶ RUN SCAN'; fill.style.width = '0%';
+    status.textContent = '';
+  }
+}
+
+function mSameDay(ts) { return new Date(ts).toDateString() === new Date().toDateString(); }
+
+function mRender() {
+  const list = document.getElementById('m-list'), empty = document.getElementById('m-empty');
+  _destroyAllGlanceCharts();
+  if (M.obs) { M.obs.disconnect(); M.obs = null; }
+
+  M.todaySet = new Set(loadLiked(currentSetup).filter(l => mSameDay(l.starredAt)).map(l => l.ticker));
+  const n = sortedResults.length;
+  document.getElementById('m-count').textContent = n ? `${n} ranked` : '';
+  if (!n) {
+    list.innerHTML = '';
+    empty.style.display = '';
+    empty.innerHTML = 'Nothing passed the filters this time.<br>Try again later or pick other lists.';
+    return;
+  }
+  empty.style.display = 'none';
+  list.innerHTML = sortedResults.map((r, i) => {
+    const sc = r.rankScore ?? r.score, cls = sc >= 70 ? 'hi' : sc >= 40 ? 'mid' : 'lo';
+    const up = r.change >= 0, starred = M.todaySet.has(r.ticker);
+    return `<section class="m-card${starred ? ' starred' : ''}" id="m-card-${i}">
+      <div class="m-card-hd"><span class="m-rank">#${i + 1}</span><span class="m-tkr">${r.ticker}</span>
+        <span class="m-score ${cls}">${sc}%</span><span class="m-star" id="m-star-${i}">${starred ? '★' : '☆'}</span></div>
+      <div class="m-card-sub"><span>${r.sectorName || ''}</span><span>$${Number(r.price).toFixed(2)} <b style="color:${up ? 'var(--green)' : 'var(--red)'}">${up ? '+' : ''}${r.change}%</b></span></div>
+      <div class="m-chart-wrap"><div class="m-chart" id="m-chart-${i}" data-idx="${i}"></div>
+        <div class="m-tap" onclick="mTap(${i})"></div><div class="m-pop" id="m-pop-${i}">★</div></div>
+    </section>`;
+  }).join('');
+
+  // Draw each chart only while it is near the screen (and free it again when far away) so a long list stays smooth.
+  M.obs = new IntersectionObserver(entries => {
+    entries.forEach(en => {
+      const r = sortedResults[parseInt(en.target.dataset.idx, 10)];
+      if (!r) return;
+      if (en.isIntersecting) {
+        if (!_glanceCharts[r.ticker]) _buildGlanceChart(en.target, r);
+      } else if (_glanceCharts[r.ticker]) {
+        try { _glanceCharts[r.ticker].remove(); } catch {}
+        delete _glanceCharts[r.ticker];
+        en.target.innerHTML = '';
+      }
+    });
+  }, { root: document.getElementById('m-scroll'), rootMargin: '700px 0px', threshold: 0 });
+  sortedResults.forEach((_, i) => M.obs.observe(document.getElementById('m-chart-' + i)));
+  document.getElementById('m-scroll').scrollTop = 0;
+}
+
+// Tap a chart: first tap stars it into My Picks, tapping again removes that pick.
+// (Entry format matches the desktop toggleStar so both sides read the same picks.)
+function mTap(i) {
+  const r = sortedResults[i];
+  if (!r) return;
+  if (!window._cloudPullDone) { showToast('Still syncing your picks — try again in a moment.', 'error'); return; }
+  const card = document.getElementById('m-card-' + i), star = document.getElementById('m-star-' + i), pop = document.getElementById('m-pop-' + i);
+  const flash = (txt, off) => { pop.textContent = txt; pop.classList.toggle('off', !!off); pop.classList.remove('go'); void pop.offsetWidth; pop.classList.add('go'); };
+  try { if (navigator.vibrate) navigator.vibrate(12); } catch {}
+
+  if (M.todaySet.has(r.ticker)) {
+    // Un-star: remove only the picks added today for this stock (older picks of it are left alone).
+    const sid = currentSetup;
+    saveLiked(sid, loadLiked(sid).filter(l => !(l.ticker === r.ticker && mSameDay(l.starredAt))), { gc: true });
+    M.todaySet.delete(r.ticker); r.isStarred = false;
+    card.classList.remove('starred'); star.textContent = '☆'; flash('☆', true);
+    return;
+  }
+  try {
+    const sid = currentSetup;
+    const bars = (a, n) => (a || []).slice(-n).map(b => ({ t: b.t, o: b.o, h: b.h, l: b.l, c: b.c }));
+    const scored = scoreStock(r, sid), criteriaVector = {};
+    SETUPS[sid].criteria.forEach(c => { criteriaVector[c.id] = scored.criteriaScores?.[c.id]?.raw ?? 0; });
+    const liked = loadLiked(sid);
+    liked.push({
+      ticker: r.ticker, name: r.name || '', starredAt: Date.now(), score: r.score,
+      sectorBonus: r.sectorBonus || 0, sectorName: r.sectorName || '', price: r.price, tfNorm: { ...r.tfNorm },
+      dailyBars: bars(r.daily, 252), weeklyBars: bars(r.weekly, 52), monthlyBars: bars(r.monthly, 36),
+      setupId: sid, criteriaVector,
+    });
+    if (!saveLikedBatch([{ setupId: sid, arr: liked }])) { showToast(`Could not save ${r.ticker} — storage may be full.`, 'error'); return; }
+    M.todaySet.add(r.ticker); r.isStarred = true;
+    card.classList.add('starred'); star.textContent = '★'; flash('★', false);
+  } catch (e) {
+    console.error('[mobile star]', e);
+    showToast(`Could not save ${r.ticker}: ${e.message}`, 'error');
+  }
 }
 </script>
 

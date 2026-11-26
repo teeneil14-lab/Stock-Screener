@@ -1748,6 +1748,21 @@ const server = http.createServer(async (req, res) => {
     return handlePicksApi(req, res, reqUrl);
   }
 
+  // Phone version: the same page, opened at /mobile, with "Add to Home Screen" name + icon.
+  if (reqUrl.pathname === '/mobile' || reqUrl.pathname === '/mobile/') {
+    return fs.readFile(path.join(__dirname, 'screener.html'), 'utf8', (err, html) => {
+      if (err) { res.writeHead(500, { 'Content-Type': 'text/plain' }); return res.end('Error'); }
+      const tags = '<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">\n' +
+        '<meta name="apple-mobile-web-app-capable" content="yes">\n<meta name="mobile-web-app-capable" content="yes">\n' +
+        '<meta name="apple-mobile-web-app-status-bar-style" content="default">\n<meta name="apple-mobile-web-app-title" content="Stock Screener">\n' +
+        '<meta name="theme-color" content="#ffffff">\n<link rel="apple-touch-icon" href="/mobile-icon.png">';
+      html = html.replace('<meta name="viewport" content="width=device-width, initial-scale=1.0">', tags)
+                 .replace('<title>Stock Market Screener © Neil Tee</title>', '<title>Stock Screener</title>');
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
+      res.end(html);
+    });
+  }
+
   // Static file server
   let filePath = reqUrl.pathname === '/' ? '/screener.html' : reqUrl.pathname;
   const fullPath = path.join(__dirname, filePath);
