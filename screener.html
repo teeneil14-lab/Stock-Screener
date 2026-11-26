@@ -5280,12 +5280,15 @@ function loadSavedWatchlists() {
   rebuildTickersFromSlots();
 }
 
+const _wlRawText = {};   // original .txt text of each watchlist, kept so the cloud copy is the real file
+
 function saveSlotToStorage(i) {
   if (savedWatchlists[i]) {
     localStorage.setItem(`cts_wl_${i}`, LZString.compressToBase64(JSON.stringify(savedWatchlists[i])));
   } else {
     localStorage.removeItem(`cts_wl_${i}`);
   }
+  cloudWatchlistSave(String(i), savedWatchlists[i]);
 }
 
 function triggerSlotLoad(i) {
@@ -5299,6 +5302,7 @@ function handleSlotFile(e, i) {
   reader.onload = (ev) => {
     const parsed = parseTradingViewTxt(ev.target.result);
     savedWatchlists[i] = { name: file.name, tickers: parsed };
+    _wlRawText[i] = ev.target.result;
     saveSlotToStorage(i);
     renderSlots();
     rebuildTickersFromSlots();
@@ -5397,6 +5401,7 @@ function setupDragDrop() {
       reader.onload = (ev) => {
         const parsed = parseTradingViewTxt(ev.target.result);
         savedWatchlists[i] = { name: file.name, tickers: parsed };
+        _wlRawText[i] = ev.target.result;
         saveSlotToStorage(i);
         renderSlots();
         rebuildTickersFromSlots();
@@ -11004,8 +11009,10 @@ function loadRefineWatchlistFromStorage() {
 function saveRefineWatchlistToStorage() {
   if (_refineFileSnapshot && _refineFileSnapshot.watchlist) {
     localStorage.setItem(REFINE_WL_STORE_KEY, LZString.compressToBase64(JSON.stringify(_refineFileSnapshot.watchlist)));
+    cloudWatchlistSave('refine', _refineFileSnapshot.watchlist);
   } else {
     localStorage.removeItem(REFINE_WL_STORE_KEY);
+    cloudWatchlistSave('refine', null);
   }
 }
 
@@ -11038,6 +11045,7 @@ function _setRefineWatchlist(name, parsedTickers) {
 function _loadRefineFile(file) {
   const reader = new FileReader();
   reader.onload = (ev) => {
+    _wlRawText.refine = ev.target.result;
     _setRefineWatchlist(file.name, parseTradingViewTxt(ev.target.result));
   };
   reader.readAsText(file);
@@ -13039,7 +13047,57 @@ async function cloudSyncPush() {
 }
 
 // On page open: add back any cloud pick this browser doesn't have, then back up anything new here.
+// ---- Watchlist .txt files: back up to the cloud, restore into empty slots ----
+let _wlCloudReady = false;   // don't push anything until the restore check has run (an empty fresh browser must never wipe the cloud)
+function cloudWatchlistSave(slot, wl) {
+  if (!_wlCloudReady) return;
+  try {
+    if (wl && wl.name && Array.isArray(wl.tickers)) {
+      fetch('/api/watchlists/save', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slot, name: wl.name, tickers: wl.tickers, rawText: _wlRawText[slot] || null }) }).catch(() => {});
+    } else {
+      fetch('/api/watchlists/delete', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slot }) }).catch(() => {});
+    }
+  } catch (e) {}
+}
+
+async function cloudWatchlistsSync() {
+  try {
+    const r = await fetch('/api/watchlists');
+    if (!r.ok) return;
+    const { watchlists } = await r.json();
+    const cloud = {};
+    (watchlists || []).forEach(w => { cloud[w.slot] = w; });
+    let changedSlots = false;
+    for (let i = 0; i < 3; i++) {
+      const w = cloud[String(i)];
+      if (!savedWatchlists[i] && w) {            // empty here, saved in the cloud -> restore
+        savedWatchlists[i] = { name: w.name, tickers: w.tickers };
+        if (w.raw_text) _wlRawText[i] = w.raw_text;
+        localStorage.setItem(`cts_wl_${i}`, LZString.compressToBase64(JSON.stringify(savedWatchlists[i])));
+        changedSlots = true;
+      } else if (savedWatchlists[i] && !w) {     // here but not in the cloud yet -> back it up
+        _wlCloudReady = true; cloudWatchlistSave(String(i), savedWatchlists[i]);
+      }
+    }
+    const rw = cloud.refine;
+    if (rw && !(_refineFileSnapshot && _refineFileSnapshot.watchlist)) {
+      _wlRawText.refine = rw.raw_text || undefined;
+      _refineFileSnapshot = _blankRefineSnapshot({ name: rw.name, tickers: rw.tickers });
+      localStorage.setItem(REFINE_WL_STORE_KEY, LZString.compressToBase64(JSON.stringify(_refineFileSnapshot.watchlist)));
+      if (refineSource === 'file') _applyRefineSnapshot(_refineFileSnapshot);
+      _renderRefineSlot();
+    } else if (!rw && _refineFileSnapshot && _refineFileSnapshot.watchlist) {
+      _wlCloudReady = true; cloudWatchlistSave('refine', _refineFileSnapshot.watchlist);
+    }
+    _wlCloudReady = true;
+    if (changedSlots) { renderSlots(); rebuildTickersFromSlots(); listQaLoaded = false; }
+  } catch (e) {}
+}
+
 async function cloudSyncPull() {
+  cloudWatchlistsSync();
   try {
     const r = await fetch('/api/picks');
     if (!r.ok) return;                       // not configured or offline — carry on with local picks

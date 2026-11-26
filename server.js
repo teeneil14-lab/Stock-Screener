@@ -816,6 +816,27 @@ async function handlePicksApi(req, res, reqUrl) {
       return send(200, { deleted });
     }
 
+    // ---- Watchlist .txt files (sidebar slots 0-2 and the Watchlist Check slot) ----
+    if (route === '/api/watchlists' && req.method === 'GET') {
+      const rows = await sb('GET', 'watchlists?select=slot,name,tickers,raw_text,updated_at&order=slot.asc');
+      return send(200, { watchlists: rows });
+    }
+    if (route === '/api/watchlists/save' && req.method === 'POST') {
+      const { slot, name, tickers, rawText } = await readJsonBody(req);
+      if (!['0', '1', '2', 'refine'].includes(String(slot)) || !name || !Array.isArray(tickers)) return send(400, { error: 'bad watchlist' });
+      await sb('POST', 'watchlists?on_conflict=slot', [{
+        slot: String(slot), name: String(name), tickers, raw_text: typeof rawText === 'string' ? rawText : null,
+        updated_at: new Date().toISOString(),
+      }], { Prefer: 'resolution=merge-duplicates,return=minimal' });
+      return send(200, { saved: 1 });
+    }
+    if (route === '/api/watchlists/delete' && req.method === 'POST') {
+      const { slot } = await readJsonBody(req);
+      if (!['0', '1', '2', 'refine'].includes(String(slot))) return send(400, { error: 'bad slot' });
+      await sb('DELETE', `watchlists?slot=eq.${encodeURIComponent(String(slot))}`);
+      return send(200, { deleted: 1 });
+    }
+
     return send(404, { error: 'Unknown picks route' });
   } catch (e) {
     console.error(`[picks api] ${route}: ${e.message}`);
@@ -1723,7 +1744,7 @@ const server = http.createServer(async (req, res) => {
 
   // ── My Picks cloud backup (Supabase). The browser talks only to these routes;
   // the Supabase secret key stays here on the server.
-  if (reqUrl.pathname.startsWith('/api/picks')) {
+  if (reqUrl.pathname.startsWith('/api/picks') || reqUrl.pathname.startsWith('/api/watchlists')) {
     return handlePicksApi(req, res, reqUrl);
   }
 

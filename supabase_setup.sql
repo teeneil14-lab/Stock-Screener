@@ -37,3 +37,14 @@ grant usage on schema public to service_role;
 grant all on table public.picks to service_role;
 grant all on table public.pick_bars to service_role;
 grant usage, select on all sequences in schema public to service_role;
+
+-- Watchlist .txt files (the 3 sidebar slots + the Watchlist Check slot). One row per slot, latest file wins.
+create table if not exists watchlists (
+  slot        text primary key,            -- '0', '1', '2' or 'refine'
+  name        text        not null,        -- original file name
+  tickers     jsonb       not null default '[]',
+  raw_text    text,                        -- the .txt file exactly as uploaded
+  updated_at  timestamptz not null default now()
+);
+alter table watchlists enable row level security;
+grant all on table public.watchlists to service_role;
