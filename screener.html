@@ -9112,11 +9112,18 @@ async function switchAllPicksCharts(tf) {
   const gen     = ++_switchGen;
   const entries = _picksPageEntries; // only tickers actually mounted on the current page
   const BATCH   = 4; // max concurrent API fetches — keeps Yahoo Finance happy and UI responsive
-  await cloudPrefetchBars(entries);
-  if (gen !== _switchGen) return;
-  for (let i = 0; i < entries.length; i += BATCH) {
-    if (gen !== _switchGen) return; // user switched TF again — abort stale run
-    await Promise.all(entries.slice(i, i + BATCH).map(e => switchPicksChart(e.ticker, tf)));
+  // Picks whose charts are stored in the browser draw first; old picks' charts are fetched from
+  // the cloud in the background at the same time, then drawn once they arrive.
+  const needsCloud = e => (e.dailyBars || []).length < 5 && _isArchivedPick(e.starredAt);
+  const local = entries.filter(e => !needsCloud(e));
+  const remote = entries.filter(needsCloud);
+  const prefetch = cloudPrefetchBars(remote);
+  for (const group of [local, remote]) {
+    if (group === remote) await prefetch;
+    for (let i = 0; i < group.length; i += BATCH) {
+      if (gen !== _switchGen) return; // user switched TF again — abort stale run
+      await Promise.all(group.slice(i, i + BATCH).map(e => switchPicksChart(e.ticker, tf)));
+    }
   }
 }
 
