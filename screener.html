@@ -18032,16 +18032,16 @@ function mCanGo(i, dir) {
       const fast = Math.abs(dx) / Math.max(1, Date.now() - d.t0) > 0.5 && Math.abs(dx) > 30;
       if (e.type === 'pointerup' && mCanGo(i, dir) && (Math.abs(dx) > W * 0.25 || fast)) {
         busy = true;
-        slide(chart, -dir * W, 150);                                         // carry it off the side
+        slide(chart, -dir * W, 100);                                         // carry it off the side
         setTimeout(() => {
           mSwipe(i, dir);                                                    // switch timeframe (rebuilds the chart)
           const c2 = document.getElementById('m-chart-' + i);
           slide(c2, dir * W, 0); void c2.offsetWidth;                        // new chart waits on the other side...
-          slide(c2, 0, 220);                                                 // ...and slides in
-          setTimeout(() => { c2.style.transition = ''; busy = false; }, 240);
-        }, 160);
+          slide(c2, 0, 150);                                                 // ...and slides in
+          setTimeout(() => { c2.style.transition = ''; busy = false; }, 170);
+        }, 110);
       } else {
-        slide(chart, 0, 200);                                                // spring back
+        slide(chart, 0, 140);                                                // spring back
       }
     };
     list.addEventListener('pointerup', finish);
