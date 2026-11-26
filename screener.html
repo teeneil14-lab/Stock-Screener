@@ -3914,7 +3914,8 @@
   .m-card-sub { display: flex; justify-content: space-between; padding: 0 14px 8px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--text3); }
   .m-chart-wrap { position: relative; width: 100%; aspect-ratio: 4 / 3; background: #fff; }
   .m-chart { position: absolute; inset: 0; }
-  .m-tap { position: absolute; inset: 0; z-index: 2; }
+  .m-tap { position: absolute; inset: 0; z-index: 2; touch-action: pan-y; }
+  .m-tf { position: absolute; left: 10px; top: 8px; z-index: 3; pointer-events: none; font-family: 'IBM Plex Mono', monospace; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; color: var(--text3); background: rgba(255,255,255,0.85); border: 1px solid var(--border); border-radius: 8px; padding: 2px 7px; }
   .m-pop {
     position: absolute; left: 50%; top: 50%; z-index: 3; pointer-events: none; opacity: 0;
     transform: translate(-50%, -50%) scale(0.6); font-size: 84px; line-height: 1; color: #e0a100;
@@ -17846,7 +17847,7 @@ function _mtlCalcEMASeries(closes, period) {
 //  Reuses the exact same scan + scoring + chart code as the desktop page.
 //  Only runs when the page is opened at /mobile; the desktop page never touches any of this.
 // ============================================================
-const M = { slots: [null, null, null], sel: [true, true, true], scanning: false, todaySet: new Set(), obs: null, poll: null, wake: null };
+const M = { tf: {}, slots: [null, null, null], sel: [true, true, true], scanning: false, todaySet: new Set(), obs: null, poll: null, wake: null };
 
 // Show / hide the whole bottom menu (lists, setup, RUN SCAN); the small round button at the lower right brings it back.
 function mMenu(show) {
@@ -17935,6 +17936,7 @@ function mRender() {
 
   // Always ordered by taste match (how closely each stock resembles your starred picks); ties fall back to the normal score.
   sortedResults.sort((a, b) => ((b.prefSim ?? 0) - (a.prefSim ?? 0)) || ((b.rankScore ?? b.score) - (a.rankScore ?? a.score)));
+  M.tf = {};
   M.todaySet = new Set(loadLiked(currentSetup).filter(l => mSameDay(l.starredAt)).map(l => l.ticker));
   const n = sortedResults.length;
   document.getElementById('m-count').textContent = n ? `${n} ranked` : '';
@@ -17953,7 +17955,7 @@ function mRender() {
         <span class="m-score ${cls}">${sc}%</span><span class="m-star" id="m-star-${i}">${starred ? '★' : '☆'}</span></div>
       <div class="m-card-sub"><span>${[r.prefSim > 0 ? 'taste ' + Math.round(r.prefSim * 100) + '%' : '', r.sectorName || ''].filter(Boolean).join(' · ')}</span><span>$${Number(r.price).toFixed(2)} <b style="color:${up ? 'var(--green)' : 'var(--red)'}">${up ? '+' : ''}${r.change}%</b></span></div>
       <div class="m-chart-wrap"><div class="m-chart" id="m-chart-${i}" data-idx="${i}"></div>
-        <div class="m-tap" onclick="mTap(${i})"></div><div class="m-pop" id="m-pop-${i}">★</div></div>
+        <div class="m-tf" id="m-tf-${i}">WEEKLY</div><div class="m-tap" data-i="${i}"></div><div class="m-pop" id="m-pop-${i}">★</div></div>
     </section>`;
   }).join('');
 
@@ -17963,7 +17965,7 @@ function mRender() {
       const r = sortedResults[parseInt(en.target.dataset.idx, 10)];
       if (!r) return;
       if (en.isIntersecting) {
-        if (!_glanceCharts[r.ticker]) _buildGlanceChart(en.target, r);
+        if (!_glanceCharts[r.ticker]) mBuildChart(en.target, r);
       } else if (_glanceCharts[r.ticker]) {
         try { _glanceCharts[r.ticker].remove(); } catch {}
         delete _glanceCharts[r.ticker];
@@ -17974,6 +17976,44 @@ function mRender() {
   sortedResults.forEach((_, i) => M.obs.observe(document.getElementById('m-chart-' + i)));
   document.getElementById('m-scroll').scrollTop = 0;
 }
+
+// Each chart has its own timeframe: swipe left = monthly candles, swipe right = daily candles (starts on weekly).
+const M_TFS = ['D', 'W', 'M'], M_TF_NAME = { D: 'DAILY', W: 'WEEKLY', M: 'MONTHLY' };
+function mBuildChart(el, r) {
+  const tf = M.tf[r.ticker] || 'W', pTF = glanceTF, pRange = glanceRange;
+  glanceTF = tf; glanceRange = tf === 'D' ? '6M' : '12M';
+  try { _buildGlanceChart(el, r); } finally { glanceTF = pTF; glanceRange = pRange; }
+}
+function mSwipe(i, dir) {
+  const r = sortedResults[i];
+  if (!r) return;
+  const cur = M_TFS.indexOf(M.tf[r.ticker] || 'W'), next = Math.max(0, Math.min(2, cur + dir));
+  if (next === cur) return;
+  M.tf[r.ticker] = M_TFS[next];
+  document.getElementById('m-tf-' + i).textContent = M_TF_NAME[M_TFS[next]];
+  const el = document.getElementById('m-chart-' + i);
+  if (_glanceCharts[r.ticker]) { try { _glanceCharts[r.ticker].remove(); } catch {} delete _glanceCharts[r.ticker]; }
+  el.innerHTML = '';
+  mBuildChart(el, r);
+}
+(function () {
+  let down = null;
+  window.addEventListener('DOMContentLoaded', () => {
+    const list = document.getElementById('m-list');
+    if (!list) return;
+    list.addEventListener('pointerdown', e => {
+      const t = e.target.closest('.m-tap');
+      down = t ? { i: +t.dataset.i, x: e.clientX, y: e.clientY } : null;
+    });
+    list.addEventListener('pointercancel', () => { down = null; });
+    list.addEventListener('pointerup', e => {
+      if (!down) return;
+      const dx = e.clientX - down.x, dy = e.clientY - down.y, i = down.i; down = null;
+      if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.5) mSwipe(i, dx < 0 ? 1 : -1);   // swipe
+      else if (Math.abs(dx) < 12 && Math.abs(dy) < 12) mTap(i);                                   // tap
+    });
+  });
+})();
 
 // Tap a chart: first tap stars it into My Picks, tapping again removes that pick.
 // (Entry format matches the desktop toggleStar so both sides read the same picks.)
