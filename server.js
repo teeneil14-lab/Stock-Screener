@@ -634,6 +634,173 @@ function parseYFBars(body) {
   } catch { return null; }
 }
 
+// ─── My Picks in Supabase ────────────────────────────────────────────────────
+// Routes:
+//   GET  /api/picks/status    -> is Supabase connected? how many picks are stored?
+//   GET  /api/picks           -> every stored pick (with chart data), grouped by setup
+//   POST /api/picks/upsert    -> save/update a batch of picks   { picks: [ {setupId, ticker, starredAt, ...} ] }
+//   POST /api/picks/reconcile -> delete stored picks that were removed in the browser
+//                                { keep: [ {setupId, ticker, starredAt} ] }
+const SUPABASE_URL = (process.env.SUPABASE_URL || '').replace(/\/+$/, '');
+const SUPABASE_KEY = process.env.SUPABASE_SECRET_KEY || '';
+
+function sbReady() { return !!(SUPABASE_URL && SUPABASE_KEY); }
+
+async function sb(method, restPath, body, extraHeaders = {}) {
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/${restPath}`, {
+    method,
+    headers: {
+      apikey: SUPABASE_KEY,
+      'Content-Type': 'application/json',
+      ...extraHeaders,
+    },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const text = await r.text();
+  if (!r.ok) throw new Error(`Supabase ${r.status}: ${text.slice(0, 300)}`);
+  return text ? JSON.parse(text) : null;
+}
+
+// Reads every row of a table, 500 at a time (Supabase caps one request at ~1000 rows).
+async function sbSelectAll(table, query = '') {
+  const out = [];
+  for (let offset = 0; ; offset += 500) {
+    const page = await sb('GET', `${table}?select=*${query}&limit=500&offset=${offset}`);
+    out.push(...page);
+    if (page.length < 500) break;
+  }
+  return out;
+}
+
+function readJsonBody(req, limitBytes = 50 * 1024 * 1024) {
+  return new Promise((resolve, reject) => {
+    let size = 0; const chunks = [];
+    req.on('data', c => {
+      size += c.length;
+      if (size > limitBytes) { reject(new Error('Request too large')); req.destroy(); return; }
+      chunks.push(c);
+    });
+    req.on('end', () => {
+      try { resolve(JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}')); }
+      catch { reject(new Error('Invalid JSON')); }
+    });
+    req.on('error', reject);
+  });
+}
+
+async function handlePicksApi(req, res, reqUrl) {
+  const send = (code, obj) => {
+    res.writeHead(code, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(obj));
+  };
+  if (!sbReady()) return send(503, { error: 'Supabase is not configured on the server' });
+
+  const iso = ms => new Date(Number(ms)).toISOString();
+  const msOf = t => Date.parse(t);
+  const route = reqUrl.pathname;
+
+  try {
+    if (route === '/api/picks/status' && req.method === 'GET') {
+      const rows = await sb('GET', 'picks?select=id&limit=1', undefined, { Prefer: 'count=exact', Range: '0-0' });
+      return send(200, { connected: true, sample: rows.length });
+    }
+
+    if (route === '/api/picks' && req.method === 'GET') {
+      const [pickRows, barRows] = await Promise.all([
+        sbSelectAll('picks', '&order=starred_at.asc'),
+        sbSelectAll('pick_bars'),
+      ]);
+      const barsByKey = new Map(barRows.map(b => [`${b.ticker}|${msOf(b.starred_at)}`, b.bars || {}]));
+      const picks = { 1: [], 2: [], ph: [] };
+      pickRows.forEach(p => {
+        const starredAt = msOf(p.starred_at);
+        const b = barsByKey.get(`${p.ticker}|${starredAt}`) || {};
+        (picks[p.setup_id] = picks[p.setup_id] || []).push({
+          ticker: p.ticker, starredAt, setupId: p.setup_id === 'ph' ? 'ph' : Number(p.setup_id),
+          score: p.score === null ? 0 : Number(p.score),
+          tfNorm: p.tf_norm || {}, criteriaVector: p.criteria_vector || {},
+          name: b.name, price: b.price,
+          sectorBonus: b.sectorBonus || 0, sectorName: b.sectorName || '',
+          dailyBars: b.dailyBars || [], weeklyBars: b.weeklyBars || [], monthlyBars: b.monthlyBars || [],
+        });
+      });
+      return send(200, { app: 'cts-my-picks', version: 1, picks });
+    }
+
+    // One pick's full chart data, fetched on demand for old picks whose charts were removed from the browser.
+    if (route === '/api/picks/bars' && req.method === 'GET') {
+      const ticker = reqUrl.searchParams.get('ticker') || '';
+      const starredAt = Number(reqUrl.searchParams.get('starredAt'));
+      if (!ticker || !starredAt) return send(400, { error: 'ticker and starredAt are required' });
+      const rows = await sb('GET', `pick_bars?select=bars&ticker=eq.${encodeURIComponent(ticker)}&starred_at=eq.${encodeURIComponent(iso(starredAt))}&limit=1`);
+      if (!rows.length) return send(404, { error: 'No chart data stored for that pick' });
+      const b = rows[0].bars || {};
+      return send(200, { dailyBars: b.dailyBars || [], weeklyBars: b.weeklyBars || [], monthlyBars: b.monthlyBars || [] });
+    }
+
+    if (route === '/api/picks/upsert' && req.method === 'POST') {
+      const { picks } = await readJsonBody(req);
+      if (!Array.isArray(picks)) return send(400, { error: 'picks must be a list' });
+      const pickRows = [], barMap = new Map();
+      for (const p of picks) {
+        if (!p || !p.ticker || !p.starredAt || p.setupId === undefined) continue;
+        pickRows.push({
+          setup_id: String(p.setupId), ticker: String(p.ticker), starred_at: iso(p.starredAt),
+          score: p.score ?? null, tf_norm: p.tfNorm || {}, criteria_vector: p.criteriaVector || {},
+        });
+        // The same pick can arrive under two setups; keep whichever copy has more chart data.
+        const prev = barMap.get(`${p.ticker}|${p.starredAt}`);
+        const size = x => (x?.dailyBars?.length || 0) + (x?.weeklyBars?.length || 0) + (x?.monthlyBars?.length || 0);
+        if (prev && size(prev.bars) >= size(p)) continue;
+        barMap.set(`${p.ticker}|${p.starredAt}`, {
+          ticker: String(p.ticker), starred_at: iso(p.starredAt), updated_at: new Date().toISOString(),
+          bars: {
+            name: p.name, price: p.price, sectorBonus: p.sectorBonus || 0, sectorName: p.sectorName || '',
+            dailyBars: p.dailyBars || [], weeklyBars: p.weeklyBars || [], monthlyBars: p.monthlyBars || [],
+          },
+        });
+      }
+      const merge = { Prefer: 'resolution=merge-duplicates,return=minimal' };
+      // Never let a trimmed copy from the browser replace fuller chart data already in the cloud.
+      const barsSize = x => (x?.dailyBars?.length || 0) + (x?.weeklyBars?.length || 0) + (x?.monthlyBars?.length || 0);
+      for (const [k, row] of [...barMap.entries()]) {
+        const have = await sb('GET', `pick_bars?select=bars&ticker=eq.${encodeURIComponent(row.ticker)}&starred_at=eq.${encodeURIComponent(row.starred_at)}&limit=1`);
+        if (have.length && barsSize(have[0].bars) > barsSize(row.bars)) barMap.delete(k);
+      }
+      if (barMap.size) await sb('POST', 'pick_bars?on_conflict=ticker,starred_at', [...barMap.values()], merge);
+      if (pickRows.length) await sb('POST', 'picks?on_conflict=setup_id,ticker,starred_at', pickRows, merge);
+      return send(200, { saved: pickRows.length });
+    }
+
+    if (route === '/api/picks/reconcile' && req.method === 'POST') {
+      const { keep } = await readJsonBody(req);
+      // Safety: an empty list would wipe everything (e.g. a fresh browser with no picks yet), so refuse.
+      if (!Array.isArray(keep) || keep.length === 0) return send(200, { deleted: 0, skipped: 'empty list' });
+      const keepKeys = new Set(keep.map(k => `${k.setupId}|${k.ticker}|${msOf(iso(k.starredAt))}`));
+      const stored = await sbSelectAll('picks');
+      let deleted = 0;
+      for (const p of stored) {
+        if (keepKeys.has(`${p.setup_id}|${p.ticker}|${msOf(p.starred_at)}`)) continue;
+        await sb('DELETE', `picks?id=eq.${p.id}`);
+        deleted++;
+      }
+      // Drop chart data no remaining pick points at.
+      const livePicks = new Set((await sbSelectAll('picks')).map(p => `${p.ticker}|${msOf(p.starred_at)}`));
+      for (const b of await sbSelectAll('pick_bars')) {
+        if (!livePicks.has(`${b.ticker}|${msOf(b.starred_at)}`)) {
+          await sb('DELETE', `pick_bars?ticker=eq.${encodeURIComponent(b.ticker)}&starred_at=eq.${encodeURIComponent(b.starred_at)}`);
+        }
+      }
+      return send(200, { deleted });
+    }
+
+    return send(404, { error: 'Unknown picks route' });
+  } catch (e) {
+    console.error(`[picks api] ${route}: ${e.message}`);
+    return send(502, { error: e.message });
+  }
+}
+
 const server = http.createServer(async (req, res) => {
   const reqUrl = new URL(req.url, `http://localhost:${PORT}`);
 
@@ -1532,6 +1699,12 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
+  // ── My Picks cloud backup (Supabase). The browser talks only to these routes;
+  // the Supabase secret key stays here on the server.
+  if (reqUrl.pathname.startsWith('/api/picks')) {
+    return handlePicksApi(req, res, reqUrl);
+  }
+
   // Static file server
   let filePath = reqUrl.pathname === '/' ? '/screener.html' : reqUrl.pathname;
   const fullPath = path.join(__dirname, filePath);
@@ -1561,6 +1734,15 @@ setInterval(() => runPSEHistoryBuild().catch(() => {}), 15 * 60 * 1000);
 refreshYFCrumb().catch(() => {});
 // Refresh every 24 minutes to stay within the 25-min TTL
 setInterval(() => refreshYFCrumb().catch(() => {}), 24 * 60 * 1000);
+
+// Keep the free Supabase project from pausing: one tiny read every 12 hours.
+if (sbReady()) {
+  const pingSupabase = () => sb('GET', 'picks?select=id&limit=1')
+    .then(() => console.log('[supabase] keep-alive ok'))
+    .catch(e => console.error(`[supabase] keep-alive failed: ${e.message}`));
+  pingSupabase();
+  setInterval(pingSupabase, 12 * 60 * 60 * 1000);
+}
 
 server.listen(PORT, () => {
   console.log(`CTS Screener running → http://localhost:${PORT}/screener.html`);

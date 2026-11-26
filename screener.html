@@ -8686,8 +8686,12 @@ async function switchPicksChart(ticker, tf) {
 
   const container = document.getElementById(`picks-chart-${ticker}`);
   const liked     = loadLiked(currentSetup);
-  const entry     = liked.find(l => l.ticker === ticker);
+  let entry       = liked.find(l => l.ticker === ticker);
   if (!container || !entry) return;
+
+  // Old picks have their chart history stored in the cloud only (see cloudEvictOldHistory).
+  // Pull it in for display — a copy, so nothing is written back into browser storage.
+  entry = await cloudBarsFor(entry, container);
 
   // Fetch weekly bars on-demand if switching to W and data is missing
   if (tf === 'W' && (!entry.weeklyBars || entry.weeklyBars.length < 5)) {
@@ -12880,7 +12884,7 @@ function _normalizeImportedPick(entry, sid) {
   };
 }
 
-function importMyPicks(payload) {
+function importMyPicks(payload, { quiet = false } = {}) {
   if (!payload || typeof payload !== 'object' || !payload.picks || typeof payload.picks !== 'object') {
     showToast("That file doesn't look like a My Picks export.", 'error');
     return;
@@ -12924,6 +12928,7 @@ function importMyPicks(payload) {
 
   if (poolsTouched) refreshPicksTabView();
 
+  if (quiet) return;
   if (totalAdded > 0) {
     showToast(`Imported ${totalAdded} pick${totalAdded === 1 ? '' : 's'}` +
       (totalSkipped ? ` (${totalSkipped} were already saved here and skipped).` : '.'));
@@ -12931,6 +12936,163 @@ function importMyPicks(payload) {
     showToast('Nothing new to import — every pick in that file is already saved here.');
   }
 }
+
+// ============================================================
+//  MY PICKS — CLOUD BACKUP (Supabase, through the server's /api/picks routes)
+//  Your browser's storage stays the working copy (so the app is still instant);
+//  every change is mirrored to the cloud a few seconds later, and when the page
+//  opens, any cloud pick missing from this browser is added back.
+// ============================================================
+let _cloudSyncTimer = null, _cloudSyncBusy = false, _cloudSyncAgain = false;
+const CLOUD_SYNCED_KEY = 'cts_cloud_synced_keys';
+
+function _cloudKey(sid, p) { return `${sid}|${p.ticker}|${p.starredAt}`; }
+
+function cloudSyncSoon() {
+  clearTimeout(_cloudSyncTimer);
+  _cloudSyncTimer = setTimeout(cloudSyncPush, 4000);
+}
+
+async function cloudSyncPush() {
+  if (_cloudSyncBusy) { _cloudSyncAgain = true; return; }
+  _cloudSyncBusy = true;
+  try {
+    let synced = new Set();
+    try { synced = new Set(JSON.parse(localStorage.getItem(CLOUD_SYNCED_KEY) || '[]')); } catch {}
+
+    const all = [];
+    MY_PICKS_SETUP_IDS.forEach(sid => loadLiked(sid).forEach(p => all.push({ sid, p })));
+    if (!all.length) return;
+
+    const fresh = all.filter(({ sid, p }) => !synced.has(_cloudKey(sid, p)));
+    for (let i = 0; i < fresh.length; i += 15) {
+      const chunk = fresh.slice(i, i + 15).map(({ sid, p }) => ({ ...p, setupId: sid }));
+      const r = await fetch('/api/picks/upsert', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ picks: chunk }),
+      });
+      if (!r.ok) throw new Error(`upsert ${r.status}`);
+      chunk.forEach(p => synced.add(_cloudKey(p.setupId, p)));
+    }
+
+    // Tell the cloud which picks still exist, so ones you removed here are removed there too.
+    const keep = all.map(({ sid, p }) => ({ setupId: sid, ticker: p.ticker, starredAt: p.starredAt }));
+    const r2 = await fetch('/api/picks/reconcile', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ keep }),
+    });
+    if (!r2.ok) throw new Error(`reconcile ${r2.status}`);
+
+    const liveKeys = new Set(all.map(({ sid, p }) => _cloudKey(sid, p)));
+    try { localStorage.setItem(CLOUD_SYNCED_KEY, JSON.stringify([...synced].filter(k => liveKeys.has(k)))); } catch {}
+    console.log(`[cloud picks] backed up ${fresh.length} new pick(s)`);
+    cloudEvictOldHistory();
+  } catch (e) {
+    console.warn('[cloud picks] backup failed (will retry on the next change):', e.message);
+  } finally {
+    _cloudSyncBusy = false;
+    if (_cloudSyncAgain) { _cloudSyncAgain = false; cloudSyncSoon(); }
+  }
+}
+
+// On page open: add back any cloud pick this browser doesn't have, then back up anything new here.
+async function cloudSyncPull() {
+  try {
+    const r = await fetch('/api/picks');
+    if (!r.ok) return;                       // not configured or offline — carry on with local picks
+    const payload = await r.json();
+    const before = MY_PICKS_SETUP_IDS.reduce((n, sid) => n + loadLiked(sid).length, 0);
+    const cloudTotal = MY_PICKS_SETUP_IDS.reduce((n, sid) => n + ((payload.picks[sid] || []).length), 0);
+    if (cloudTotal) {
+      // Mark cloud picks as already synced so they aren't uploaded again.
+      let synced = new Set();
+      try { synced = new Set(JSON.parse(localStorage.getItem(CLOUD_SYNCED_KEY) || '[]')); } catch {}
+      MY_PICKS_SETUP_IDS.forEach(sid => (payload.picks[sid] || []).forEach(p => synced.add(_cloudKey(sid, p))));
+      try { localStorage.setItem(CLOUD_SYNCED_KEY, JSON.stringify([...synced])); } catch {}
+      // Old picks come down without their chart history (loaded on demand), so a fresh browser doesn't fill up.
+      MY_PICKS_SETUP_IDS.forEach(sid => (payload.picks[sid] || []).forEach(p => {
+        if (!_isArchivedPick(p.starredAt)) return;
+        ['dailyBars', 'weeklyBars', 'monthlyBars'].forEach(f => { p[f] = (p[f] || []).slice(-1); });
+      }));
+      importMyPicks(payload, { quiet: true });
+    }
+    const after = MY_PICKS_SETUP_IDS.reduce((n, sid) => n + loadLiked(sid).length, 0);
+    if (after > before) showToast(`Restored ${after - before} pick(s) from your cloud backup.`);
+    cloudSyncSoon();
+  } catch (e) {
+    console.warn('[cloud picks] could not reach cloud backup:', e.message);
+  }
+}
+
+// ── Keeping browser storage small ──────────────────────────────────────────
+// Once every pick of a ticker is older than a month AND safely in the cloud, its
+// chart history (the bulk of what the browser stores) is removed from this browser.
+// The chart is fetched from the cloud only when you open that pick (cloudBarsFor).
+// Switch for the "remove old charts from this browser" step. Left OFF in the first release so
+// the cloud backup can be checked before anything is ever deleted locally.
+const CLOUD_EVICT_ENABLED = false;
+
+function cloudEvictOldHistory() {
+  if (!CLOUD_EVICT_ENABLED) return 0;
+  let synced = new Set();
+  try { synced = new Set(JSON.parse(localStorage.getItem(CLOUD_SYNCED_KEY) || '[]')); } catch { return 0; }
+  const byTicker = new Map();
+  MY_PICKS_SETUP_IDS.forEach(sid => loadLiked(sid).forEach(p => {
+    if (!byTicker.has(p.ticker)) byTicker.set(p.ticker, []);
+    byTicker.get(p.ticker).push({ sid, p });
+  }));
+  let removed = 0;
+  byTicker.forEach((list, ticker) => {
+    const allOldAndBackedUp = list.every(({ sid, p }) => _isArchivedPick(p.starredAt) && synced.has(_cloudKey(sid, p)));
+    if (!allOldAndBackedUp) return;
+    const key = _tickerHistKey(ticker);
+    try {
+      if (localStorage.getItem(key) === null) return;
+      localStorage.removeItem(key);
+      _tickerHistoryCache.delete(ticker);
+      _tickerHistoryDirty.delete(ticker);
+      removed++;
+    } catch {}
+  });
+  if (removed) console.log(`[cloud picks] freed browser storage: removed chart history for ${removed} old ticker(s)`);
+  return removed;
+}
+
+const _cloudBarsCache = new Map(); // "ticker|starredAt" -> { dailyBars, weeklyBars, monthlyBars }
+async function cloudBarsFor(entry, container) {
+  if ((entry.dailyBars || []).length >= 5 || !_isArchivedPick(entry.starredAt)) return entry;
+  const key = `${entry.ticker}|${entry.starredAt}`;
+  let bars = _cloudBarsCache.get(key);
+  if (!bars) {
+    if (container) container.innerHTML = '<div style="height:100%;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--text3);font-family:\'IBM Plex Mono\',monospace">Loading chart from cloud…</div>';
+    try {
+      const r = await fetch(`/api/picks/bars?ticker=${encodeURIComponent(entry.ticker)}&starredAt=${entry.starredAt}`);
+      if (!r.ok) return entry;
+      bars = await r.json();
+      _cloudBarsCache.set(key, bars);
+    } catch { return entry; }
+  }
+  return { ...entry, dailyBars: bars.dailyBars || [], weeklyBars: bars.weeklyBars || [], monthlyBars: bars.monthlyBars || [] };
+}
+
+// Every successful save of picks also schedules a cloud backup.
+{
+  const _origSaveLiked = saveLiked, _origSaveLikedBatch = saveLikedBatch;
+  // If the browser says "full", free the space old picks use (when they're safely in the cloud) and try once more.
+  saveLiked = function () {
+    let ok = _origSaveLiked.apply(this, arguments);
+    if (!ok && cloudEvictOldHistory()) ok = _origSaveLiked.apply(this, arguments);
+    if (ok) cloudSyncSoon();
+    return ok;
+  };
+  saveLikedBatch = function () {
+    let ok = _origSaveLikedBatch.apply(this, arguments);
+    if (!ok && cloudEvictOldHistory()) ok = _origSaveLikedBatch.apply(this, arguments);
+    if (ok) cloudSyncSoon();
+    return ok;
+  };
+}
+window.addEventListener('load', () => setTimeout(cloudSyncPull, 1500));
 
 function getStarredProfile(setupId) {
   const liked = loadLiked(setupId);
@@ -13143,6 +13305,8 @@ function migrateLikedCriteria() {
     liked.forEach(entry => {
       const missing = currentIds.filter(id => !(id in (entry.criteriaVector || {})));
       if (!missing.length) return;
+      // Old picks whose charts live in the cloud only have one candle here — recomputing from that would give wrong values.
+      if ((entry.dailyBars || []).length < 5) return;
       // Reconstruct a minimal stock object from bars stored at star time
       const fakeStock = {
         monthly:   entry.monthlyBars || [],
