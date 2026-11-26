@@ -18028,8 +18028,7 @@ function mCanGo(i, dir) {
       const dx = e.clientX - d.x, dy = e.clientY - d.y, i = d.i;
       if (!d.drag) { if (Math.abs(dx) < 12 && Math.abs(dy) < 12 && e.type === 'pointerup') mTap(i); return; }
       const chart = document.getElementById('m-chart-' + i), W = chart.offsetWidth || 360, dir = dx < 0 ? 1 : -1;
-      const fast = Math.abs(dx) / Math.max(1, Date.now() - d.t0) > 0.5 && Math.abs(dx) > 30;
-      if (e.type === 'pointerup' && mCanGo(i, dir) && (Math.abs(dx) > W * 0.25 || fast)) {
+      if (e.type === 'pointerup' && mCanGo(i, dir)) {                          // any swipe (even a short one) switches
         busy = true;
         slide(chart, -dir * W, 100);                                         // carry it off the side
         setTimeout(() => {
