@@ -3897,6 +3897,7 @@
     padding: calc(env(safe-area-inset-top) + 10px) 16px 10px; background: #fff; border-bottom: 1px solid var(--border);
   }
   #m-title { font-weight: 700; font-size: 15px; letter-spacing: 0.08em; color: var(--accent); }
+  #m-title .logo-copyright { font-size: 10px; margin-left: 6px; letter-spacing: 0; }
   #m-count { font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: var(--text3); }
   #m-scroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; padding: 10px 0 24px; }
   #m-empty { padding: 56px 28px; text-align: center; color: var(--text3); font-size: 14px; line-height: 1.6; }
@@ -4806,7 +4807,7 @@
 
 <!-- MOBILE APP (/mobile): simple phone version — scan + one chart per stock; tap a chart to star / un-star -->
 <div id="m-app">
-  <div id="m-head"><span id="m-title">CTS SCREENER</span><span id="m-count"></span></div>
+  <div id="m-head"><span id="m-title">Stock Screener<span class="logo-copyright">© Neil Tee</span></span><span id="m-count"></span></div>
   <div id="m-scroll">
     <div id="m-empty">Choose your lists below, then tap <b>RUN SCAN</b>.<br><br>Each stock that passes shows as one big chart.<br><b>Tap a chart</b> to ★ it into My Picks. <b>Tap again</b> to remove it.</div>
     <div id="m-list"></div>
