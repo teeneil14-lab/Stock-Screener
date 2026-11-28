@@ -3930,12 +3930,40 @@
   .m-pop.go { animation: mpop 0.7s ease-out; }
   .m-pop.off { color: #9ca3af; }
   @keyframes mpop { 0% { opacity: 0; transform: translate(-50%,-50%) scale(0.5); } 25% { opacity: 0.95; transform: translate(-50%,-50%) scale(1.1); } 100% { opacity: 0; transform: translate(-50%,-50%) scale(1); } }
-  #m-bar { flex: none; background: #fff; border-top: 1px solid var(--border); padding: 8px 14px calc(env(safe-area-inset-bottom) + 10px); }
-  #m-bar { position: relative; }
+  #m-bottom { flex: none; position: relative; background: #fff; }
+  #m-tabs { display: flex; border-top: 1px solid var(--border); padding-bottom: env(safe-area-inset-bottom); }
+  .m-tab { position: relative; flex: 1; height: 54px; border: 0; background: transparent; color: #6b7280; display: flex; align-items: center; justify-content: center; padding: 0; }
+  .m-tab svg { width: 27px; height: 27px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+  .m-tab.on { color: var(--accent); }
+  .m-tab.on::before { content: ''; position: absolute; top: -1px; left: 22%; right: 22%; height: 3px; border-radius: 0 0 3px 3px; background: var(--accent); }
+  .m-tab-pct { display: none; font-family: 'IBM Plex Mono', monospace; font-weight: 700; font-size: 14px; }
+  .m-tab.scanning svg { display: none; } .m-tab.scanning .m-tab-pct { display: block; }
+  #m-bar { background: #fff; border-top: 1px solid var(--border); padding: 8px 14px calc(env(safe-area-inset-bottom) + 10px); position: relative; }
   #m-hide { position: absolute; top: 6px; right: 10px; width: 34px; height: 24px; border: 1px solid var(--border2); border-radius: 12px; background: #fff; color: var(--text3); font-size: 13px; line-height: 1; padding: 0; }
-  #m-fab { display: none; position: fixed; right: 14px; bottom: calc(env(safe-area-inset-bottom) + 14px); z-index: 10; min-width: 44px; height: 44px; padding: 0 12px; border: 0; border-radius: 22px; background: rgba(10,124,78,0.92); color: #fff; font-family: 'IBM Plex Mono', monospace; font-size: 15px; font-weight: 700; box-shadow: 0 2px 10px rgba(0,0,0,0.25); }
-  html.mobile-app #m-app.menu-hidden #m-bar { display: none; }
-  html.mobile-app #m-app.menu-hidden #m-fab { display: block; }
+  html.mobile-app #m-app:not(.scan-open) #m-bar { display: none; }
+  html.mobile-app #m-app.scan-open #m-tabs { display: none; }
+  #m-back { display: none; border: 0; background: transparent; color: var(--accent); font-size: 30px; line-height: 1; padding: 0 10px 2px 0; }
+  #m-app.drill #m-back { display: block; }
+  #m-app.drill #m-title { display: none; }
+  #m-head-left { display: flex; align-items: center; }
+  #m-count { max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #m-app:not(.tab-scan) #m-ph { display: none; }
+  .m-tbl { width: calc(100% - 24px); margin: 0 12px 12px; border-collapse: separate; border-spacing: 0; table-layout: fixed; background: #fff; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; font-family: 'IBM Plex Mono', monospace; font-size: 11px; }
+  .m-tbl th { padding: 10px 2px; color: var(--text3); font-weight: 600; text-align: right; border-bottom: 1px solid var(--border); }
+  .m-tbl th.act { color: var(--accent); }
+  .m-tbl td { padding: 12px 2px; text-align: right; border-bottom: 1px solid #f1f2f4; }
+  .m-tbl tr:last-child td { border-bottom: 0; }
+  .m-tbl th:first-child, .m-tbl td:first-child { text-align: left; padding-left: 8px; width: 25%; }
+  .m-tbl th { text-align: center; font-size: 10px; }
+  .m-tbl td { padding: 11px 0; }
+  .m-tbl td.nm b { display: block; font-family: 'Inter', sans-serif; font-size: 12px; color: var(--text); }
+  .m-tbl td.nm small { color: var(--text3); font-size: 10px; }
+  .m-tbl .pct-cell { display: block; min-width: 0; font-size: 10px; padding: 3px 0; text-align: center; border-radius: 3px; margin: 0 1px; }
+  .m-tbl tbody tr { cursor: pointer; }
+  .m-ind { display: flex; justify-content: space-between; align-items: center; margin: 0 12px 6px; padding: 14px 14px; border-radius: 10px; font-size: 13px; font-weight: 600; }
+  .m-ind span:last-child { font-family: 'IBM Plex Mono', monospace; }
+  .m-note { padding: 40px 28px; text-align: center; color: var(--text3); font-size: 14px; }
+  #m-more { height: 1px; }
   #m-status { margin-right: 44px; font-family: 'IBM Plex Mono', monospace; font-size: 10px; color: var(--text3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-height: 14px; margin-bottom: 6px; }
   #m-chips { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; margin-bottom: 8px; }
   .m-chip { border: 1px solid var(--border2); background: #fff; color: var(--text3); border-radius: 16px; padding: 6px 11px; font-size: 12px; font-family: inherit; }
@@ -4819,19 +4847,27 @@
 <div class="toast" id="app-toast"></div>
 
 <!-- MOBILE APP (/mobile): simple phone version — scan + one chart per stock; tap a chart to star / un-star -->
-<div id="m-app">
-  <div id="m-head"><span id="m-title">Stock Screener<span class="logo-copyright">© Neil Tee</span></span><span id="m-head-right"><span id="m-count"></span><button id="m-ph" onclick="mTogglePH()">PH</button></span></div>
+<div id="m-app" class="tab-scan">
+  <div id="m-head"><span id="m-head-left"><button id="m-back" onclick="mBack()" aria-label="Back">‹</button><span id="m-title">Stock Screener<span class="logo-copyright">© Neil Tee</span></span></span><span id="m-head-right"><span id="m-count"></span><button id="m-ph" onclick="mTogglePH()">PH</button></span></div>
   <div id="m-scroll">
-    <div id="m-empty">Choose your lists below, then tap <b>RUN SCAN</b>.<br><br>Each stock that passes shows as one big chart.<br><b>Tap a chart</b> to ★ it into My Picks. <b>Tap again</b> to remove it.</div>
+    <div id="m-empty">Tap the <b>▶</b> button below, choose your lists, then <b>RUN SCAN</b>.<br><br>Each stock that passes shows as one big chart.<br><b>Tap a chart</b> to ★ it into My Picks. <b>Tap again</b> to remove it.</div>
     <div id="m-list"></div>
+    <div id="m-more"></div>
   </div>
-  <div id="m-bar">
-    <button id="m-hide" onclick="mMenu(false)" title="Hide menu">▾</button>
-    <div id="m-status"></div>
-    <div id="m-chips"></div>
-    <button id="m-run" onclick="mRun()"><span id="m-run-fill"></span><span id="m-run-label">▶ RUN SCAN</span></button>
+  <div id="m-bottom">
+    <div id="m-tabs">
+      <button class="m-tab" id="m-tab-sectors" aria-label="Sector performance" onclick="mGo('sectors')"><svg viewBox="0 0 24 24"><path d="M5 20V11M11 20V4M17 20v-6M2.5 20.5h19"/></svg></button>
+      <button class="m-tab" id="m-tab-industries" aria-label="Industry map" onclick="mGo('industries')"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="1.6"/><rect x="13" y="3" width="8" height="8" rx="1.6"/><rect x="3" y="13" width="8" height="8" rx="1.6"/><rect x="13" y="13" width="8" height="8" rx="1.6"/></svg></button>
+      <button class="m-tab" id="m-tab-picks" aria-label="My picks" onclick="mGo('picks')"><svg viewBox="0 0 24 24"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/></svg></button>
+      <button class="m-tab on" id="m-tab-scan" aria-label="Run scan" onclick="mOpenScan()"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M10 8.3l6 3.7-6 3.7z"/></svg><span class="m-tab-pct" id="m-tab-pct"></span></button>
+    </div>
+    <div id="m-bar">
+      <button id="m-hide" onclick="mCloseScan()" aria-label="Hide scan menu">▾</button>
+      <div id="m-status"></div>
+      <div id="m-chips"></div>
+      <button id="m-run" onclick="mRun()"><span id="m-run-fill"></span><span id="m-run-label">▶ RUN SCAN</span></button>
+    </div>
   </div>
-  <button id="m-fab" onclick="mMenu(true)" title="Show menu">☰</button>
 </div>
 
 
@@ -17854,15 +17890,13 @@ function _mtlCalcEMASeries(closes, period) {
 //  Reuses the exact same scan + scoring + chart code as the desktop page.
 //  Only runs when the page is opened at /mobile; the desktop page never touches any of this.
 // ============================================================
-const M = { view: 'us', phItems: [], phBars: {}, dirty: false, tf: {}, slots: [null, null, null], sel: [true, true, true], scanning: false, todaySet: new Set(), obs: null, poll: null, wake: null };
+const M = { tab: 'scan', drillOn: false, drillItems: [], picksItems: [], picksShown: 0, dailyCache: {}, sectorRows: null, sectorTs: 0, secSort: { col: '1m', dir: -1 }, indData: null, indTs: 0, gen: 0, moreObs: null, backScroll: 0, view: 'us', phItems: [], phBars: {}, dirty: false, tf: {}, slots: [null, null, null], sel: [true, true, true], scanning: false, todaySet: new Set(), obs: null, poll: null, wake: null };
 
-// Show / hide the whole bottom menu (lists, setup, RUN SCAN); the small round button at the lower right brings it back.
-function mMenu(show) {
-  document.getElementById('m-app').classList.toggle('menu-hidden', !show);
-  try { localStorage.setItem('cts_m_menu_hidden', show ? '0' : '1'); } catch {}
+function mItems() {
+  if (M.drillOn) return M.drillItems;
+  if (M.tab === 'picks') return M.picksItems;
+  return M.view === 'ph' ? M.phItems : sortedResults;
 }
-
-function mItems() { return M.view === 'ph' ? M.phItems : sortedResults; }
 
 function mSavePrefs() { try { localStorage.setItem('cts_m_prefs', JSON.stringify({ sel: M.sel, setup: currentSetup })); } catch {} }
 
@@ -17884,7 +17918,6 @@ function mSetSetup(n) { if (M.scanning) return; setSetup(n); mSavePrefs(); mRend
 
 async function mInit() {
   if (!window.MOBILE_APP) return;
-  try { if (localStorage.getItem('cts_m_menu_hidden') === '1') mMenu(false); } catch {}
   try {
     const p = JSON.parse(localStorage.getItem('cts_m_prefs') || 'null');
     if (p && Array.isArray(p.sel)) M.sel = [0, 1, 2].map(i => p.sel[i] !== false);
@@ -17915,16 +17948,16 @@ async function mRun() {
   M.scanning = true;
   const btn = document.getElementById('m-run'), label = document.getElementById('m-run-label'), fill = document.getElementById('m-run-fill'), status = document.getElementById('m-status');
   btn.disabled = true; label.textContent = 'SCANNING… 0%'; fill.style.width = '0%';
-  try { if (navigator.wakeLock) M.wake = await navigator.wakeLock.request('screen'); } catch {}   // keep the screen on while scanning
+  try { if (navigator.wakeLock) navigator.wakeLock.request('screen').then(l => { M.wake = l; }).catch(() => {}); } catch {}   // keep the screen on while scanning
   M.poll = setInterval(() => {
     const pct = parseInt((document.getElementById('scan-pct').textContent || '0'), 10) || 0;
     label.textContent = `SCANNING… ${pct}%`; fill.style.width = pct + '%';
     status.textContent = (document.getElementById('scan-meta').textContent || '').replace(/\s+/g, ' ');
-    document.getElementById('m-fab').textContent = pct + '%';
+    document.getElementById('m-tab-pct').textContent = pct + '%'; document.getElementById('m-tab-scan').classList.add('scanning');
   }, 300);
   try {
     await runScan();
-    if (M.view === 'us') mRender(); else M.dirty = true;
+    if (M.tab === 'scan' && M.view === 'us') mRender(); else M.dirty = true;
   } catch (e) {
     console.error('[mobile scan]', e);
     showToast('Scan failed: ' + e.message, 'error');
@@ -17933,7 +17966,7 @@ async function mRun() {
     try { if (M.wake) { M.wake.release(); M.wake = null; } } catch {}
     M.scanning = false; btn.disabled = false; mSetViewUI(); fill.style.width = '0%';
     status.textContent = '';
-    document.getElementById('m-fab').textContent = '☰';
+    document.getElementById('m-tab-scan').classList.remove('scanning'); document.getElementById('m-tab-pct').textContent = '';
   }
 }
 
@@ -17980,15 +18013,15 @@ function mObserve() {
       const r = mItems()[parseInt(en.target.dataset.idx, 10)];
       if (!r) return;
       if (en.isIntersecting) {
-        if (!_glanceCharts[r.ticker]) mBuildChart(en.target, r);
-      } else if (_glanceCharts[r.ticker]) {
-        try { _glanceCharts[r.ticker].remove(); } catch {}
-        delete _glanceCharts[r.ticker];
+        if (!_glanceCharts[mKey(r)]) mBuildChart(en.target, r);
+      } else if (_glanceCharts[mKey(r)]) {
+        try { _glanceCharts[mKey(r)].remove(); } catch {}
+        delete _glanceCharts[mKey(r)];
         en.target.innerHTML = '';
       }
     });
   }, { root: document.getElementById('m-scroll'), rootMargin: '700px 0px', threshold: 0 });
-  mItems().forEach((_, i) => M.obs.observe(document.getElementById('m-chart-' + i)));
+  mItems().forEach((_, i) => { const el = document.getElementById('m-chart-' + i); if (el) M.obs.observe(el); });
   document.getElementById('m-scroll').scrollTop = 0;
 }
 
@@ -17996,6 +18029,7 @@ function mObserve() {
 const M_TFS = ['D', 'W', 'M'], M_TF_NAME = { D: 'DAILY', W: 'WEEKLY', M: 'MONTHLY' };
 function mBuildChart(el, r) {
   if (r._ph) return mBuildPH(el, r);
+  if (r._lazy) return mBuildLazy(el, r);
   const tf = M.tf[r.ticker] || 'W', pTF = glanceTF, pRange = glanceRange;
   glanceTF = tf; glanceRange = tf === 'D' ? '6M' : '12M';
   try { _buildGlanceChart(el, r); } finally { glanceTF = pTF; glanceRange = pRange; }
@@ -18003,12 +18037,12 @@ function mBuildChart(el, r) {
 function mSwipe(i, dir) {
   const r = mItems()[i];
   if (!r) return;
-  const cur = M_TFS.indexOf(M.tf[r.ticker] || 'W'), next = Math.max(0, Math.min(2, cur + dir));
+  const cur = M_TFS.indexOf(M.tf[mKey(r)] || 'W'), next = Math.max(0, Math.min(2, cur + dir));
   if (next === cur) return;
-  M.tf[r.ticker] = M_TFS[next];
+  M.tf[mKey(r)] = M_TFS[next];
   document.getElementById('m-tf-' + i).textContent = M_TF_NAME[M_TFS[next]];
   const el = document.getElementById('m-chart-' + i);
-  if (_glanceCharts[r.ticker]) { try { _glanceCharts[r.ticker].remove(); } catch {} delete _glanceCharts[r.ticker]; }
+  if (_glanceCharts[mKey(r)]) { try { _glanceCharts[mKey(r)].remove(); } catch {} delete _glanceCharts[mKey(r)]; }
   el.innerHTML = '';
   mBuildChart(el, r);
 }
@@ -18016,7 +18050,7 @@ function mSwipe(i, dir) {
 // otherwise it springs back.
 function mCanGo(i, dir) {
   const r = mItems()[i]; if (!r) return false;
-  const cur = M_TFS.indexOf(M.tf[r.ticker] || 'W'); const n = cur + dir;
+  const cur = M_TFS.indexOf(M.tf[mKey(r)] || 'W'); const n = cur + dir;
   return n >= 0 && n <= 2;
 }
 (function () {
@@ -18062,6 +18096,239 @@ function mCanGo(i, dir) {
     list.addEventListener('pointercancel', finish);
   });
 })();
+
+
+// ---- Bottom tab bar: Sectors | Industries | My Picks | Scan ----
+function mKey(r) { return r.key || r.ticker; }
+function mEsc(t) { return String(t == null ? '' : t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+function mLeave() {            // clear whatever page is showing before switching to another
+  M.gen++;
+  _destroyAllGlanceCharts();
+  if (M.obs) { M.obs.disconnect(); M.obs = null; }
+  if (M.moreObs) { M.moreObs.disconnect(); M.moreObs = null; }
+  M.drillOn = false;
+  document.getElementById('m-app').classList.remove('drill');
+  document.getElementById('m-list').innerHTML = '';
+  document.getElementById('m-empty').style.display = 'none';
+  document.getElementById('m-count').textContent = '';
+  document.getElementById('m-scroll').scrollTop = 0;
+}
+function mSetTab(tab) {
+  M.tab = tab;
+  const app = document.getElementById('m-app');
+  ['scan', 'sectors', 'industries', 'picks'].forEach(t => {
+    document.getElementById('m-tab-' + t).classList.toggle('on', t === tab);
+    app.classList.toggle('tab-' + t, t === tab);
+  });
+}
+function mGo(tab) {
+  document.getElementById('m-app').classList.remove('scan-open');
+  mLeave(); mSetTab(tab); M.tf = {};
+  if (tab === 'sectors') mShowSectors();
+  else if (tab === 'industries') mShowIndustries();
+  else if (tab === 'picks') mShowPicks();
+  else mShowScan();
+}
+// The 4th button: pops the Run Scan panel up over the tab bar. The ▾ on the panel puts the tab bar back.
+function mOpenScan() {
+  if (M.tab !== 'scan' || M.drillOn) { mLeave(); mSetTab('scan'); M.tf = {}; mShowScan(); }
+  document.getElementById('m-app').classList.add('scan-open');
+}
+function mCloseScan() { document.getElementById('m-app').classList.remove('scan-open'); }
+function mBack() {
+  if (!M.drillOn) return;
+  const y = M.backScroll || 0, tab = M.tab;
+  mGo(tab);
+  setTimeout(() => { document.getElementById('m-scroll').scrollTop = y; }, 60);
+}
+
+function mShowScan() {
+  mSetViewUI();
+  if (M.view === 'ph') { mLoadPH(false); return; }
+  if (sortedResults.length) { M.dirty = false; mRender(); return; }
+  const e = document.getElementById('m-empty');
+  e.style.display = '';
+  e.innerHTML = 'Tap the <b>▶</b> button below, choose your lists, then <b>RUN SCAN</b>.<br><br>Each stock that passes shows as one big chart.<br><b>Tap a chart</b> to ★ it into My Picks. <b>Tap again</b> to remove it.';
+}
+
+function mCard(i, hd, sub) {
+  return `<section class="m-card" id="m-card-${i}">
+    <div class="m-card-hd">${hd}</div><div class="m-card-sub">${sub}</div>
+    <div class="m-chart-wrap"><div class="m-chart" id="m-chart-${i}" data-idx="${i}"></div>
+      <div class="m-tf" id="m-tf-${i}">WEEKLY</div><div class="m-tap" data-i="${i}"></div><div class="m-pop" id="m-pop-${i}">★</div></div>
+  </section>`;
+}
+
+// Daily candles for any ticker (Yahoo through the site's own proxy); weekly / monthly are built from them.
+async function mFetchDaily(ticker, range) {
+  const key = ticker + '|' + range;
+  if (M.dailyCache[key]) return M.dailyCache[key];
+  const res = await fetch(`/api/yf?ticker=${encodeURIComponent(ticker)}&range=${range}&interval=1d`);
+  const result = (await res.json())?.chart?.result?.[0];
+  if (!result) throw new Error('no data');
+  const q = result.indicators.quote[0], ts = result.timestamp || [], meta = result.meta || {}, d = [];
+  for (let j = 0; j < ts.length; j++) if (q.close[j] != null) d.push({ t: ts[j] * 1000, o: q.open[j] ?? q.close[j], h: q.high[j] ?? q.close[j], l: q.low[j] ?? q.close[j], c: q.close[j] });
+  if (q.close.length && q.close[q.close.length - 1] == null && typeof meta.regularMarketPrice === 'number')
+    d.push({ t: ts[ts.length - 1] * 1000, o: meta.regularMarketPrice, h: meta.regularMarketDayHigh ?? meta.regularMarketPrice, l: meta.regularMarketDayLow ?? meta.regularMarketPrice, c: meta.regularMarketPrice });
+  if (d.length < 5) throw new Error('too few bars');
+  return (M.dailyCache[key] = d);
+}
+function mToMonthly(daily) {
+  const m = new Map();
+  daily.forEach(b => {
+    const dt = new Date(b.t), k = dt.getUTCFullYear() * 12 + dt.getUTCMonth();
+    const x = m.get(k);
+    if (!x) m.set(k, { t: b.t, o: b.o, h: b.h, l: b.l, c: b.c });
+    else { x.h = Math.max(x.h, b.h); x.l = Math.min(x.l, b.l); x.c = b.c; }
+  });
+  return [...m.entries()].sort((a, b) => a[0] - b[0]).map(e => e[1]);
+}
+function mTfBars(daily, tf) { return tf === 'D' ? daily : tf === 'W' ? resampleToWeekly(daily) : mToMonthly(daily); }
+
+// Chart for list items that fetch their own candles (drill-down stocks, picks).
+async function mBuildLazy(el, r) {
+  const key = mKey(r), tf = M.tf[key] || 'W', gen = M.gen;
+  let bars;
+  try { bars = await r.getBars(tf); }
+  catch { if (gen === M.gen && el.isConnected) el.innerHTML = '<div class="m-note">No chart data</div>'; return; }
+  if (gen !== M.gen || !el.isConnected || (M.tf[key] || 'W') !== tf || _glanceCharts[key]) return;
+  if (!bars || bars.length < 5) { el.innerHTML = '<div class="m-note">No chart data</div>'; return; }
+  const pseudo = { ticker: key, daily: [], weekly: [], monthly: [] };
+  pseudo[tf === 'D' ? 'daily' : tf === 'W' ? 'weekly' : 'monthly'] = bars;
+  const pTF = glanceTF, pRange = glanceRange;
+  glanceTF = tf; glanceRange = tf === 'D' ? '6M' : '12M';
+  try { _buildGlanceChart(el, pseudo); } finally { glanceTF = pTF; glanceRange = pRange; }
+}
+
+// Stocks behind a sector / industry: one chart each (swipe for daily / monthly like the others).
+function mDrill(title, tickers) {
+  M.backScroll = document.getElementById('m-scroll').scrollTop;
+  mLeave();
+  M.drillOn = true; M.tf = {};
+  document.getElementById('m-app').classList.add('drill');
+  M.drillItems = tickers.map((t, i) => ({
+    _lazy: true, key: 'D|' + t, ticker: t,
+    getBars: async tf => {
+      const d = await mFetchDaily(t, '2y');
+      const last = d[d.length - 1], prev = d[d.length - 2], el = document.getElementById('m-sub-' + i);
+      if (el && prev) { const ch = (last.c / prev.c - 1) * 100; el.innerHTML = `$${last.c.toFixed(2)} <b style="color:${ch >= 0 ? 'var(--green)' : 'var(--red)'}">${ch >= 0 ? '+' : ''}${ch.toFixed(2)}%</b>`; }
+      return mTfBars(d, tf);
+    },
+  }));
+  document.getElementById('m-count').textContent = `${title} · ${tickers.length}`;
+  document.getElementById('m-list').innerHTML = M.drillItems.map((r, i) =>
+    mCard(i, `<span class="m-rank">#${i + 1}</span><span class="m-tkr">${mEsc(r.ticker)}</span>`, `<span></span><span id="m-sub-${i}"></span>`)).join('');
+  mObserve();
+}
+
+// ---- Sectors ----
+const M_SEC_DAYS = { '1d': 1, '1w': 5, '1m': 21, '3m': 63, '1y': 252 };
+async function mLoadSectorRows() {
+  if (M.sectorRows && Date.now() - M.sectorTs < 600000) return M.sectorRows;
+  const rows = await Promise.all(SECTORS.map(async s => {
+    try { return { ...s, bars: (await mFetchDaily(s.ticker, '1y')).map(b => ({ t: b.t, c: b.c })) }; }
+    catch { return { ...s, bars: null }; }
+  }));
+  M.sectorRows = rows; M.sectorTs = Date.now();
+  return rows;
+}
+function mPct(v) {
+  if (v == null) return '<span class="pct-cell pct-flat">—</span>';
+  const cls = v >= 3 ? 'pct-strong-up' : v >= 0.5 ? 'pct-mild-up' : v >= -0.5 ? 'pct-flat' : v >= -3 ? 'pct-mild-down' : 'pct-strong-down';
+  return `<span class="pct-cell ${cls}">${v >= 0 ? '+' : ''}${v.toFixed(1)}</span>`;
+}
+async function mShowSectors() {
+  const gen = M.gen, list = document.getElementById('m-list');
+  list.innerHTML = '<div class="m-note">Loading sectors…</div>';
+  let rows;
+  try { rows = await mLoadSectorRows(); } catch { rows = null; }
+  if (gen !== M.gen) return;
+  if (!rows) { list.innerHTML = '<div class="m-note">Could not load sectors.</div>'; return; }
+  mRenderSectors(rows);
+}
+function mSortSectors(col) {
+  M.secSort = { col, dir: M.secSort.col === col ? -M.secSort.dir : -1 };
+  if (M.tab === 'sectors' && M.sectorRows) mRenderSectors(M.sectorRows);
+}
+function mRenderSectors(rows) {
+  const { col, dir } = M.secSort, cols = ['1d', '1w', '1m', '3m', 'ytd', '1y'];
+  const val = (r, c) => !r.bars ? null : c === 'ytd' ? sectorYTD(r.bars) : sectorPctReturn(r.bars, M_SEC_DAYS[c]);
+  const main = rows.filter(r => r.group !== 'benchmark').sort((a, b) => dir * ((val(a, col) ?? -1e9) - (val(b, col) ?? -1e9)));
+  const rowHTML = (r, tap) => `<tr${tap ? ` onclick="mDrillSector('${r.ticker}')"` : ''}><td class="nm"><b>${mEsc(r.name)}</b><small>${r.ticker}</small></td>${cols.map(c => `<td>${mPct(val(r, c))}</td>`).join('')}</tr>`;
+  document.getElementById('m-count').textContent = 'Sectors';
+  document.getElementById('m-list').innerHTML = `<table class="m-tbl"><thead><tr><th>Sector</th>${cols.map(c => `<th class="${c === col ? 'act' : ''}" onclick="mSortSectors('${c}')">${c.toUpperCase()}</th>`).join('')}</tr></thead><tbody>${main.map(r => rowHTML(r, true)).join('')}${rows.filter(r => r.group === 'benchmark').map(r => rowHTML(r, false)).join('')}</tbody></table>`;
+}
+function mDrillSector(etf) {
+  const s = SECTORS.find(x => x.ticker === etf), t = SP500_CONSTITUENTS[etf] || [];
+  if (!t.length) return;
+  mDrill(s ? s.name : etf, t);
+}
+
+// ---- Industries ----
+async function mShowIndustries() {
+  const gen = M.gen, list = document.getElementById('m-list');
+  list.innerHTML = '<div class="m-note">Loading industries…</div>';
+  try {
+    if (!M.indData || Date.now() - M.indTs > 600000) {
+      const j = await (await fetch('/api/finviz-groups?type=industry')).json();
+      if (!Array.isArray(j)) throw new Error(j.error || 'bad data');
+      M.indData = j; M.indTs = Date.now();
+    }
+  } catch (e) { if (gen === M.gen) list.innerHTML = '<div class="m-note">Could not load industries.</div>'; return; }
+  if (gen !== M.gen) return;
+  document.getElementById('m-count').textContent = `${M.indData.length} industries · 1W`;
+  list.innerHTML = M.indData.map((x, i) => {
+    const v = typeof x.perf1w === 'number' ? x.perf1w : null, st = imapTileStyle(v);
+    return `<div class="m-ind" style="background:${st.bg};color:${st.text}" onclick="mDrillIndustry(${i})"><span>${mEsc(x.name)}</span><span>${imapFmtPct(v)}</span></div>`;
+  }).join('');
+}
+async function mDrillIndustry(i) {
+  const x = M.indData && M.indData[i]; if (!x) return;
+  showToast('Loading ' + x.name + '…');
+  try {
+    const j = await (await fetch('/api/finviz-industry-tickers?industry=' + encodeURIComponent(x.name))).json();
+    if (!j.tickers || !j.tickers.length) throw new Error(j.error || 'no stocks');
+    if (M.tab === 'industries' && !M.drillOn) mDrill(x.name, j.tickers);
+  } catch (e) { showToast('Could not load that industry: ' + e.message, 'error'); }
+}
+
+// ---- My Picks (view only) ----
+async function mShowPicks() {
+  const gen = M.gen, list = document.getElementById('m-list');
+  list.innerHTML = '<div class="m-note">Loading your picks…</div>';
+  for (let n = 0; n < 60 && !window._cloudPullDone; n++) { await new Promise(r => setTimeout(r, 500)); if (gen !== M.gen) return; }
+  if (gen !== M.gen) return;
+  const picks = [...loadLiked(currentSetup)].sort((a, b) => b.starredAt - a.starredAt);
+  M.picksItems = picks.map(p => ({
+    _lazy: true, key: 'P|' + p.ticker + '|' + p.starredAt, ticker: p.ticker, pick: p,
+    getBars: async tf => { const e = await cloudBarsFor(p, null); return (tf === 'D' ? e.dailyBars : tf === 'W' ? e.weeklyBars : e.monthlyBars) || []; },
+  }));
+  M.picksShown = 0; M.tf = {};
+  document.getElementById('m-count').textContent = `${picks.length} picks · Setup ${currentSetup === 1 ? 'A' : 'B'}`;
+  if (!picks.length) { list.innerHTML = '<div class="m-note">No starred picks yet for this setup.</div>'; return; }
+  list.innerHTML = '';
+  mAppendPicks();
+  mObserve();
+  M.moreObs = new IntersectionObserver(es => { if (es.some(e => e.isIntersecting)) mAppendPicks(); }, { root: document.getElementById('m-scroll'), rootMargin: '900px 0px' });
+  M.moreObs.observe(document.getElementById('m-more'));
+}
+function mAppendPicks() {
+  const from = M.picksShown, to = Math.min(from + 25, M.picksItems.length);
+  if (from >= to) return;
+  let html = '';
+  for (let i = from; i < to; i++) {
+    const p = M.picksItems[i].pick, sc = Math.round(p.score || 0), cls = sc >= 70 ? 'hi' : sc >= 40 ? 'mid' : 'lo';
+    const date = new Date(p.starredAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' });
+    html += mCard(i, `<span class="m-rank">#${i + 1}</span><span class="m-tkr">${mEsc(p.ticker)}</span><span class="m-score ${cls}">${sc}%</span>`,
+      `<span>${date}${p.sectorName ? ' · ' + mEsc(p.sectorName) : ''}</span><span>${p.price != null ? '$' + Number(p.price).toFixed(2) : ''}</span>`);
+  }
+  document.getElementById('m-list').insertAdjacentHTML('beforeend', html);
+  M.picksShown = to;
+  if (M.obs) for (let i = from; i < to; i++) M.obs.observe(document.getElementById('m-chart-' + i));
+  const more = document.getElementById('m-more');
+  if (M.moreObs && more) { M.moreObs.unobserve(more); M.moreObs.observe(more); }   // re-check: still near the bottom? load the next page
+}
 
 // ---- PH button: glance view of the PSE "Priority List" (same list as the desktop PH tab) ----
 async function mBuildPH(el, r) {
@@ -18130,7 +18397,7 @@ async function mLoadPH(force) {
 // Tap a chart: first tap stars it into My Picks, tapping again removes that pick.
 // (Entry format matches the desktop toggleStar so both sides read the same picks.)
 function mTap(i) {
-  if (M.view === 'ph') return;   // PH priority list is for looking only (no pick scoring data there)
+  if (M.view === 'ph' || M.tab !== 'scan' || M.drillOn) return;   // only the scan results can be starred here; PH priority list is for looking only (no pick scoring data there)
   const r = sortedResults[i];
   if (!r) return;
   if (!window._cloudPullDone) { showToast('Still syncing your picks — try again in a moment.', 'error'); return; }
