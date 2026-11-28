@@ -3960,6 +3960,11 @@
   .m-tbl td.nm small { color: var(--text3); font-size: 10px; }
   .m-tbl .pct-cell { display: block; min-width: 0; font-size: 10px; padding: 3px 0; text-align: center; border-radius: 3px; margin: 0 1px; }
   .m-tbl tbody tr { cursor: pointer; }
+  .m-cap { margin: 18px 14px 8px; font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text3); }
+  .m-tbl .breadth-cell { display: block; min-width: 0; padding: 3px 0; font-size: 10px; text-align: center; margin: 0 1px; }
+  .m-tbl .trend-seg { width: 6px; }
+  .m-tbl td.ctr, .m-tbl th.ctr { text-align: center; }
+  .m-tbl tr.sp td { background: rgba(10,124,78,0.06); font-weight: 600; }
   .m-ind { display: flex; justify-content: space-between; align-items: center; margin: 0 12px 6px; padding: 14px 14px; border-radius: 10px; font-size: 13px; font-weight: 600; }
   .m-ind span:last-child { font-family: 'IBM Plex Mono', monospace; }
   .m-note { padding: 40px 28px; text-align: center; color: var(--text3); font-size: 14px; }
@@ -17890,7 +17895,7 @@ function _mtlCalcEMASeries(closes, period) {
 //  Reuses the exact same scan + scoring + chart code as the desktop page.
 //  Only runs when the page is opened at /mobile; the desktop page never touches any of this.
 // ============================================================
-const M = { tab: 'scan', drillOn: false, drillItems: [], picksItems: [], picksShown: 0, dailyCache: {}, sectorRows: null, sectorTs: 0, secSort: { col: '1m', dir: -1 }, indData: null, indTs: 0, gen: 0, moreObs: null, backScroll: 0, view: 'us', phItems: [], phBars: {}, dirty: false, tf: {}, slots: [null, null, null], sel: [true, true, true], scanning: false, todaySet: new Set(), obs: null, poll: null, wake: null };
+const M = { tab: 'scan', drillOn: false, drillItems: [], picksItems: [], picksShown: 0, dailyCache: {}, sectorRows: null, sectorTs: 0, secSort: { col: '1m', dir: -1 }, brSort: { col: null, dir: -1 }, brTimer: null, indData: null, indTs: 0, gen: 0, moreObs: null, backScroll: 0, view: 'us', phItems: [], phBars: {}, dirty: false, tf: {}, slots: [null, null, null], sel: [true, true, true], scanning: false, todaySet: new Set(), obs: null, poll: null, wake: null };
 
 function mItems() {
   if (M.drillOn) return M.drillItems;
@@ -18104,6 +18109,7 @@ function mEsc(t) { return String(t == null ? '' : t).replace(/&/g, '&amp;').repl
 
 function mLeave() {            // clear whatever page is showing before switching to another
   M.gen++;
+  if (M.brTimer) { clearInterval(M.brTimer); M.brTimer = null; }
   _destroyAllGlanceCharts();
   if (M.obs) { M.obs.disconnect(); M.obs = null; }
   if (M.moreObs) { M.moreObs.disconnect(); M.moreObs = null; }
@@ -18257,7 +18263,45 @@ function mRenderSectors(rows) {
   const main = rows.filter(r => r.group !== 'benchmark').sort((a, b) => dir * ((val(a, col) ?? -1e9) - (val(b, col) ?? -1e9)));
   const rowHTML = (r, tap) => `<tr${tap ? ` onclick="mDrillSector('${r.ticker}')"` : ''}><td class="nm"><b>${mEsc(r.name)}</b><small>${r.ticker}</small></td>${cols.map(c => `<td>${mPct(val(r, c))}</td>`).join('')}</tr>`;
   document.getElementById('m-count').textContent = 'Sectors';
-  document.getElementById('m-list').innerHTML = `<table class="m-tbl"><thead><tr><th>Sector</th>${cols.map(c => `<th class="${c === col ? 'act' : ''}" onclick="mSortSectors('${c}')">${c.toUpperCase()}</th>`).join('')}</tr></thead><tbody>${main.map(r => rowHTML(r, true)).join('')}${rows.filter(r => r.group === 'benchmark').map(r => rowHTML(r, false)).join('')}</tbody></table>`;
+  document.getElementById('m-list').innerHTML = `<table class="m-tbl"><thead><tr><th>Sector</th>${cols.map(c => `<th class="${c === col ? 'act' : ''}" onclick="mSortSectors('${c}')">${c.toUpperCase()}</th>`).join('')}</tr></thead><tbody>${main.map(r => rowHTML(r, true)).join('')}${rows.filter(r => r.group === 'benchmark').map(r => rowHTML(r, false)).join('')}</tbody></table><div id="m-breadth"></div>`;
+  mRenderBreadth();
+}
+
+// EMA breadth under the sector table: % of each sector's S&P 500 stocks above the daily 20 / 50 / 100 / 200 EMA (same numbers as the desktop).
+function mSortBreadth(col) {
+  M.brSort = { col, dir: M.brSort.col === col ? -M.brSort.dir : -1 };
+  mRenderBreadth();
+}
+function mRenderBreadth() {
+  const box = document.getElementById('m-breadth');
+  if (!box || M.tab !== 'sectors' || M.drillOn) return;
+  const cap = '<div class="m-cap">EMA breadth — % of S&amp;P 500 stocks above each daily EMA</div>';
+  const total = Object.values(SP500_CONSTITUENTS).reduce((n, a) => n + a.length, 0);
+  if (!Object.keys(sectorEMABreadth).length) {
+    if (!sectorBreadthLoading) loadSectorBreadth();      // the desktop loader: fetches every S&P 500 stock once, cached for an hour
+    if (!Object.keys(sectorEMABreadth).length) {
+      box.innerHTML = cap + `<div class="m-note" id="m-br-msg" style="padding:14px">Loading EMA breadth… ${sp500StockEMACache.length} / ${total}</div>`;
+      if (!M.brTimer) {
+        const gen = M.gen;
+        M.brTimer = setInterval(() => {
+          if (gen !== M.gen) return;
+          if (Object.keys(sectorEMABreadth).length && !sectorBreadthLoading) { clearInterval(M.brTimer); M.brTimer = null; mRenderBreadth(); return; }
+          const m = document.getElementById('m-br-msg'); if (m) m.textContent = `Loading EMA breadth… ${sp500StockEMACache.length} / ${total}`;
+        }, 700);
+      }
+      return;
+    }
+  }
+  const { col, dir } = M.brSort;
+  let list = SECTORS.filter(x => x.group === 'sector').map(x => ({ ...x, b: sectorEMABreadth[x.ticker] || null }));
+  if (col) list.sort((a, b) => dir * ((a.b ? a.b[col] ?? -1 : -1) - (b.b ? b.b[col] ?? -1 : -1)));
+  const arrow = c => (col === c ? (dir === -1 ? ' ↓' : ' ↑') : '');
+  const cells = b => ['ema20', 'ema50', 'ema100', 'ema200'].map(c => `<td>${b ? breadthCell(b[c]) : '<span class="breadth-cell breadth-na">—</span>'}</td>`).join('');
+  const sp = sectorEMABreadth['__SP500__'];
+  const spRow = sp ? `<tr class="sp"><td class="nm"><b>S&amp;P 500</b><small>All</small></td><td class="ctr">${breadthTrendBar(sp)}</td>${cells(sp)}<td class="ctr" style="color:var(--text3)">${sp.total}</td></tr>` : '';
+  const rowsHTML = list.map(x => `<tr onclick="mDrillSector('${x.ticker}')"><td class="nm"><b>${mEsc(x.name)}</b><small>${x.ticker}</small></td><td class="ctr">${x.b ? breadthTrendBar(x.b) : '—'}</td>${cells(x.b)}<td class="ctr" style="color:var(--text3)">${x.b ? x.b.total : '—'}</td></tr>`).join('');
+  const th = (c, t) => `<th class="${col === c ? 'act' : ''}" onclick="mSortBreadth('${c}')">${t}${arrow(c)}</th>`;
+  box.innerHTML = cap + `<table class="m-tbl"><thead><tr><th>Sector</th><th class="ctr">Trend</th>${th('ema20', '20')}${th('ema50', '50')}${th('ema100', '100')}${th('ema200', '200')}<th class="ctr">#</th></tr></thead><tbody>${spRow}${rowsHTML}</tbody></table>`;
 }
 function mDrillSector(etf) {
   const s = SECTORS.find(x => x.ticker === etf), t = SP500_CONSTITUENTS[etf] || [];
